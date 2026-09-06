@@ -28,3 +28,14 @@ export interface SafeUser {
 export interface UserProfile extends SafeUser {
   institute: Institute;
 }
+
+/** Response from web login (tokens stored in HttpOnly cookies). */
+export interface WebAuthResponse {
+  user: SafeUser;
+}
+
+/** Response from web token refresh (tokens stored in HttpOnly cookies). */
+export interface WebRefreshResponse {
+  message: string;
+}
+

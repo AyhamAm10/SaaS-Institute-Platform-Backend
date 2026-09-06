@@ -90,9 +90,22 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
   });
 
   describe('POST /api/auth/login', () => {
+    it('rejects request without X-Client-Type header with 400 Bad Request', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({
+          phone: '+966511111111',
+          password: 'Password123!',
+        })
+        .expect(400);
+
+      expect(response.body.message).toContain('X-Client-Type');
+    });
+
     it('successfully logs in user from Institute 1 and returns tokens with tenant context', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/auth/login')
+        .set('X-Client-Type', 'mobile')
         .send({
           phone: '+966511111111',
           password: 'Password123!',
@@ -116,6 +129,7 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
     it('rejects invalid password with 401 and consistent error format', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/auth/login')
+        .set('X-Client-Type', 'mobile')
         .send({
           phone: '+966511111111',
           password: 'WrongPassword!',
@@ -134,6 +148,7 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
     it('validates request DTO with 400 Bad Request on missing fields', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/auth/login')
+        .set('X-Client-Type', 'mobile')
         .send({ phone: '+966511111111' }) // Missing password
         .expect(400);
 
@@ -150,6 +165,7 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
       // 1. Login to get token
       const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
+        .set('X-Client-Type', 'mobile')
         .send({
           phone: '+966511111111',
           password: 'Password123!',
@@ -173,6 +189,7 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
       // 1. Login Institute 2 user
       const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
+        .set('X-Client-Type', 'mobile')
         .send({
           phone: '+966522222222',
           password: 'Password123!',
@@ -197,6 +214,7 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
       // 1. Login
       const loginRes = await request(app.getHttpServer())
         .post('/api/auth/login')
+        .set('X-Client-Type', 'mobile')
         .send({
           phone: '+966511111111',
           password: 'Password123!',
@@ -207,6 +225,7 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
       // 2. Refresh token
       const refreshRes = await request(app.getHttpServer())
         .post('/api/auth/refresh')
+        .set('X-Client-Type', 'mobile')
         .send({ refreshToken })
         .expect(200);
 
@@ -216,12 +235,14 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
       // 3. Logout
       await request(app.getHttpServer())
         .post('/api/auth/logout')
+        .set('X-Client-Type', 'mobile')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       // 4. After logout, old refresh token is revoked
       await request(app.getHttpServer())
         .post('/api/auth/refresh')
+        .set('X-Client-Type', 'mobile')
         .send({ refreshToken: refreshRes.body.refreshToken })
         .expect(401);
     });

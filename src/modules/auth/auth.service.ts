@@ -1,9 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { User } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { UserSystemRepository } from '../users/user-system.repository';
 import { JwtTokenService } from './jwt-token.service';
-import { RedisService } from '../../database/redis.service';
+import { PrismaService } from '../../database/prisma.service';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
 import { LoginDto } from './dto/login.dto';
@@ -15,8 +15,8 @@ import {
   UserProfile,
 } from './dto/auth-response.dto';
 
-/** Refresh token TTL: 7 days in seconds */
-const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
+/** Refresh token TTL: 7 days in milliseconds */
+const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Authentication business logic.
@@ -24,14 +24,20 @@ const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
  * Owns the login/logout/refresh/profile flows.
  * Uses UserSystemRepository (cross-tenant) because auth operations
  * happen before tenant context is established.
+ *
+ * Refresh tokens are persisted in the `refresh_tokens` PostgreSQL table
+ * with hash + expiry. No Redis dependency.
  */
 @Injectable()
 export class AuthService {
   constructor(
+    @Inject(UserSystemRepository)
     private readonly userSystemRepository: UserSystemRepository,
+    @Inject(JwtTokenService)
     private readonly jwtTokenService: JwtTokenService,
-    private readonly redisService: RedisService,
-  ) {}
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService,
+  ) { }
 
   /**
    * Authenticate a user with phone + password.
@@ -40,7 +46,7 @@ export class AuthService {
    *   1. Find user by phone (cross-tenant lookup)
    *   2. Verify password with bcrypt
    *   3. Generate access + refresh tokens
-   *   4. Persist refresh token hash in Redis
+   *   4. Persist refresh token hash in database
    *   5. Return tokens + sanitized user
    */
   async login(dto: LoginDto): Promise<AuthResponse> {
@@ -58,7 +64,7 @@ export class AuthService {
     // 3. Generate tokens
     const tokens = this.generateTokenPair(user);
 
-    // 4. Persist refresh token hash
+    // 4. Persist refresh token hash in database
     await this.persistRefreshToken(user.id, tokens.refreshToken);
 
     // 5. Return response (never expose passwordHash)
@@ -69,10 +75,12 @@ export class AuthService {
   }
 
   /**
-   * Revoke the user's refresh token.
+   * Revoke all refresh tokens for a user (logout from all devices).
    */
   async logout(userId: number): Promise<void> {
-    await this.redisService.del(this.refreshTokenKey(userId));
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
   }
 
   /**
@@ -80,39 +88,43 @@ export class AuthService {
    *
    * Flow:
    *   1. Verify refresh token JWT signature + expiry
-   *   2. Compare hash with stored hash in Redis (revocation check)
+   *   2. Look up hash in database (revocation check + expiry)
    *   3. Verify user still exists
-   *   4. Generate new token pair (rotation)
-   *   5. Persist new refresh token hash
+   *   4. Delete old token and persist new one (rotation)
    */
   async refresh(dto: RefreshTokenDto): Promise<TokenResponse> {
+    Ensure.unauthorized(!dto.refreshToken, ErrorMessages.get('token_invalid'));
+    const refreshToken = dto.refreshToken!;
+
     // 1. Verify JWT
     let payload;
     try {
-      payload = this.jwtTokenService.verifyRefreshToken(dto.refreshToken);
+      payload = this.jwtTokenService.verifyRefreshToken(refreshToken);
     } catch {
       throw new UnauthorizedException(ErrorMessages.get('token_invalid'));
     }
 
-    // 2. Verify stored hash (checks for revocation)
-    const storedHash = await this.redisService.get(
-      this.refreshTokenKey(payload.sub),
-    );
-    const currentHash = this.jwtTokenService.hashToken(dto.refreshToken);
+    // 2. Verify stored hash in database (checks for revocation + expiry)
+    const currentHash = this.jwtTokenService.hashToken(refreshToken);
+    const storedToken = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: currentHash },
+    });
 
     Ensure.unauthorized(
-      !storedHash || storedHash !== currentHash,
+      !storedToken || storedToken.expiresAt < new Date(),
       ErrorMessages.get('token_invalid'),
     );
 
     // 3. Verify user still exists
     const user = await this.userSystemRepository.findById(payload.sub);
     Ensure.unauthorized(!user, ErrorMessages.get('token_invalid'));
-    // TypeScript now knows user is non-null (but Ensure.unauthorized
-    // doesn't narrow, so we use a non-null assertion after the check)
     const validUser = user!;
 
-    // 4 & 5. Rotate tokens
+    // 4. Delete old token and rotate
+    await this.prisma.refreshToken.delete({
+      where: { id: storedToken!.id },
+    });
+
     const tokens = this.generateTokenPair(validUser);
     await this.persistRefreshToken(validUser.id, tokens.refreshToken);
 
@@ -126,7 +138,7 @@ export class AuthService {
     const user = await this.userSystemRepository.findByIdWithInstitute(userId);
     Ensure.exists(user, 'User');
 
-    const { passwordHash, ...safeUser } = user;
+    const { passwordHash: _passwordHash, ...safeUser } = user;
     return safeUser as UserProfile;
   }
 
@@ -151,15 +163,15 @@ export class AuthService {
     refreshToken: string,
   ): Promise<void> {
     const hash = this.jwtTokenService.hashToken(refreshToken);
-    await this.redisService.set(
-      this.refreshTokenKey(userId),
-      hash,
-      REFRESH_TOKEN_TTL,
-    );
-  }
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
-  private refreshTokenKey(userId: number): string {
-    return `refresh_token:${userId}`;
+    await this.prisma.refreshToken.create({
+      data: {
+        userId,
+        tokenHash: hash,
+        expiresAt,
+      },
+    });
   }
 
   private toSafeUser(user: User): SafeUser {

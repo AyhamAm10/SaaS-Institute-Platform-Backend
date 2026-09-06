@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './database/prisma.module';
-import { RedisModule } from './database/redis.module';
 import { RequestContextModule } from './context/request-context.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { InstitutesModule } from './modules/institutes/institutes.module';
+import { BranchesModule } from './modules/branches/branches.module';
+import { AcademicYearsModule } from './modules/academic-years/academic-years.module';
+import { SectionsModule } from './modules/sections/sections.module';
 
 @Module({
   imports: [
@@ -16,12 +19,16 @@ import { UsersModule } from './modules/users/users.module';
 
     // Infrastructure
     PrismaModule,
-    RedisModule,
     RequestContextModule,
 
     // Domain modules
     AuthModule,
     UsersModule,
+    InstitutesModule,
+    BranchesModule,
+    AcademicYearsModule,
+    SectionsModule,
   ],
 })
 export class AppModule {}
+

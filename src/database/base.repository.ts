@@ -1,4 +1,3 @@
-import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { TransactionContext } from './transaction.context';
 import { PaginationQueryDto } from '../common/pagination/pagination.dto';

@@ -5,7 +5,10 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtTokenService } from './jwt-token.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { UsersModule } from '../users/users.module';
+
+import { AuthCookiesService } from './auth-cookies.service';
 
 @Module({
   imports: [
@@ -18,12 +21,19 @@ import { UsersModule } from '../users/users.module';
   providers: [
     AuthService,
     JwtTokenService,
+    AuthCookiesService,
+    RolesGuard,
     // Global guard — all routes require auth unless marked @Public()
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
+    // Global RBAC guard — enforces @Roles() decorators
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
   ],
-  exports: [JwtTokenService],
+  exports: [JwtTokenService, RolesGuard, AuthCookiesService],
 })
 export class AuthModule {}

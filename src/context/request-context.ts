@@ -7,11 +7,14 @@ import { AsyncLocalStorage } from 'node:async_hooks';
  * This is mutable within the same async context — the guard enriches the
  * initially empty context created by the middleware.
  */
+import { ClientType } from '../common/types/client-type.enum';
+
 export interface RequestContextData {
   userId: number;
   instituteId: number;
   role: string;
   language: string;
+  clientType?: ClientType;
 }
 
 /**
@@ -70,5 +73,9 @@ export class RequestContext {
 
   static getLanguage(): string {
     return this.get()?.language ?? 'en';
+  }
+
+  static getClientType(): ClientType | undefined {
+    return this.get()?.clientType;
   }
 }

@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -30,10 +31,14 @@ import { AuthenticatedUser } from '../../../common/types/authenticated-user';
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+  private readonly reflector: Reflector;
+
   constructor(
-    private readonly jwtTokenService: JwtTokenService,
-    private readonly reflector: Reflector,
-  ) {}
+    @Inject(JwtTokenService) private readonly jwtTokenService: JwtTokenService,
+    reflector?: Reflector,
+  ) {
+    this.reflector = reflector ?? new Reflector();
+  }
 
   canActivate(context: ExecutionContext): boolean {
     // Check if the route is marked as @Public()
@@ -47,7 +52,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const token = this.extractTokenFromHeader(request);
+    const token = this.extractToken(request);
 
     if (!token) {
       throw new UnauthorizedException('No authentication token provided');
@@ -75,9 +80,19 @@ export class JwtAuthGuard implements CanActivate {
       }
 
       return true;
-    } catch {
+    } catch (err) {
+      console.error('JwtAuthGuard error:', err);
       throw new UnauthorizedException('Invalid or expired token');
     }
+  }
+
+  private extractToken(request: Request): string | undefined {
+    // 1. Authorization header (Bearer <token>)
+    const headerToken = this.extractTokenFromHeader(request);
+    if (headerToken) return headerToken;
+
+    // 2. HttpOnly Cookie (for Web clients)
+    return this.extractTokenFromCookie(request, 'access_token');
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {
@@ -86,5 +101,19 @@ export class JwtAuthGuard implements CanActivate {
 
     const [type, token] = authorization.split(' ');
     return type === 'Bearer' ? token : undefined;
+  }
+
+  private extractTokenFromCookie(
+    request: Request,
+    cookieName: string,
+  ): string | undefined {
+    if (request.cookies && request.cookies[cookieName]) {
+      return request.cookies[cookieName];
+    }
+    const cookieHeader = request.headers.cookie;
+    if (!cookieHeader) return undefined;
+
+    const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : undefined;
   }
 }

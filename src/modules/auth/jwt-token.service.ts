@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash } from 'crypto';
@@ -21,13 +21,25 @@ export class JwtTokenService {
   private readonly refreshExpiresIn: string;
 
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
+    @Inject(JwtService) private readonly jwtService: JwtService,
+    private readonly configService?: ConfigService,
   ) {
-    this.accessSecret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
-    this.accessExpiresIn = this.configService.get<string>('JWT_ACCESS_EXPIRES_IN', '15m');
-    this.refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
-    this.refreshExpiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d');
+    this.accessSecret =
+      this.configService?.get<string>('JWT_ACCESS_SECRET') ??
+      process.env['JWT_ACCESS_SECRET'] ??
+      'dev-access-secret-do-not-use-in-production';
+    this.accessExpiresIn =
+      this.configService?.get<string>('JWT_ACCESS_EXPIRES_IN') ??
+      process.env['JWT_ACCESS_EXPIRES_IN'] ??
+      '15m';
+    this.refreshSecret =
+      this.configService?.get<string>('JWT_REFRESH_SECRET') ??
+      process.env['JWT_REFRESH_SECRET'] ??
+      'dev-refresh-secret-do-not-use-in-production';
+    this.refreshExpiresIn =
+      this.configService?.get<string>('JWT_REFRESH_EXPIRES_IN') ??
+      process.env['JWT_REFRESH_EXPIRES_IN'] ??
+      '7d';
   }
 
   generateAccessToken(payload: AccessTokenPayload): string {

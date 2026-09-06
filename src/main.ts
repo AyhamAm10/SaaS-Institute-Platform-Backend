@@ -1,11 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/errors/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
+
+  // Parse cookies from incoming requests
+  app.use(cookieParser());
 
   // Global API prefix
   const prefix = process.env['API_PREFIX'] ?? 'api';
@@ -26,8 +30,11 @@ async function bootstrap() {
   // Global exception filter — consistent error response format
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // CORS
-  app.enableCors();
+  // CORS — allow credentials for Web cookie delivery
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
 
   const port = process.env['PORT'] ?? 3000;
   await app.listen(port);

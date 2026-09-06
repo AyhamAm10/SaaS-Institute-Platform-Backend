@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { TenantAwareRepository } from '../../database/tenant-aware.repository';
 import { PrismaService } from '../../database/prisma.service';
@@ -13,7 +13,7 @@ import { PrismaService } from '../../database/prisma.service';
  */
 @Injectable()
 export class UserRepository extends TenantAwareRepository<User> {
-  constructor(prisma: PrismaService) {
+  constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'user');
   }
 

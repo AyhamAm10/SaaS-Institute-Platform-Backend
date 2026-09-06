@@ -1,24 +1,32 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+const connectionString = process.env['DATABASE_URL']!;
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
 
 /**
- * Development seed — creates minimum data to test the Auth API.
- *
- * Creates 2 institutes with 1 admin user each, plus branches and
- * academic years. Two institutes are needed to verify tenant isolation.
+ * Development seed — creates super admin, sample institutes, and institute admins.
  *
  * ┌──────────────────────────────────────────────────┐
  * │ Test Credentials                                 │
  * ├──────────────────────────────────────────────────┤
+ * │ Super Admin (System Manager)                     │
+ * │   Phone:    +966500000000                        │
+ * │   Password: Password123!                         │
+ * │   Role:     SUPER_ADMIN                          │
+ * │                                                  │
  * │ Institute 1 (Al-Noor Academy)                    │
  * │   Phone:    +966511111111                        │
  * │   Password: Password123!                         │
+ * │   Role:     INSTITUTE_ADMIN                      │
  * │                                                  │
  * │ Institute 2 (Sunrise School)                     │
  * │   Phone:    +966522222222                        │
  * │   Password: Password123!                         │
+ * │   Role:     INSTITUTE_ADMIN                      │
  * └──────────────────────────────────────────────────┘
  */
 async function main() {
@@ -39,6 +47,18 @@ async function main() {
   });
   console.log(`✅ Institute: ${institute1.name} (id: ${institute1.id})`);
 
+  // Super Admin account (assigned to root institute for foreign key)
+  const superAdmin = await prisma.user.create({
+    data: {
+      instituteId: institute1.id,
+      fullName: 'Super Administrator',
+      phone: '+966500000000',
+      passwordHash,
+      role: 'SUPER_ADMIN',
+    },
+  });
+  console.log(`   └─ Super Admin: ${superAdmin.fullName} (phone: ${superAdmin.phone})`);
+
   const admin1 = await prisma.user.create({
     data: {
       instituteId: institute1.id,
@@ -48,7 +68,7 @@ async function main() {
       role: 'INSTITUTE_ADMIN',
     },
   });
-  console.log(`   └─ Admin: ${admin1.fullName} (phone: ${admin1.phone})`);
+  console.log(`   └─ Institute Admin 1: ${admin1.fullName} (phone: ${admin1.phone})`);
 
   await prisma.instituteAdmin.create({
     data: { instituteId: institute1.id, userId: admin1.id },
@@ -97,7 +117,7 @@ async function main() {
       role: 'INSTITUTE_ADMIN',
     },
   });
-  console.log(`   └─ Admin: ${admin2.fullName} (phone: ${admin2.phone})`);
+  console.log(`   └─ Institute Admin 2: ${admin2.fullName} (phone: ${admin2.phone})`);
 
   await prisma.instituteAdmin.create({
     data: { instituteId: institute2.id, userId: admin2.id },
@@ -128,8 +148,9 @@ async function main() {
   console.log('🎉 Seed completed successfully!');
   console.log('────────────────────────────────────────');
   console.log('\n📋 Test Credentials:');
-  console.log('  Institute 1: +966511111111 / Password123!');
-  console.log('  Institute 2: +966522222222 / Password123!');
+  console.log('  Super Admin:      +966500000000 / Password123!');
+  console.log('  Institute Admin 1: +966511111111 / Password123!');
+  console.log('  Institute Admin 2: +966522222222 / Password123!');
 }
 
 main()

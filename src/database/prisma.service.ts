@@ -18,8 +18,11 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
 
-  constructor(configService: ConfigService) {
-    const connectionString = configService.getOrThrow<string>('DATABASE_URL');
+  constructor(configService?: ConfigService) {
+    const connectionString =
+      configService?.get<string>('DATABASE_URL') ??
+      process.env['DATABASE_URL'] ??
+      '';
     const adapter = new PrismaPg({ connectionString });
     super({ adapter });
   }
