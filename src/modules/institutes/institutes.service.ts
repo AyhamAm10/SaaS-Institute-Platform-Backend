@@ -3,6 +3,7 @@ import { User, Institute } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { InstituteRepository } from './institute.repository';
 import { UserSystemRepository } from '../users/user-system.repository';
+import { AcademicBranchesService } from '../academic-branches/academic-branches.service';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
 import { CreateInstituteDto } from './dto/create-institute.dto';
@@ -22,6 +23,8 @@ export class InstitutesService {
     private readonly instituteRepository: InstituteRepository,
     @Inject(UserSystemRepository)
     private readonly userSystemRepository: UserSystemRepository,
+    @Inject(AcademicBranchesService)
+    private readonly academicBranchesService: AcademicBranchesService,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
   ) {}
@@ -36,6 +39,7 @@ export class InstitutesService {
    *      a. Create the Institute entity.
    *      b. Create the admin User entity with role INSTITUTE_ADMIN.
    *      c. Create the InstituteAdmin relational link.
+   *      d. Automatically provision the default Arabic Academic Branches.
    *   4. Return the created Institute and sanitized admin user.
    */
   async createInstitute(
@@ -50,7 +54,7 @@ export class InstitutesService {
     // 2. Hash password
     const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
 
-    // 3. Atomically create Institute, Admin User, and InstituteAdmin link
+    // 3. Atomically create Institute, Admin User, InstituteAdmin link, and default Academic Branches
     return this.transactionHelper.executeInTransaction(async () => {
       const institute = await this.instituteRepository.create({
         name: dto.name,
@@ -73,6 +77,9 @@ export class InstitutesService {
         institute.id,
         adminUser.id,
       );
+
+      // Automatically provision standard Arabic Academic Branches
+      await this.academicBranchesService.provisionDefaultBranches(institute.id);
 
       return {
         institute,

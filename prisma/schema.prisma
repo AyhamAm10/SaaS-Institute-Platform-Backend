@@ -25,6 +25,7 @@ model Institute {
   branches             Branch[]
   instituteAdmins      InstituteAdmin[]
   academicYears        AcademicYear[]
+  academicBranches     AcademicBranch[]
   teachers             Teacher[]
   branchTeachers       BranchTeacher[]
   families             Family[]
@@ -146,6 +147,23 @@ model AcademicYear {
   @@map("academic_years")
 }
 
+model AcademicBranch {
+  id          Int      @id @default(autoincrement())
+  instituteId Int      @map("institute_id")
+  name        String
+  code        String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  institute   Institute @relation(fields: [instituteId], references: [id])
+  sections    Section[]
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, name])
+  @@map("academic_branches")
+}
+
 model Teacher {
   id          Int      @id @default(autoincrement())
   instituteId Int      @map("institute_id")
@@ -237,19 +255,21 @@ model Student {
 // ---------------------------------------------------------------------------
 
 model Section {
-  id             Int      @id @default(autoincrement())
-  instituteId    Int      @map("institute_id")
-  branchId       Int      @map("branch_id")
-  academicYearId Int      @map("academic_year_id")
-  name           String
-  grade          String
-  feeAmount      Decimal  @map("fee_amount") @db.Decimal(10, 2)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id               Int      @id @default(autoincrement())
+  instituteId      Int      @map("institute_id")
+  branchId         Int      @map("branch_id")
+  academicYearId   Int      @map("academic_year_id")
+  academicBranchId Int      @map("academic_branch_id")
+  name             String
+  grade            String?
+  feeAmount        Decimal  @map("fee_amount") @db.Decimal(10, 2)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   institute            Institute             @relation(fields: [instituteId], references: [id])
   branch               Branch                @relation(fields: [branchId], references: [id])
   academicYear         AcademicYear          @relation(fields: [academicYearId], references: [id])
+  academicBranch       AcademicBranch        @relation(fields: [academicBranchId], references: [id])
   studentEnrollments   StudentEnrollment[]
   sectionSubjects      SectionSubject[]
   sectionTeachers      SectionTeacher[]

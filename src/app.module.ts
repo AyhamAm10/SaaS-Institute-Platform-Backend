@@ -7,6 +7,7 @@ import { UsersModule } from './modules/users/users.module';
 import { InstitutesModule } from './modules/institutes/institutes.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { AcademicYearsModule } from './modules/academic-years/academic-years.module';
+import { AcademicBranchesModule } from './modules/academic-branches/academic-branches.module';
 import { SectionsModule } from './modules/sections/sections.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { SectionsModule } from './modules/sections/sections.module';
     InstitutesModule,
     BranchesModule,
     AcademicYearsModule,
+    AcademicBranchesModule,
     SectionsModule,
   ],
 })

@@ -36,6 +36,10 @@ const messages: Record<string, Record<string, string>> = {
     section_name_duplicate: 'Section with this name already exists for this branch and academic year',
     section_academic_year_mismatch: 'Section does not belong to the specified academic year',
     invalid_fee: 'Fee amount must be a non-negative number',
+    academic_branch_not_found: 'Academic branch not found',
+    academic_branch_mismatch: 'Academic branch does not belong to this institute',
+    academic_branch_name_duplicate: 'Academic branch with this name already exists in this institute',
+    academic_branch_has_sections: 'Cannot delete academic branch because it is linked to existing sections',
   },
   ar: {
     not_found: '{resource} غير موجود',
@@ -60,6 +64,10 @@ const messages: Record<string, Record<string, string>> = {
     section_name_duplicate: 'يوجد شعبة بنفس الاسم في هذا الفرع والسنة الدراسية',
     section_academic_year_mismatch: 'الشعبة لا تتبع للسنة الدراسية المحددة',
     invalid_fee: 'مبلغ الرسوم يجب أن يكون رقماً غير سالب',
+    academic_branch_not_found: 'الفرع الأكاديمي غير موجود',
+    academic_branch_mismatch: 'الفرع الأكاديمي لا يتبع لهذا المعهد',
+    academic_branch_name_duplicate: 'يوجد فرع أكاديمي بنفس الاسم في هذا المعهد',
+    academic_branch_has_sections: 'لا يمكن حذف الفرع الأكاديمي لوجود شُعب دراسية مرتبطة به',
   },
 };
 

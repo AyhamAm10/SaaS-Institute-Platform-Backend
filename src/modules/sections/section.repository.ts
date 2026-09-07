@@ -70,6 +70,13 @@ export class SectionRepository extends TenantAwareRepository<Section> {
             isCurrent: true,
           },
         },
+        academicBranch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         _count: {
           select: {
             studentEnrollments: true,
@@ -106,6 +113,9 @@ export class SectionRepository extends TenantAwareRepository<Section> {
     if (query.branchId !== undefined) {
       where['branchId'] = query.branchId;
     }
+    if (query.academicBranchId !== undefined) {
+      where['academicBranchId'] = query.academicBranchId;
+    }
     if (query.grade !== undefined && query.grade !== '') {
       where['grade'] = query.grade;
     }
@@ -121,6 +131,9 @@ export class SectionRepository extends TenantAwareRepository<Section> {
         },
         academicYear: {
           select: { id: true, name: true, isCurrent: true },
+        },
+        academicBranch: {
+          select: { id: true, name: true, code: true },
         },
         _count: {
           select: {

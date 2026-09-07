@@ -3,6 +3,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { InstitutesService } from './institutes.service';
 import { InstituteRepository } from './institute.repository';
 import { UserSystemRepository } from '../users/user-system.repository';
+import { AcademicBranchesService } from '../academic-branches/academic-branches.service';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { CreateInstituteDto } from './dto/create-institute.dto';
 import { UserRole } from '../../common/types/user-role.enum';
@@ -11,6 +12,7 @@ describe('InstitutesService', () => {
   let service: InstitutesService;
   let mockInstituteRepo: Partial<InstituteRepository>;
   let mockUserSystemRepo: Partial<UserSystemRepository>;
+  let mockAcademicBranchesService: Partial<AcademicBranchesService>;
   let mockTransactionHelper: Partial<TransactionHelper>;
 
   beforeEach(() => {
@@ -26,6 +28,10 @@ describe('InstitutesService', () => {
       create: jest.fn(),
     };
 
+    mockAcademicBranchesService = {
+      provisionDefaultBranches: jest.fn().mockResolvedValue([] as any),
+    };
+
     // Execute callback directly for transactions
     mockTransactionHelper = {
       executeInTransaction: jest.fn().mockImplementation((cb: () => Promise<unknown>) => cb()),
@@ -34,6 +40,7 @@ describe('InstitutesService', () => {
     service = new InstitutesService(
       mockInstituteRepo as InstituteRepository,
       mockUserSystemRepo as UserSystemRepository,
+      mockAcademicBranchesService as AcademicBranchesService,
       mockTransactionHelper as TransactionHelper,
     );
   });
@@ -113,6 +120,7 @@ describe('InstitutesService', () => {
       );
 
       expect(mockInstituteRepo.createAdminLink).toHaveBeenCalledWith(10, 25);
+      expect(mockAcademicBranchesService.provisionDefaultBranches).toHaveBeenCalledWith(10);
       expect(result.institute).toEqual(createdInstitute);
       expect(result.admin.id).toBe(25);
       expect(result.admin.role).toBe(UserRole.INSTITUTE_ADMIN);

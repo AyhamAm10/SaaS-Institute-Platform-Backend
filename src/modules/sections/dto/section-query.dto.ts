@@ -19,6 +19,12 @@ export class SectionQueryDto extends PaginationQueryDto {
   branchId?: number;
 
   @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  academicBranchId?: number;
+
+  @IsOptional()
   @IsString()
   grade?: string;
 

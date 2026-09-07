@@ -5,6 +5,7 @@ import { SectionsService } from './sections.service';
 import { SectionRepository } from './section.repository';
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { BranchRepository } from '../branches/branch.repository';
+import { AcademicBranchRepository } from '../academic-branches/academic-branch.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { CreateSectionDto } from './dto/create-section.dto';
 
@@ -13,17 +14,29 @@ describe('SectionsService', () => {
   let mockSectionRepo: jest.Mocked<Partial<SectionRepository>>;
   let mockAcademicYearRepo: jest.Mocked<Partial<AcademicYearRepository>>;
   let mockBranchRepo: jest.Mocked<Partial<BranchRepository>>;
+  let mockAcademicBranchRepo: jest.Mocked<Partial<AcademicBranchRepository>>;
   let mockTxHelper: Partial<TransactionHelper>;
 
   const currentInstituteId = 10;
+
+  const sampleAcademicBranch = {
+    id: 7,
+    instituteId: currentInstituteId,
+    name: 'الصف التاسع',
+    code: 'G9',
+    description: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   const sampleSection: Section = {
     id: 1,
     instituteId: currentInstituteId,
     branchId: 5,
     academicYearId: 2,
+    academicBranchId: 7,
     name: 'Section 1A',
-    grade: 'Grade 1',
+    grade: 'الصف التاسع',
     feeAmount: new Prisma.Decimal(1500.0),
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -74,6 +87,11 @@ describe('SectionsService', () => {
       findRawById: jest.fn(),
     };
 
+    mockAcademicBranchRepo = {
+      findById: jest.fn(),
+      findRawById: jest.fn(),
+    };
+
     mockTxHelper = {
       executeInTransaction: jest.fn().mockImplementation((cb: () => Promise<unknown>) => cb()),
     };
@@ -82,6 +100,7 @@ describe('SectionsService', () => {
       mockSectionRepo as SectionRepository,
       mockAcademicYearRepo as AcademicYearRepository,
       mockBranchRepo as BranchRepository,
+      mockAcademicBranchRepo as AcademicBranchRepository,
       mockTxHelper as TransactionHelper,
     );
   });
@@ -89,7 +108,8 @@ describe('SectionsService', () => {
   describe('create', () => {
     const validDto: CreateSectionDto = {
       name: 'Section 1A',
-      grade: 'Grade 1',
+      grade: 'الصف التاسع',
+      academicBranchId: 7,
       branchId: 5,
       academicYearId: 2,
       feeAmount: 1500.0,
@@ -98,6 +118,7 @@ describe('SectionsService', () => {
     it('creates a section successfully when all relations and constraints are valid', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
       mockAcademicYearRepo.findById!.mockResolvedValue(sampleYear as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
       mockSectionRepo.create!.mockResolvedValue(sampleSection);
 
@@ -109,6 +130,7 @@ describe('SectionsService', () => {
         grade: validDto.grade,
         branchId: validDto.branchId,
         academicYearId: validDto.academicYearId,
+        academicBranchId: validDto.academicBranchId,
         feeAmount: new Prisma.Decimal(validDto.feeAmount),
       });
     });
@@ -122,6 +144,7 @@ describe('SectionsService', () => {
 
     it('throws NotFoundException when the academic year does not exist in the system', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
       mockAcademicYearRepo.findById!.mockResolvedValue(null);
       mockAcademicYearRepo.findRawById!.mockResolvedValue(null);
 
@@ -131,6 +154,7 @@ describe('SectionsService', () => {
 
     it('rejects cross-tenant academic year with academic_year_mismatch (400)', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
       // Not found in tenant
       mockAcademicYearRepo.findById!.mockResolvedValue(null);
       // But found globally belonging to another tenant (instituteId 99)
@@ -162,9 +186,33 @@ describe('SectionsService', () => {
       expect(mockSectionRepo.create).not.toHaveBeenCalled();
     });
 
+    it('throws NotFoundException when the academic branch does not exist in the system', async () => {
+      mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
+      mockAcademicYearRepo.findById!.mockResolvedValue(sampleYear as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(null);
+      mockAcademicBranchRepo.findRawById!.mockResolvedValue(null);
+
+      await expect(service.create(validDto)).rejects.toThrow(NotFoundException);
+      expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects cross-tenant academic branch with academic_branch_mismatch (400)', async () => {
+      mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
+      mockAcademicYearRepo.findById!.mockResolvedValue(sampleYear as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(null);
+      mockAcademicBranchRepo.findRawById!.mockResolvedValue({
+        ...sampleAcademicBranch,
+        instituteId: 99,
+      } as any);
+
+      await expect(service.create(validDto)).rejects.toThrow(HttpException);
+      expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+
     it('rejects duplicate section name within the same branch and academic year (409)', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
       mockAcademicYearRepo.findById!.mockResolvedValue(sampleYear as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(sampleSection);
 
       await expect(service.create(validDto)).rejects.toThrow(HttpException);

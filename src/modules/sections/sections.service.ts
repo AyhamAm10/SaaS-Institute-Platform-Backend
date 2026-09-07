@@ -3,6 +3,7 @@ import { Prisma, Section } from '@prisma/client';
 import { SectionRepository } from './section.repository';
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { BranchRepository } from '../branches/branch.repository';
+import { AcademicBranchRepository } from '../academic-branches/academic-branch.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
@@ -25,6 +26,8 @@ export class SectionsService {
     private readonly academicYearRepository: AcademicYearRepository,
     @Inject(BranchRepository)
     private readonly branchRepository: BranchRepository,
+    @Inject(AcademicBranchRepository)
+    private readonly academicBranchRepository: AcademicBranchRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
   ) {}
@@ -36,6 +39,7 @@ export class SectionsService {
    * - Fee is non-negative
    * - Branch exists and belongs to the authenticated tenant
    * - Academic year exists and belongs to the authenticated tenant
+   * - Academic branch exists and belongs to the authenticated tenant
    * - No duplicate section with the same name in the same branch & academic year
    */
   async create(dto: CreateSectionDto): Promise<Section> {
@@ -70,7 +74,19 @@ export class SectionsService {
       Ensure.exists(null, 'Academic year');
     }
 
-    // 4. Validate unique name per (branchId, academicYearId) within the tenant
+    // 4. Validate Academic Branch tenant ownership
+    const academicBranch = await this.academicBranchRepository.findById(dto.academicBranchId);
+    if (!academicBranch) {
+      const rawBranch = await this.academicBranchRepository.findRawById(dto.academicBranchId);
+      Ensure.custom(
+        rawBranch !== null,
+        ErrorMessages.get('academic_branch_mismatch'),
+        400,
+      );
+      Ensure.exists(null, 'Academic branch');
+    }
+
+    // 5. Validate unique name per (branchId, academicYearId) within the tenant
     const existing = await this.sectionRepository.findByNameAndBranch(
       dto.branchId,
       dto.academicYearId,
@@ -82,12 +98,13 @@ export class SectionsService {
       409,
     );
 
-    // 5. Persist section
+    // 6. Persist section
     return this.sectionRepository.create({
       name: dto.name,
-      grade: dto.grade,
+      grade: dto.grade ?? academicBranch!.name,
       branchId: dto.branchId,
       academicYearId: dto.academicYearId,
+      academicBranchId: dto.academicBranchId,
       feeAmount: new Prisma.Decimal(dto.feeAmount),
     });
   }
@@ -139,7 +156,21 @@ export class SectionsService {
       }
     }
 
-    // 5. Validate unique name per (branchId, academicYearId) if name or relations changed
+    // 5. Validate Academic Branch if changed
+    if (dto.academicBranchId !== undefined && dto.academicBranchId !== existing.academicBranchId) {
+      const academicBranch = await this.academicBranchRepository.findById(dto.academicBranchId);
+      if (!academicBranch) {
+        const rawBranch = await this.academicBranchRepository.findRawById(dto.academicBranchId);
+        Ensure.custom(
+          rawBranch !== null,
+          ErrorMessages.get('academic_branch_mismatch'),
+          400,
+        );
+        Ensure.exists(null, 'Academic branch');
+      }
+    }
+
+    // 6. Validate unique name per (branchId, academicYearId) if name or relations changed
     const targetName = dto.name ?? existing.name;
     if (dto.name !== undefined || dto.branchId !== undefined || dto.academicYearId !== undefined) {
       const duplicate = await this.sectionRepository.findByNameAndBranch(
@@ -154,12 +185,13 @@ export class SectionsService {
       );
     }
 
-    // 6. Build update payload (prevent mass assignment of protected fields)
+    // 7. Build update payload (prevent mass assignment of protected fields)
     const updateData: Record<string, unknown> = {};
     if (dto.name !== undefined) updateData['name'] = dto.name;
     if (dto.grade !== undefined) updateData['grade'] = dto.grade;
     if (dto.branchId !== undefined) updateData['branchId'] = dto.branchId;
     if (dto.academicYearId !== undefined) updateData['academicYearId'] = dto.academicYearId;
+    if (dto.academicBranchId !== undefined) updateData['academicBranchId'] = dto.academicBranchId;
     if (dto.feeAmount !== undefined) {
       updateData['feeAmount'] = new Prisma.Decimal(dto.feeAmount);
     }

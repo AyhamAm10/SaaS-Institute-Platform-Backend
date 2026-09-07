@@ -95,6 +95,21 @@ async function main() {
     },
   });
 
+  const defaultBranches = [
+    { name: 'الصف التاسع', code: 'G9', description: 'المرحلة الإعدادية — الصف التاسع الأساسي' },
+    { name: 'الثانوي العام — الفرع العلمي', code: 'SEC_SCI', description: 'المرحلة الثانوية — الفرع العلمي' },
+    { name: 'الثانوي العام — الفرع الأدبي', code: 'SEC_LIT', description: 'المرحلة الثانوية — الفرع الأدبي' },
+  ];
+
+  for (const b of defaultBranches) {
+    await prisma.academicBranch.create({
+      data: {
+        instituteId: institute1.id,
+        ...b,
+      },
+    });
+  }
+
   // ── Institute 2 ────────────────────────────────────────────────────────
   const institute2 = await prisma.institute.create({
     data: {
@@ -143,6 +158,15 @@ async function main() {
       isCurrent: true,
     },
   });
+
+  for (const b of defaultBranches) {
+    await prisma.academicBranch.create({
+      data: {
+        instituteId: institute2.id,
+        ...b,
+      },
+    });
+  }
 
   console.log('\n────────────────────────────────────────');
   console.log('🎉 Seed completed successfully!');

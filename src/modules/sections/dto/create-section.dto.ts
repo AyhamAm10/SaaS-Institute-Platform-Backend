@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsNumber, IsPositive, IsString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Min } from 'class-validator';
 
 /**
  * DTO for creating a new section.
@@ -14,8 +14,14 @@ export class CreateSectionDto {
   name: string;
 
   @IsNotEmpty()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  academicBranchId: number;
+
+  @IsOptional()
   @IsString()
-  grade: string;
+  grade?: string;
 
   @IsNotEmpty()
   @IsInt()
