@@ -20,6 +20,7 @@ describe('InstitutesService', () => {
       create: jest.fn(),
       createAdminLink: jest.fn(),
       findById: jest.fn(),
+      findByIdWithAdmins: jest.fn(),
       findManyPaginated: jest.fn(),
     };
 
@@ -131,14 +132,14 @@ describe('InstitutesService', () => {
   describe('findById', () => {
     it('returns the institute when found', async () => {
       const institute = { id: 10, name: 'Al-Amal' };
-      mockInstituteRepo.findById = jest.fn().mockResolvedValue(institute);
+      mockInstituteRepo.findByIdWithAdmins = jest.fn().mockResolvedValue(institute);
 
       const result = await service.findById(10);
       expect(result).toEqual(institute);
     });
 
     it('throws NotFoundException when institute does not exist', async () => {
-      mockInstituteRepo.findById = jest.fn().mockResolvedValue(null);
+      mockInstituteRepo.findByIdWithAdmins = jest.fn().mockResolvedValue(null);
 
       await expect(service.findById(999)).rejects.toThrow(NotFoundException);
     });

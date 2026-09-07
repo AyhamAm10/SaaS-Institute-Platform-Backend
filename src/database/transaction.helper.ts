@@ -31,6 +31,11 @@ export class TransactionHelper {
     fn: () => Promise<T>,
     options?: { maxWait?: number; timeout?: number },
   ): Promise<T> {
+    // If already inside an interactive transaction, reuse the active context
+    if (TransactionContext.get()) {
+      return fn();
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // Store the transaction client in AsyncLocalStorage so repositories
       // pick it up automatically via `this.client` in BaseRepository.

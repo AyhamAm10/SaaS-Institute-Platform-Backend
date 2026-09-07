@@ -13,6 +13,7 @@ import { CreateInstituteDto } from './dto/create-institute.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/types/user-role.enum';
 import { PaginationQueryDto } from '../../common/pagination/pagination.dto';
+import { InstituteQueryDto } from './dto/institute-query.dto';
 import { InstituteWithAdminResponse } from './dto/institute-response.dto';
 
 /**
@@ -37,11 +38,11 @@ export class InstitutesController {
   }
 
   /**
-   * List all institutes (paginated).
+   * List all institutes (paginated with optional search).
    */
   @Get()
-  async findAll(@Query() query: PaginationQueryDto) {
-    return this.institutesService.findAll(query);
+  async findAll(@Query() query: InstituteQueryDto) {
+    return this.institutesService.findAll(query, query.search);
   }
 
   /**

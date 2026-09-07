@@ -89,21 +89,55 @@ export class InstitutesService {
   }
 
   /**
-   * Retrieve all institutes with pagination (for super admin).
+   * Retrieve all institutes with pagination and optional search (for super admin).
    */
   async findAll(
     pagination: PaginationQueryDto,
+    search?: string,
   ): Promise<PaginatedResult<Institute>> {
+    const where = search?.trim()
+      ? {
+          OR: [
+            { name: { contains: search.trim(), mode: 'insensitive' } },
+            { phone: { contains: search.trim() } },
+            { address: { contains: search.trim(), mode: 'insensitive' } },
+          ],
+        }
+      : undefined;
+
     return this.instituteRepository.findManyPaginated(pagination, {
+      where,
       orderBy: { createdAt: 'desc' },
+      include: {
+        instituteAdmins: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                role: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            users: true,
+            branches: true,
+            sections: true,
+            students: true,
+          },
+        },
+      },
     });
   }
 
   /**
-   * Retrieve an institute by ID.
+   * Retrieve an institute by ID with administrators.
    */
   async findById(id: number): Promise<Institute> {
-    const institute = await this.instituteRepository.findById(id);
+    const institute = await this.instituteRepository.findByIdWithAdmins(id);
     Ensure.exists(institute, 'Institute');
     return institute;
   }
