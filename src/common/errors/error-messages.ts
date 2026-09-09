@@ -40,6 +40,12 @@ const messages: Record<string, Record<string, string>> = {
     academic_branch_mismatch: 'Academic branch does not belong to this institute',
     academic_branch_name_duplicate: 'Academic branch with this name already exists in this institute',
     academic_branch_has_sections: 'Cannot delete academic branch because it is linked to existing sections',
+    subject_not_found: 'Subject not found',
+    subject_code_duplicate: 'Subject with this code already exists in this institute',
+    subject_mismatch: 'Subject does not belong to this institute',
+    subject_has_sections: 'Cannot delete subject because it is assigned to sections',
+    section_subject_already_exists: 'Subject is already assigned to this section',
+    section_subject_not_found: 'Subject is not assigned to this section',
   },
   ar: {
     not_found: '{resource} غير موجود',
@@ -68,6 +74,12 @@ const messages: Record<string, Record<string, string>> = {
     academic_branch_mismatch: 'الفرع الأكاديمي لا يتبع لهذا المعهد',
     academic_branch_name_duplicate: 'يوجد فرع أكاديمي بنفس الاسم في هذا المعهد',
     academic_branch_has_sections: 'لا يمكن حذف الفرع الأكاديمي لوجود شُعب دراسية مرتبطة به',
+    subject_not_found: 'المادة الدراسية غير موجودة',
+    subject_code_duplicate: 'يوجد مادة دراسية بنفس الرمز في هذا المعهد',
+    subject_mismatch: 'المادة الدراسية لا تتبع لهذا المعهد',
+    subject_has_sections: 'لا يمكن حذف المادة الدراسية لتعيينها لشُعب دراسية',
+    section_subject_already_exists: 'المادة الدراسية معينة بالفعل لهذه الشُعبة',
+    section_subject_not_found: 'المادة الدراسية غير معينة لهذه الشُعبة',
   },
 };
 

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -16,6 +17,7 @@ import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
 import { UpdateSectionFeeDto } from './dto/update-section-fee.dto';
 import { SectionQueryDto } from './dto/section-query.dto';
+import { AssignSubjectDto } from './dto/assign-subject.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/types/user-role.enum';
 
@@ -99,5 +101,36 @@ export class SectionsController {
     @Body() dto: UpdateSectionFeeDto,
   ) {
     return this.sectionsService.updateFee(id, dto);
+  }
+
+  /**
+   * List all subjects assigned to a section.
+   */
+  @Get(':id/subjects')
+  async getSectionSubjects(@Param('id', ParseIntPipe) id: number) {
+    return this.sectionsService.getSectionSubjects(id);
+  }
+
+  /**
+   * Assign a subject to a section.
+   */
+  @Post(':id/subjects')
+  async assignSubject(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AssignSubjectDto,
+  ) {
+    return this.sectionsService.assignSubject(id, dto.subjectId);
+  }
+
+  /**
+   * Remove a subject from a section.
+   */
+  @Delete(':id/subjects/:subjectId')
+  @HttpCode(HttpStatus.OK)
+  async removeSubject(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('subjectId', ParseIntPipe) subjectId: number,
+  ) {
+    return this.sectionsService.removeSubject(id, subjectId);
   }
 }

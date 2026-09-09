@@ -6,6 +6,8 @@ import { SectionRepository } from './section.repository';
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { BranchRepository } from '../branches/branch.repository';
 import { AcademicBranchRepository } from '../academic-branches/academic-branch.repository';
+import { SectionSubjectRepository } from './section-subject.repository';
+import { SubjectRepository } from '../subjects/subject.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { CreateSectionDto } from './dto/create-section.dto';
 
@@ -15,6 +17,8 @@ describe('SectionsService', () => {
   let mockAcademicYearRepo: jest.Mocked<Partial<AcademicYearRepository>>;
   let mockBranchRepo: jest.Mocked<Partial<BranchRepository>>;
   let mockAcademicBranchRepo: jest.Mocked<Partial<AcademicBranchRepository>>;
+  let mockSectionSubjectRepo: jest.Mocked<Partial<SectionSubjectRepository>>;
+  let mockSubjectRepo: jest.Mocked<Partial<SubjectRepository>>;
   let mockTxHelper: Partial<TransactionHelper>;
 
   const currentInstituteId = 10;
@@ -92,6 +96,18 @@ describe('SectionsService', () => {
       findRawById: jest.fn(),
     };
 
+    mockSectionSubjectRepo = {
+      findBySectionAndSubject: jest.fn(),
+      findSubjectsBySection: jest.fn(),
+      assignSubject: jest.fn(),
+      removeSubject: jest.fn(),
+    };
+
+    mockSubjectRepo = {
+      findById: jest.fn(),
+      findRawById: jest.fn(),
+    };
+
     mockTxHelper = {
       executeInTransaction: jest.fn().mockImplementation((cb: () => Promise<unknown>) => cb()),
     };
@@ -101,6 +117,8 @@ describe('SectionsService', () => {
       mockAcademicYearRepo as AcademicYearRepository,
       mockBranchRepo as BranchRepository,
       mockAcademicBranchRepo as AcademicBranchRepository,
+      mockSectionSubjectRepo as SectionSubjectRepository,
+      mockSubjectRepo as SubjectRepository,
       mockTxHelper as TransactionHelper,
     );
   });
@@ -331,6 +349,106 @@ describe('SectionsService', () => {
       await expect(
         service.validateSectionBelongsToAcademicYear(1, 2),
       ).rejects.toThrow(HttpException);
+    });
+  });
+
+  describe('Section Subjects', () => {
+    const sampleSubject = {
+      id: 30,
+      instituteId: currentInstituteId,
+      name: 'Physics',
+      code: 'PHYS101',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const sampleSectionSubject = {
+      id: 1,
+      instituteId: currentInstituteId,
+      sectionId: 1,
+      subjectId: 30,
+      createdAt: new Date(),
+      subject: sampleSubject,
+    };
+
+    describe('getSectionSubjects', () => {
+      it('returns subjects assigned to section', async () => {
+        mockSectionRepo.findById!.mockResolvedValue(sampleSection);
+        mockSectionSubjectRepo.findSubjectsBySection!.mockResolvedValue([sampleSectionSubject as any]);
+
+        const result = await service.getSectionSubjects(1);
+
+        expect(result).toEqual([sampleSectionSubject]);
+        expect(mockSectionSubjectRepo.findSubjectsBySection).toHaveBeenCalledWith(1);
+      });
+
+      it('throws NotFoundException if section does not exist', async () => {
+        mockSectionRepo.findById!.mockResolvedValue(null);
+        mockSectionRepo.findRawById!.mockResolvedValue(null);
+
+        await expect(service.getSectionSubjects(999)).rejects.toThrow(NotFoundException);
+      });
+    });
+
+    describe('assignSubject', () => {
+      it('assigns subject to section successfully', async () => {
+        mockSectionRepo.findById!.mockResolvedValue(sampleSection);
+        mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
+        mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(null);
+        mockSectionSubjectRepo.assignSubject!.mockResolvedValue(sampleSectionSubject as any);
+
+        const result = await service.assignSubject(1, { subjectId: 30 });
+
+        expect(result).toEqual(sampleSectionSubject);
+        expect(mockSectionSubjectRepo.assignSubject).toHaveBeenCalledWith(1, { subjectId: 30 });
+      });
+
+      it('throws 404 when section not found', async () => {
+        mockSectionRepo.findById!.mockResolvedValue(null);
+        mockSectionRepo.findRawById!.mockResolvedValue(null);
+
+        await expect(service.assignSubject(999, { subjectId: 30 })).rejects.toThrow(NotFoundException);
+      });
+
+      it('throws 404 when subject not found or belongs to another institute', async () => {
+        mockSectionRepo.findById!.mockResolvedValue(sampleSection);
+        mockSubjectRepo.findById!.mockResolvedValue(null);
+        mockSubjectRepo.findRawById!.mockResolvedValue(null);
+
+        await expect(service.assignSubject(1, { subjectId: 999 })).rejects.toThrow(NotFoundException);
+      });
+
+      it('throws 400 when subject is already assigned to section', async () => {
+        mockSectionRepo.findById!.mockResolvedValue(sampleSection);
+        mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
+        mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(sampleSectionSubject as any);
+
+        await expect(service.assignSubject(1, { subjectId: 30 })).rejects.toThrow(HttpException);
+        expect(mockSectionSubjectRepo.assignSubject).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('removeSubject', () => {
+      it('removes subject from section successfully', async () => {
+        mockSectionRepo.findById!.mockResolvedValue(sampleSection);
+        mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
+        mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(sampleSectionSubject as any);
+        mockSectionSubjectRepo.removeSubject!.mockResolvedValue(sampleSectionSubject as any);
+
+        const result = await service.removeSubject(1, 30);
+
+        expect(result).toEqual({ success: true });
+        expect(mockSectionSubjectRepo.removeSubject).toHaveBeenCalledWith(1, 30);
+      });
+
+      it('throws 404 when section subject relation does not exist', async () => {
+        mockSectionRepo.findById!.mockResolvedValue(sampleSection);
+        mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
+        mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(null);
+
+        await expect(service.removeSubject(1, 30)).rejects.toThrow(HttpException);
+        expect(mockSectionSubjectRepo.removeSubject).not.toHaveBeenCalled();
+      });
     });
   });
 });

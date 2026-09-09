@@ -17,6 +17,9 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
  * Service managing Section business logic, cross-entity validation,
  * and tenant isolation rules.
  */
+import { SectionSubjectRepository } from './section-subject.repository';
+import { SubjectRepository } from '../subjects/subject.repository';
+
 @Injectable()
 export class SectionsService {
   constructor(
@@ -28,6 +31,10 @@ export class SectionsService {
     private readonly branchRepository: BranchRepository,
     @Inject(AcademicBranchRepository)
     private readonly academicBranchRepository: AcademicBranchRepository,
+    @Inject(SectionSubjectRepository)
+    private readonly sectionSubjectRepository: SectionSubjectRepository,
+    @Inject(SubjectRepository)
+    private readonly subjectRepository: SubjectRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
   ) {}
@@ -278,5 +285,65 @@ export class SectionsService {
     );
 
     return { valid: true, section };
+  }
+
+  /**
+   * List all subjects assigned to a section.
+   */
+  async getSectionSubjects(sectionId: number) {
+    const section = await this.sectionRepository.findById(sectionId);
+    if (!section) {
+      const rawSection = await this.sectionRepository.findRawById(sectionId);
+      Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
+      Ensure.exists(null, 'Section');
+    }
+    return this.sectionSubjectRepository.findSubjectsBySection(sectionId);
+  }
+
+  /**
+   * Assign a subject to a section within the current tenant.
+   */
+  async assignSubject(sectionId: number, subjectId: number) {
+    // 1. Validate section belongs to current tenant
+    const section = await this.sectionRepository.findById(sectionId);
+    if (!section) {
+      const rawSection = await this.sectionRepository.findRawById(sectionId);
+      Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
+      Ensure.exists(null, 'Section');
+    }
+
+    // 2. Validate subject belongs to current tenant
+    const subject = await this.subjectRepository.findById(subjectId);
+    if (!subject) {
+      const rawSubject = await this.subjectRepository.findRawById(subjectId);
+      Ensure.custom(rawSubject !== null, ErrorMessages.get('subject_mismatch'), 400);
+      Ensure.exists(null, 'Subject');
+    }
+
+    // 3. Prevent duplicate assignment
+    const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, subjectId);
+    Ensure.custom(Boolean(existing), ErrorMessages.get('section_subject_already_exists'), 409);
+
+    return this.sectionSubjectRepository.assignSubject(sectionId, subjectId);
+  }
+
+  /**
+   * Remove a subject from a section within the current tenant.
+   */
+  async removeSubject(sectionId: number, subjectId: number) {
+    // 1. Validate section belongs to current tenant
+    const section = await this.sectionRepository.findById(sectionId);
+    if (!section) {
+      const rawSection = await this.sectionRepository.findRawById(sectionId);
+      Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
+      Ensure.exists(null, 'Section');
+    }
+
+    // 2. Validate assignment exists
+    const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, subjectId);
+    Ensure.custom(!existing, ErrorMessages.get('section_subject_not_found'), 404);
+
+    await this.sectionSubjectRepository.removeSubject(sectionId, subjectId);
+    return { success: true };
   }
 }

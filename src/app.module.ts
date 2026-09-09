@@ -9,6 +9,7 @@ import { BranchesModule } from './modules/branches/branches.module';
 import { AcademicYearsModule } from './modules/academic-years/academic-years.module';
 import { AcademicBranchesModule } from './modules/academic-branches/academic-branches.module';
 import { SectionsModule } from './modules/sections/sections.module';
+import { SubjectsModule } from './modules/subjects/subjects.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { SectionsModule } from './modules/sections/sections.module';
     AcademicYearsModule,
     AcademicBranchesModule,
     SectionsModule,
+    SubjectsModule,
   ],
 })
 export class AppModule {}
