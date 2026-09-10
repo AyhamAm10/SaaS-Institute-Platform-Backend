@@ -19,6 +19,10 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
  */
 import { SectionSubjectRepository } from './section-subject.repository';
 import { SubjectRepository } from '../subjects/subject.repository';
+import { TeacherRepository } from '../teachers/teacher.repository';
+import { TeacherAssignmentRepository } from '../teachers/teacher-assignment.repository';
+import { AssignSubjectDto } from './dto/assign-subject.dto';
+import { UpdateSectionSubjectDto } from './dto/update-section-subject.dto';
 
 @Injectable()
 export class SectionsService {
@@ -35,6 +39,10 @@ export class SectionsService {
     private readonly sectionSubjectRepository: SectionSubjectRepository,
     @Inject(SubjectRepository)
     private readonly subjectRepository: SubjectRepository,
+    @Inject(TeacherRepository)
+    private readonly teacherRepository: TeacherRepository,
+    @Inject(TeacherAssignmentRepository)
+    private readonly teacherAssignmentRepository: TeacherAssignmentRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
   ) {}
@@ -301,9 +309,9 @@ export class SectionsService {
   }
 
   /**
-   * Assign a subject to a section within the current tenant.
+   * Assign a subject to a section within the current tenant with optional teacher and weekly periods.
    */
-  async assignSubject(sectionId: number, subjectId: number) {
+  async assignSubject(sectionId: number, dto: AssignSubjectDto) {
     // 1. Validate section belongs to current tenant
     const section = await this.sectionRepository.findById(sectionId);
     if (!section) {
@@ -313,18 +321,102 @@ export class SectionsService {
     }
 
     // 2. Validate subject belongs to current tenant
-    const subject = await this.subjectRepository.findById(subjectId);
+    const subject = await this.subjectRepository.findById(dto.subjectId);
     if (!subject) {
-      const rawSubject = await this.subjectRepository.findRawById(subjectId);
+      const rawSubject = await this.subjectRepository.findRawById(dto.subjectId);
       Ensure.custom(rawSubject !== null, ErrorMessages.get('subject_mismatch'), 400);
       Ensure.exists(null, 'Subject');
     }
 
-    // 3. Prevent duplicate assignment
-    const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, subjectId);
+    // 3. Validate teacher if assigned
+    if (dto.teacherId) {
+      const teacher = await this.teacherRepository.findById(dto.teacherId);
+      if (!teacher) {
+        const rawTeacher = await this.teacherRepository.findRawById(dto.teacherId);
+        Ensure.custom(rawTeacher !== null, ErrorMessages.get('teacher_mismatch'), 400);
+        Ensure.exists(null, 'Teacher');
+      }
+
+      // Validate teacher is qualified for this academic branch and subject
+      const assignment = await this.teacherAssignmentRepository.findByTeacherBranchSubject(
+        dto.teacherId,
+        section!.academicBranchId,
+        dto.subjectId,
+      );
+      Ensure.custom(
+        !assignment,
+        ErrorMessages.get('teacher_not_qualified'),
+        400,
+      );
+    }
+
+    // 4. Validate weekly periods
+    const weeklyPeriods = dto.weeklyPeriods ?? 1;
+    Ensure.custom(weeklyPeriods < 1, ErrorMessages.get('invalid_type_number', { field: 'weeklyPeriods' }), 400);
+
+    // 5. Prevent duplicate assignment
+    const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, dto.subjectId);
     Ensure.custom(Boolean(existing), ErrorMessages.get('section_subject_already_exists'), 409);
 
-    return this.sectionSubjectRepository.assignSubject(sectionId, subjectId);
+    return this.sectionSubjectRepository.assignSubject(
+      sectionId,
+      dto.subjectId,
+      weeklyPeriods,
+      dto.teacherId ?? null,
+    );
+  }
+
+  /**
+   * Update an existing section-subject assignment (weekly periods or assigned teacher).
+   */
+  async updateSectionSubject(
+    sectionId: number,
+    subjectId: number,
+    dto: UpdateSectionSubjectDto,
+  ) {
+    // 1. Validate section belongs to current tenant
+    const section = await this.sectionRepository.findById(sectionId);
+    if (!section) {
+      const rawSection = await this.sectionRepository.findRawById(sectionId);
+      Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
+      Ensure.exists(null, 'Section');
+    }
+
+    // 2. Validate assignment exists
+    const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, subjectId);
+    Ensure.exists(existing, 'Section subject assignment');
+
+    // 3. Validate teacher if changed
+    if (dto.teacherId !== undefined && dto.teacherId !== null) {
+      const teacher = await this.teacherRepository.findById(dto.teacherId);
+      if (!teacher) {
+        const rawTeacher = await this.teacherRepository.findRawById(dto.teacherId);
+        Ensure.custom(rawTeacher !== null, ErrorMessages.get('teacher_mismatch'), 400);
+        Ensure.exists(null, 'Teacher');
+      }
+
+      const assignment = await this.teacherAssignmentRepository.findByTeacherBranchSubject(
+        dto.teacherId,
+        section!.academicBranchId,
+        subjectId,
+      );
+      Ensure.custom(
+        !assignment,
+        ErrorMessages.get('teacher_not_qualified'),
+        400,
+      );
+    }
+
+    // 4. Validate weekly periods
+    if (dto.weeklyPeriods !== undefined) {
+      Ensure.custom(dto.weeklyPeriods < 1, ErrorMessages.get('invalid_type_number', { field: 'weeklyPeriods' }), 400);
+    }
+
+    const updateData: { weeklyPeriods?: number; teacherId?: number | null } = {};
+    if (dto.weeklyPeriods !== undefined) updateData.weeklyPeriods = dto.weeklyPeriods;
+    if (dto.teacherId !== undefined) updateData.teacherId = dto.teacherId;
+
+    return this.sectionSubjectRepository.updateAssignment(existing!.id, updateData);
   }
 
   /**

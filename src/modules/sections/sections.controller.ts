@@ -18,6 +18,7 @@ import { UpdateSectionDto } from './dto/update-section.dto';
 import { UpdateSectionFeeDto } from './dto/update-section-fee.dto';
 import { SectionQueryDto } from './dto/section-query.dto';
 import { AssignSubjectDto } from './dto/assign-subject.dto';
+import { UpdateSectionSubjectDto } from './dto/update-section-subject.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/types/user-role.enum';
 
@@ -119,7 +120,20 @@ export class SectionsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: AssignSubjectDto,
   ) {
-    return this.sectionsService.assignSubject(id, dto.subjectId);
+    return this.sectionsService.assignSubject(id, dto);
+  }
+
+  /**
+   * Update section-subject assignment (weekly periods or assigned teacher).
+   */
+  @Patch(':id/subjects/:subjectId')
+  @HttpCode(HttpStatus.OK)
+  async updateSectionSubject(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('subjectId', ParseIntPipe) subjectId: number,
+    @Body() dto: UpdateSectionSubjectDto,
+  ) {
+    return this.sectionsService.updateSectionSubject(id, subjectId, dto);
   }
 
   /**

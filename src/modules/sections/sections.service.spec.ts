@@ -19,6 +19,8 @@ describe('SectionsService', () => {
   let mockAcademicBranchRepo: jest.Mocked<Partial<AcademicBranchRepository>>;
   let mockSectionSubjectRepo: jest.Mocked<Partial<SectionSubjectRepository>>;
   let mockSubjectRepo: jest.Mocked<Partial<SubjectRepository>>;
+  let mockTeacherRepo: any;
+  let mockTeacherAssignmentRepo: any;
   let mockTxHelper: Partial<TransactionHelper>;
 
   const currentInstituteId = 10;
@@ -108,6 +110,15 @@ describe('SectionsService', () => {
       findRawById: jest.fn(),
     };
 
+    mockTeacherRepo = {
+      findById: jest.fn(),
+      findRawById: jest.fn(),
+    };
+
+    mockTeacherAssignmentRepo = {
+      findByTeacherBranchSubject: jest.fn(),
+    };
+
     mockTxHelper = {
       executeInTransaction: jest.fn().mockImplementation((cb: () => Promise<unknown>) => cb()),
     };
@@ -119,6 +130,8 @@ describe('SectionsService', () => {
       mockAcademicBranchRepo as AcademicBranchRepository,
       mockSectionSubjectRepo as SectionSubjectRepository,
       mockSubjectRepo as SubjectRepository,
+      mockTeacherRepo,
+      mockTeacherAssignmentRepo,
       mockTxHelper as TransactionHelper,
     );
   });
@@ -400,7 +413,7 @@ describe('SectionsService', () => {
         const result = await service.assignSubject(1, { subjectId: 30 });
 
         expect(result).toEqual(sampleSectionSubject);
-        expect(mockSectionSubjectRepo.assignSubject).toHaveBeenCalledWith(1, { subjectId: 30 });
+        expect(mockSectionSubjectRepo.assignSubject).toHaveBeenCalledWith(1, 30, 1, null);
       });
 
       it('throws 404 when section not found', async () => {

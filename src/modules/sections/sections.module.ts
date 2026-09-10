@@ -7,6 +7,7 @@ import { AcademicYearsModule } from '../academic-years/academic-years.module';
 import { BranchesModule } from '../branches/branches.module';
 import { AcademicBranchesModule } from '../academic-branches/academic-branches.module';
 import { SubjectsModule } from '../subjects/subjects.module';
+import { TeachersModule } from '../teachers/teachers.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { SubjectsModule } from '../subjects/subjects.module';
     BranchesModule,
     AcademicBranchesModule,
     SubjectsModule,
+    TeachersModule,
   ],
   controllers: [SectionsController],
   providers: [SectionsService, SectionRepository, SectionSubjectRepository],

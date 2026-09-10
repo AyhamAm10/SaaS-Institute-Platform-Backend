@@ -27,13 +27,24 @@ export class SectionSubjectRepository extends TenantAwareRepository<SectionSubje
   }
 
   /**
-   * List all subjects assigned to a section including subject details.
+   * List all subjects assigned to a section including subject and assigned teacher details.
    */
   async findSubjectsBySection(sectionId: number): Promise<SectionSubject[]> {
     return this.findMany({
       where: { sectionId },
       include: {
         subject: true,
+        teacher: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -45,11 +56,25 @@ export class SectionSubjectRepository extends TenantAwareRepository<SectionSubje
   async assignSubject(
     sectionId: number,
     subjectId: number,
+    weeklyPeriods: number = 1,
+    teacherId: number | null = null,
   ): Promise<SectionSubject> {
     return this.create({
       sectionId,
       subjectId,
+      weeklyPeriods,
+      teacherId: teacherId || null,
     });
+  }
+
+  /**
+   * Update section-subject assignment and quota.
+   */
+  async updateAssignment(
+    id: number,
+    data: { weeklyPeriods?: number; teacherId?: number | null },
+  ): Promise<SectionSubject> {
+    return this.update(id, data);
   }
 
   /**

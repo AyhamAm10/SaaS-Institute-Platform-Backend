@@ -28,6 +28,11 @@ model Institute {
   academicBranches     AcademicBranch[]
   teachers             Teacher[]
   branchTeachers       BranchTeacher[]
+  teacherAssignments   TeacherAssignment[]
+  teacherAvailabilities TeacherAvailability[]
+  rooms                Room[]
+  roomAvailabilities   RoomAvailability[]
+  scheduleConfig       InstituteScheduleConfig?
   families             Family[]
   familyUsers          FamilyUser[]
   students             Student[]
@@ -156,8 +161,9 @@ model AcademicBranch {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  institute   Institute @relation(fields: [instituteId], references: [id])
-  sections    Section[]
+  institute          Institute           @relation(fields: [instituteId], references: [id])
+  sections           Section[]
+  teacherAssignments TeacherAssignment[]
 
   @@unique([instituteId, id])
   @@unique([instituteId, name])
@@ -165,22 +171,63 @@ model AcademicBranch {
 }
 
 model Teacher {
-  id          Int      @id @default(autoincrement())
-  instituteId Int      @map("institute_id")
-  userId      Int      @unique @map("user_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             Int      @id @default(autoincrement())
+  instituteId    Int      @map("institute_id")
+  userId         Int      @unique @map("user_id")
+  specialization String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  institute        Institute        @relation(fields: [instituteId], references: [id])
-  user             User             @relation(fields: [userId], references: [id])
+  institute        Institute             @relation(fields: [instituteId], references: [id])
+  user             User                  @relation(fields: [userId], references: [id])
   branchTeachers   BranchTeacher[]
   sectionTeachers  SectionTeacher[]
+  assignments      TeacherAssignment[]
+  availabilities   TeacherAvailability[]
+  sectionSubjects  SectionSubject[]
   timetableEntries TimetableEntry[]
   lessons          Lesson[]
 
   @@unique([instituteId, id])
   @@unique([instituteId, userId])
   @@map("teachers")
+}
+
+model TeacherAssignment {
+  id               Int            @id @default(autoincrement())
+  instituteId      Int            @map("institute_id")
+  teacherId        Int            @map("teacher_id")
+  academicBranchId Int            @map("academic_branch_id")
+  subjectId        Int            @map("subject_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  institute      Institute      @relation(fields: [instituteId], references: [id])
+  teacher        Teacher        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  academicBranch AcademicBranch @relation(fields: [academicBranchId], references: [id], onDelete: Cascade)
+  subject        Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, teacherId, academicBranchId, subjectId])
+  @@map("teacher_assignments")
+}
+
+model TeacherAvailability {
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  teacherId   Int       @map("teacher_id")
+  dayOfWeek   Int       @map("day_of_week")
+  startTime   String    @map("start_time")
+  endTime     String    @map("end_time")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  institute   Institute @relation(fields: [instituteId], references: [id])
+  teacher     Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([instituteId, id])
+  @@index([instituteId, teacherId])
+  @@map("teacher_availabilities")
 }
 
 model BranchTeacher {
@@ -315,11 +362,12 @@ model Subject {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  institute        Institute        @relation(fields: [instituteId], references: [id])
-  sectionSubjects  SectionSubject[]
-  sectionTeachers  SectionTeacher[]
-  timetableEntries TimetableEntry[]
-  lessons          Lesson[]
+  institute          Institute           @relation(fields: [instituteId], references: [id])
+  sectionSubjects    SectionSubject[]
+  sectionTeachers    SectionTeacher[]
+  teacherAssignments TeacherAssignment[]
+  timetableEntries   TimetableEntry[]
+  lessons            Lesson[]
 
   @@unique([instituteId, id])
   @@unique([instituteId, code])
@@ -327,15 +375,19 @@ model Subject {
 }
 
 model SectionSubject {
-  id          Int      @id @default(autoincrement())
-  instituteId Int      @map("institute_id")
-  sectionId   Int      @map("section_id")
-  subjectId   Int      @map("subject_id")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id            Int      @id @default(autoincrement())
+  instituteId   Int      @map("institute_id")
+  sectionId     Int      @map("section_id")
+  subjectId     Int      @map("subject_id")
+  teacherId     Int?     @map("teacher_id")
+  weeklyPeriods Int      @default(1) @map("weekly_periods")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @default(now()) @map("updated_at")
 
   institute Institute @relation(fields: [instituteId], references: [id])
   section   Section   @relation(fields: [sectionId], references: [id])
   subject   Subject   @relation(fields: [subjectId], references: [id])
+  teacher   Teacher?  @relation(fields: [teacherId], references: [id])
 
   @@unique([instituteId, sectionId, subjectId])
   @@map("section_subjects")
@@ -360,6 +412,69 @@ model SectionTeacher {
 }
 
 // ---------------------------------------------------------------------------
+// Rooms
+// ---------------------------------------------------------------------------
+
+model Room {
+  id          Int      @id @default(autoincrement())
+  instituteId Int      @map("institute_id")
+  name        String
+  code        String?
+  capacity    Int      @default(30)
+  type        String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  institute        Institute          @relation(fields: [instituteId], references: [id])
+  availabilities   RoomAvailability[]
+  timetableEntries TimetableEntry[]
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, name])
+  @@map("rooms")
+}
+
+model RoomAvailability {
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  roomId      Int       @map("room_id")
+  dayOfWeek   Int       @map("day_of_week")
+  startTime   String    @map("start_time")
+  endTime     String    @map("end_time")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  institute   Institute @relation(fields: [instituteId], references: [id])
+  room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([instituteId, id])
+  @@index([instituteId, roomId])
+  @@map("room_availabilities")
+}
+
+// ---------------------------------------------------------------------------
+// Schedule Configuration
+// ---------------------------------------------------------------------------
+
+model InstituteScheduleConfig {
+  id                    Int      @id @default(autoincrement())
+  instituteId           Int      @unique @map("institute_id")
+  workingDays           Int[]    @map("working_days")
+  dayStartTime          String   @map("day_start_time")
+  dayEndTime            String   @map("day_end_time")
+  periodDurationMinutes Int      @map("period_duration_minutes")
+  breaks                Json     @default("[]")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  institute             Institute @relation(fields: [instituteId], references: [id])
+
+  @@unique([instituteId, id])
+  @@map("institute_schedule_configs")
+}
+
+// ---------------------------------------------------------------------------
 // Timetables
 // ---------------------------------------------------------------------------
 
@@ -378,27 +493,36 @@ model Timetable {
   entries      TimetableEntry[]
 
   @@unique([instituteId, id])
+  @@unique([instituteId, academicYearId, sectionId])
   @@map("timetables")
 }
 
 model TimetableEntry {
-  id          Int      @id @default(autoincrement())
-  instituteId Int      @map("institute_id")
-  timetableId Int      @map("timetable_id")
-  subjectId   Int      @map("subject_id")
-  teacherId   Int      @map("teacher_id")
-  dayOfWeek   Int      @map("day_of_week")
-  startTime   DateTime @map("start_time") @db.Time()
-  endTime     DateTime @map("end_time") @db.Time()
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           Int      @id @default(autoincrement())
+  instituteId  Int      @map("institute_id")
+  timetableId  Int      @map("timetable_id")
+  subjectId    Int      @map("subject_id")
+  teacherId    Int      @map("teacher_id")
+  roomId       Int?     @map("room_id")
+  dayOfWeek    Int      @map("day_of_week")
+  periodNumber Int?     @map("period_number")
+  startTime    String   @map("start_time")
+  endTime      String   @map("end_time")
+  isLocked     Boolean  @default(false) @map("is_locked")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   institute Institute @relation(fields: [instituteId], references: [id])
-  timetable Timetable @relation(fields: [timetableId], references: [id])
+  timetable Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
   subject   Subject   @relation(fields: [subjectId], references: [id])
   teacher   Teacher   @relation(fields: [teacherId], references: [id])
+  room      Room?     @relation(fields: [roomId], references: [id])
   lessons   Lesson[]
 
+  @@unique([instituteId, id])
+  @@index([instituteId, timetableId])
+  @@index([instituteId, teacherId, dayOfWeek])
+  @@index([instituteId, roomId, dayOfWeek])
   @@map("timetable_entries")
 }
 
