@@ -8,7 +8,7 @@ import { AcademicYear } from '@prisma/client';
 
 describe('AcademicYearsService', () => {
   let service: AcademicYearsService;
-  let mockRepo: jest.Mocked<Partial<AcademicYearRepository>>;
+  let mockRepo: jest.Mocked<AcademicYearRepository>;
   let mockTxHelper: Partial<TransactionHelper>;
 
   const sampleYear: AcademicYear = {
@@ -33,10 +33,10 @@ describe('AcademicYearsService', () => {
       lockInstituteForUpdate: jest.fn(),
       findAllPaginated: jest.fn(),
       findSections: jest.fn(),
-    };
+    } as any;
 
     mockTxHelper = {
-      executeInTransaction: jest.fn().mockImplementation((cb: () => Promise<unknown>) => cb()),
+      executeInTransaction: (jest.fn() as any).mockImplementation((cb: () => Promise<unknown>) => cb()),
     };
 
     service = new AcademicYearsService(

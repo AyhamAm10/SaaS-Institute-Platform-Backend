@@ -13,12 +13,12 @@ import { CreateSectionDto } from './dto/create-section.dto';
 
 describe('SectionsService', () => {
   let service: SectionsService;
-  let mockSectionRepo: jest.Mocked<Partial<SectionRepository>>;
-  let mockAcademicYearRepo: jest.Mocked<Partial<AcademicYearRepository>>;
-  let mockBranchRepo: jest.Mocked<Partial<BranchRepository>>;
-  let mockAcademicBranchRepo: jest.Mocked<Partial<AcademicBranchRepository>>;
-  let mockSectionSubjectRepo: jest.Mocked<Partial<SectionSubjectRepository>>;
-  let mockSubjectRepo: jest.Mocked<Partial<SubjectRepository>>;
+  let mockSectionRepo: jest.Mocked<SectionRepository>;
+  let mockAcademicYearRepo: jest.Mocked<AcademicYearRepository>;
+  let mockBranchRepo: jest.Mocked<BranchRepository>;
+  let mockAcademicBranchRepo: jest.Mocked<AcademicBranchRepository>;
+  let mockSectionSubjectRepo: jest.Mocked<SectionSubjectRepository>;
+  let mockSubjectRepo: jest.Mocked<SubjectRepository>;
   let mockTeacherRepo: any;
   let mockTeacherAssignmentRepo: any;
   let mockTxHelper: Partial<TransactionHelper>;
@@ -81,46 +81,46 @@ describe('SectionsService', () => {
       findByIdWithDetails: jest.fn(),
       findAllFiltered: jest.fn(),
       findByAcademicYear: jest.fn(),
-    };
+    } as any;
 
     mockAcademicYearRepo = {
       findById: jest.fn(),
       findRawById: jest.fn(),
-    };
+    } as any;
 
     mockBranchRepo = {
       findById: jest.fn(),
       findRawById: jest.fn(),
-    };
+    } as any;
 
     mockAcademicBranchRepo = {
       findById: jest.fn(),
       findRawById: jest.fn(),
-    };
+    } as any;
 
     mockSectionSubjectRepo = {
       findBySectionAndSubject: jest.fn(),
       findSubjectsBySection: jest.fn(),
       assignSubject: jest.fn(),
       removeSubject: jest.fn(),
-    };
+    } as any;
 
     mockSubjectRepo = {
       findById: jest.fn(),
       findRawById: jest.fn(),
-    };
+    } as any;
 
     mockTeacherRepo = {
       findById: jest.fn(),
       findRawById: jest.fn(),
-    };
+    } as any;
 
     mockTeacherAssignmentRepo = {
       findByTeacherBranchSubject: jest.fn(),
-    };
+    } as any;
 
     mockTxHelper = {
-      executeInTransaction: jest.fn().mockImplementation((cb: () => Promise<unknown>) => cb()),
+      executeInTransaction: (jest.fn() as any).mockImplementation((cb: () => Promise<unknown>) => cb()),
     };
 
     service = new SectionsService(

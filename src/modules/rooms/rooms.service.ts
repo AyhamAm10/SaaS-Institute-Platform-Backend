@@ -96,17 +96,7 @@ export class RoomsService {
       });
 
       if (dto.availabilities && dto.availabilities.length > 0) {
-        const client = (this.roomRepository as any).client;
-        const instituteId = this.roomRepository.getInstituteId();
-        await client.roomAvailability.createMany({
-          data: dto.availabilities.map((a) => ({
-            instituteId,
-            roomId: room.id,
-            dayOfWeek: a.dayOfWeek,
-            startTime: a.startTime,
-            endTime: a.endTime,
-          })),
-        });
+        await this.availabilityRepository.replaceAvailabilities(room.id, dto.availabilities);
       }
 
       return this.roomRepository.findByIdWithDetails(room.id);

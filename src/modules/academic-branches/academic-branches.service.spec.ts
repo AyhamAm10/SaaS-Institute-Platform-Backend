@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { ConflictException, HttpException, NotFoundException } from '@nestjs/common';
+import { HttpException, NotFoundException } from '@nestjs/common';
 import { AcademicBranch } from '@prisma/client';
 import { AcademicBranchesService, DEFAULT_ACADEMIC_BRANCHES } from './academic-branches.service';
 import { AcademicBranchRepository } from './academic-branch.repository';
@@ -7,7 +7,7 @@ import { TransactionHelper } from '../../database/transaction.helper';
 
 describe('AcademicBranchesService', () => {
   let service: AcademicBranchesService;
-  let mockBranchRepo: jest.Mocked<Partial<AcademicBranchRepository>>;
+  let mockBranchRepo: jest.Mocked<AcademicBranchRepository>;
   let mockTxHelper: Partial<TransactionHelper>;
 
   const currentInstituteId = 10;
@@ -32,10 +32,10 @@ describe('AcademicBranchesService', () => {
       findByName: jest.fn(),
       findAllPaginated: jest.fn(),
       countSections: jest.fn(),
-    };
+    } as any;
 
     mockTxHelper = {
-      executeInTransaction: jest.fn().mockImplementation((cb: () => Promise<unknown>) => cb()),
+      executeInTransaction: (jest.fn() as any).mockImplementation((cb: () => Promise<unknown>) => cb()),
     };
 
     service = new AcademicBranchesService(
@@ -48,8 +48,8 @@ describe('AcademicBranchesService', () => {
     it('provisions all 3 Arabic default branches if they do not exist', async () => {
       const mockClient = {
         academicBranch: {
-          findFirst: jest.fn().mockResolvedValue(null),
-          create: jest.fn().mockImplementation(({ data }: any) => ({
+          findFirst: (jest.fn() as any).mockResolvedValue(null),
+          create: (jest.fn() as any).mockImplementation(({ data }: any) => ({
             id: Math.floor(Math.random() * 100),
             ...data,
           })),

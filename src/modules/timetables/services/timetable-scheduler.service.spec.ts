@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { TimetableSchedulerService } from './timetable-scheduler.service';
 import { TimetableConflictService } from './timetable-conflict.service';
 import { ScheduleConfigResponseDto } from '../../institute-schedule-config/dto/schedule-config-response.dto';

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { InstituteScheduleConfigRepository } from './institute-schedule-config.repository';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
@@ -209,7 +210,7 @@ export class InstituteScheduleConfigService {
       dayStartTime: dto.dayStartTime,
       dayEndTime: dto.dayEndTime,
       periodDurationMinutes: dto.periodDurationMinutes,
-      breaks: breaks,
+      breaks: breaks as unknown as Prisma.InputJsonValue,
     });
 
     return {

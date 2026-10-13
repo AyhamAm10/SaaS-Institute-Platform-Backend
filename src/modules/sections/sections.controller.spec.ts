@@ -24,24 +24,24 @@ describe('SectionsController', () => {
 
   beforeEach(() => {
     service = {
-      create: jest.fn().mockResolvedValue(mockSection),
-      findAll: jest.fn().mockResolvedValue({
+      create: (jest.fn() as any).mockResolvedValue(mockSection),
+      findAll: (jest.fn() as any).mockResolvedValue({
         data: [mockSection],
         total: 1,
         page: 1,
         limit: 20,
         totalPages: 1,
       }),
-      findById: jest.fn().mockResolvedValue(mockSection),
-      getDetails: jest.fn().mockResolvedValue({
+      findById: (jest.fn() as any).mockResolvedValue(mockSection),
+      getDetails: (jest.fn() as any).mockResolvedValue({
         ...mockSection,
         branch: { id: 5, name: 'Main' },
         academicYear: { id: 2, name: '2026-2027' },
         _count: { studentEnrollments: 10 },
       }),
-      update: jest.fn().mockResolvedValue({ ...mockSection, name: 'Section 1B' }),
-      updateFee: jest.fn().mockResolvedValue({ ...mockSection, feeAmount: new Prisma.Decimal(2000) }),
-      validateSectionBelongsToAcademicYear: jest.fn().mockResolvedValue({ valid: true, section: mockSection }),
+      update: (jest.fn() as any).mockResolvedValue({ ...mockSection, name: 'Section 1B' }),
+      updateFee: (jest.fn() as any).mockResolvedValue({ ...mockSection, feeAmount: new Prisma.Decimal(2000) }),
+      validateSectionBelongsToAcademicYear: (jest.fn() as any).mockResolvedValue({ valid: true, section: mockSection }),
     } as any;
 
     controller = new SectionsController(service);
@@ -52,6 +52,7 @@ describe('SectionsController', () => {
       name: 'Section 1A',
       grade: 'Grade 1',
       branchId: 5,
+      academicBranchId: 1,
       academicYearId: 2,
       feeAmount: 1500,
     };

@@ -30,13 +30,13 @@ describe('AuthController — Client Token Delivery Strategy', () => {
 
   beforeEach(() => {
     authService = {
-      login: jest.fn().mockResolvedValue({
+      login: (jest.fn() as any).mockResolvedValue({
         ...mockTokens,
         user: mockUser,
       }),
-      refresh: jest.fn().mockResolvedValue(mockTokens),
-      logout: jest.fn().mockResolvedValue(undefined),
-      getProfile: jest.fn().mockResolvedValue({
+      refresh: (jest.fn() as any).mockResolvedValue(mockTokens),
+      logout: (jest.fn() as any).mockResolvedValue(undefined),
+      getProfile: (jest.fn() as any).mockResolvedValue({
         ...mockUser,
         institute: { id: 10, name: 'Test Institute' },
       } as any),

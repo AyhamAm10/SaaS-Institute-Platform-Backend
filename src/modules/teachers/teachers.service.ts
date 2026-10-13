@@ -14,8 +14,8 @@ import { UserRole } from '../../common/types/user-role.enum';
 import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { TeacherQueryDto } from './dto/teacher-query.dto';
-import { TeacherQualificationDto } from './teacher-assignment.dto';
-import { TeacherAvailabilityItemDto } from './teacher-availability.dto';
+import { TeacherQualificationDto } from './dto/teacher-assignment.dto';
+import { TeacherAvailabilityItemDto } from './dto/teacher-availability.dto';
 
 function parseTimeToMinutes(timeStr: string): number {
   const [hours, minutes] = timeStr.split(':').map(Number);

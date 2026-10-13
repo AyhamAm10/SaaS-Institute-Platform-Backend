@@ -5,7 +5,7 @@ import { InstituteScheduleConfigRepository } from './institute-schedule-config.r
 
 describe('InstituteScheduleConfigService', () => {
   let service: InstituteScheduleConfigService;
-  let mockRepository: Partial<Record<keyof InstituteScheduleConfigRepository, jest.Mock>>;
+  let mockRepository: any;
 
   beforeEach(async () => {
     mockRepository = {

@@ -19,13 +19,13 @@ import { TransactionHelper } from '../../database/transaction.helper';
 describe('TimetablesService', () => {
   let service: TimetablesService;
 
-  const mockTimetableRepo = {
+  const mockTimetableRepo: Record<string, any> = {
     findBySectionAndYear: jest.fn(),
     upsertTimetable: jest.fn(),
     findWithEntries: jest.fn(),
   };
 
-  const mockEntryRepo = {
+  const mockEntryRepo: Record<string, any> = {
     findInstituteEntriesForYear: jest.fn(),
     findById: jest.fn(),
     createEntry: jest.fn(),
@@ -34,16 +34,16 @@ describe('TimetablesService', () => {
     deleteUnlockedEntries: jest.fn(),
   };
 
-  const mockConflictService = {
+  const mockConflictService: Record<string, any> = {
     detectConflicts: jest.fn().mockReturnValue([]),
   };
 
-  const mockSchedulerService = {
+  const mockSchedulerService: Record<string, any> = {
     generateSchedule: jest.fn(),
   };
 
-  const mockConfigService = {
-    getConfig: jest.fn().mockResolvedValue({
+  const mockConfigService: Record<string, any> = {
+    getConfig: (jest.fn() as any).mockResolvedValue({
       id: 1,
       instituteId: 1,
       workingDays: [0, 1, 2, 3, 4],
@@ -57,41 +57,41 @@ describe('TimetablesService', () => {
     }),
   };
 
-  const mockSectionRepo = {
+  const mockSectionRepo: Record<string, any> = {
     findById: jest.fn(),
   };
 
-  const mockSectionSubjectRepo = {
-    findSubjectsBySection: jest.fn().mockResolvedValue([]),
+  const mockSectionSubjectRepo: Record<string, any> = {
+    findSubjectsBySection: (jest.fn() as any).mockResolvedValue([]),
     findBySectionAndSubject: jest.fn(),
   };
 
-  const mockTeacherRepo = {
+  const mockTeacherRepo: Record<string, any> = {
     findById: jest.fn(),
   };
 
-  const mockTeacherAssignmentRepo = {
-    findByTeacher: jest.fn().mockResolvedValue([]),
+  const mockTeacherAssignmentRepo: Record<string, any> = {
+    findByTeacher: (jest.fn() as any).mockResolvedValue([]),
   };
 
-  const mockTeacherAvailabilityRepo = {
-    findByTeacher: jest.fn().mockResolvedValue([]),
+  const mockTeacherAvailabilityRepo: Record<string, any> = {
+    findByTeacher: (jest.fn() as any).mockResolvedValue([]),
   };
 
-  const mockRoomRepo = {
+  const mockRoomRepo: Record<string, any> = {
     findById: jest.fn(),
   };
 
-  const mockRoomAvailabilityRepo = {
-    findMany: jest.fn().mockResolvedValue([]),
+  const mockRoomAvailabilityRepo: Record<string, any> = {
+    findMany: (jest.fn() as any).mockResolvedValue([]),
   };
 
-  const mockAcademicYearRepo = {
+  const mockAcademicYearRepo: Record<string, any> = {
     findById: jest.fn(),
   };
 
-  const mockTransactionHelper = {
-    run: jest.fn().mockImplementation((cb) => cb({})),
+  const mockTransactionHelper: Record<string, any> = {
+    run: (jest.fn() as any).mockImplementation((cb: any) => cb({})),
   };
 
   beforeEach(async () => {

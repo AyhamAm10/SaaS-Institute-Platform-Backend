@@ -5,10 +5,11 @@ import { SubjectsService } from './subjects.service';
 import { SubjectRepository } from './subject.repository';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
+import { SubjectQueryDto } from './dto/subject-query.dto';
 
 describe('SubjectsService', () => {
   let service: SubjectsService;
-  let mockSubjectRepo: jest.Mocked<Partial<SubjectRepository>>;
+  let mockSubjectRepo: jest.Mocked<SubjectRepository>;
 
   const currentInstituteId = 10;
 
@@ -32,7 +33,7 @@ describe('SubjectsService', () => {
       findByName: jest.fn(),
       findAllPaginated: jest.fn(),
       countSectionSubjects: jest.fn(),
-    };
+    } as any;
 
     service = new SubjectsService(mockSubjectRepo as SubjectRepository);
   });
@@ -73,7 +74,7 @@ describe('SubjectsService', () => {
       };
       mockSubjectRepo.findAllPaginated!.mockResolvedValue(paginatedResult as any);
 
-      const query = { page: 1, limit: 10, search: 'Math' };
+      const query = Object.assign(new SubjectQueryDto(), { page: 1, limit: 10, search: 'Math' });
       const result = await service.findAll(query);
 
       expect(result).toEqual(paginatedResult);

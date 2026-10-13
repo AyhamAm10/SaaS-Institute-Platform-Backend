@@ -33,7 +33,7 @@ describe('RoomsService', () => {
     };
 
     mockTransactionHelper = {
-      executeInTransaction: jest.fn().mockImplementation((fn) => fn()),
+      executeInTransaction: (jest.fn() as any).mockImplementation((fn: any) => fn()),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -81,7 +81,7 @@ describe('RoomsService', () => {
 
       expect(result).toBeDefined();
       expect(mockRoomRepo.create).toHaveBeenCalled();
-      expect(mockRoomRepo.client.roomAvailability.createMany).toHaveBeenCalled();
+      expect(mockAvailabilityRepo.replaceAvailabilities).toHaveBeenCalled();
     });
   });
 

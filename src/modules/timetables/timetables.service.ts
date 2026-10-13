@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { TeacherAssignment, TeacherAvailability } from '@prisma/client';
 import { TimetableRepository } from './timetable.repository';
 import { TimetableEntryRepository } from './timetable-entry.repository';
 import { TimetableConflictService } from './services/timetable-conflict.service';
@@ -14,7 +15,6 @@ import { RoomAvailabilityRepository } from '../rooms/room-availability.repositor
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
-import { ErrorMessages } from '../../common/errors/error-messages';
 import { GenerateTimetableDto } from './dto/generate-timetable.dto';
 import { SaveTimetableEntryDto } from './dto/save-timetable-entry.dto';
 
@@ -82,9 +82,15 @@ export class TimetablesService {
     const sectionSubjects = await this.sectionSubjectRepository.findSubjectsBySection(sectionId);
 
     // Retrieve teacher assignments & availabilities for assigned teachers
-    const teacherIds = Array.from(new Set(entries.map((e: any) => e.teacherId)));
-    const teacherAvailabilities: any[] = [];
-    const teacherAssignments: any[] = [];
+    const teacherIds: number[] = Array.from(
+      new Set(
+        entries
+          .map((e: { teacherId?: number | null }) => e.teacherId)
+          .filter((id: unknown): id is number => typeof id === 'number'),
+      ),
+    );
+    const teacherAvailabilities: TeacherAvailability[] = [];
+    const teacherAssignments: TeacherAssignment[] = [];
 
     for (const tId of teacherIds) {
       const wins = await this.teacherAvailabilityRepository.findByTeacher(tId);

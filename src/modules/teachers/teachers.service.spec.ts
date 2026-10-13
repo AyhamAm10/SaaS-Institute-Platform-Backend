@@ -68,7 +68,7 @@ describe('TeachersService', () => {
     };
 
     mockTransactionHelper = {
-      executeInTransaction: jest.fn().mockImplementation((fn) => fn()),
+      executeInTransaction: (jest.fn() as any).mockImplementation((fn: any) => fn()),
     };
 
     const module: TestingModule = await Test.createTestingModule({

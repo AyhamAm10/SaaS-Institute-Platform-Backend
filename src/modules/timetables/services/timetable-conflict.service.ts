@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  ConflictSeverity,
   ConflictType,
   TimetableConflict,
 } from '../domain/timetable-conflict.types';
@@ -220,11 +219,9 @@ export class TimetableConflictService {
             (a) => a.dayOfWeek === e.dayOfWeek,
           );
 
-          const isAvailable =
-            teacherWins.length > 0 &&
-            teacherWins.some((w) =>
-              isTimeWithinWindow(e.startTime, e.endTime, w.startTime, w.endTime),
-            );
+          const isAvailable = teacherWins.some((w) =>
+            isTimeWithinWindow(e.startTime, e.endTime, w.startTime, w.endTime),
+          );
 
           if (!isAvailable) {
             conflicts.push({
@@ -258,11 +255,9 @@ export class TimetableConflictService {
             (a) => a.dayOfWeek === e.dayOfWeek,
           );
 
-          const isAvailable =
-            roomWins.length > 0 &&
-            roomWins.some((w) =>
-              isTimeWithinWindow(e.startTime, e.endTime, w.startTime, w.endTime),
-            );
+          const isAvailable = roomWins.some((w) =>
+            isTimeWithinWindow(e.startTime, e.endTime, w.startTime, w.endTime),
+          );
 
           if (!isAvailable) {
             conflicts.push({

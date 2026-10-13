@@ -26,7 +26,7 @@ export abstract class TenantAwareRepository<T> extends BaseRepository<T> {
   }
 
   /** Get the current institute ID from the request context. */
-  protected getInstituteId(): number {
+  getInstituteId(): number {
     return RequestContext.getInstituteId();
   }
 

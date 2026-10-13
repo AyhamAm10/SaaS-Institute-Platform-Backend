@@ -10,32 +10,32 @@ import { UserRole } from '../../common/types/user-role.enum';
 
 describe('InstitutesService', () => {
   let service: InstitutesService;
-  let mockInstituteRepo: Partial<InstituteRepository>;
-  let mockUserSystemRepo: Partial<UserSystemRepository>;
-  let mockAcademicBranchesService: Partial<AcademicBranchesService>;
-  let mockTransactionHelper: Partial<TransactionHelper>;
+  let mockInstituteRepo: any;
+  let mockUserSystemRepo: any;
+  let mockAcademicBranchesService: any;
+  let mockTransactionHelper: any;
 
   beforeEach(() => {
     mockInstituteRepo = {
-      create: jest.fn(),
-      createAdminLink: jest.fn(),
-      findById: jest.fn(),
-      findByIdWithAdmins: jest.fn(),
-      findManyPaginated: jest.fn(),
+      create: jest.fn() as any,
+      createAdminLink: jest.fn() as any,
+      findById: jest.fn() as any,
+      findByIdWithAdmins: jest.fn() as any,
+      findManyPaginated: jest.fn() as any,
     };
 
     mockUserSystemRepo = {
-      findByPhone: jest.fn(),
-      create: jest.fn(),
+      findByPhone: jest.fn() as any,
+      create: jest.fn() as any,
     };
 
     mockAcademicBranchesService = {
-      provisionDefaultBranches: jest.fn().mockResolvedValue([] as any),
+      provisionDefaultBranches: (jest.fn() as any).mockResolvedValue([]),
     };
 
     // Execute callback directly for transactions
     mockTransactionHelper = {
-      executeInTransaction: jest.fn().mockImplementation((cb: () => Promise<unknown>) => cb()),
+      executeInTransaction: (jest.fn() as any).mockImplementation((cb: () => Promise<unknown>) => cb()),
     };
 
     service = new InstitutesService(
@@ -60,7 +60,7 @@ describe('InstitutesService', () => {
 
   describe('createInstitute', () => {
     it('throws ConflictException if admin phone is already registered', async () => {
-      mockUserSystemRepo.findByPhone = jest.fn().mockResolvedValue({
+      mockUserSystemRepo.findByPhone.mockResolvedValue({
         id: 1,
         phone: validDto.adminPhone,
       });
@@ -70,7 +70,7 @@ describe('InstitutesService', () => {
     });
 
     it('atomically creates institute, admin user, and admin link', async () => {
-      mockUserSystemRepo.findByPhone = jest.fn().mockResolvedValue(null);
+      mockUserSystemRepo.findByPhone.mockResolvedValue(null);
 
       const createdInstitute = {
         id: 10,
@@ -95,9 +95,9 @@ describe('InstitutesService', () => {
         updatedAt: new Date(),
       };
 
-      mockInstituteRepo.create = jest.fn().mockResolvedValue(createdInstitute);
-      mockUserSystemRepo.create = jest.fn().mockResolvedValue(createdUser);
-      mockInstituteRepo.createAdminLink = jest.fn().mockResolvedValue({ id: 1, instituteId: 10, userId: 25 });
+      mockInstituteRepo.create.mockResolvedValue(createdInstitute);
+      mockUserSystemRepo.create.mockResolvedValue(createdUser);
+      mockInstituteRepo.createAdminLink.mockResolvedValue({ id: 1, instituteId: 10, userId: 25 });
 
       const result = await service.createInstitute(validDto);
 
@@ -132,14 +132,14 @@ describe('InstitutesService', () => {
   describe('findById', () => {
     it('returns the institute when found', async () => {
       const institute = { id: 10, name: 'Al-Amal' };
-      mockInstituteRepo.findByIdWithAdmins = jest.fn().mockResolvedValue(institute);
+      mockInstituteRepo.findByIdWithAdmins.mockResolvedValue(institute);
 
       const result = await service.findById(10);
       expect(result).toEqual(institute);
     });
 
     it('throws NotFoundException when institute does not exist', async () => {
-      mockInstituteRepo.findByIdWithAdmins = jest.fn().mockResolvedValue(null);
+      mockInstituteRepo.findByIdWithAdmins.mockResolvedValue(null);
 
       await expect(service.findById(999)).rejects.toThrow(NotFoundException);
     });
