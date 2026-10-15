@@ -10,6 +10,7 @@ import { SectionSubjectRepository } from './section-subject.repository';
 import { SubjectRepository } from '../subjects/subject.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { CreateSectionDto } from './dto/create-section.dto';
+import { RequestContext } from '../../context/request-context';
 
 describe('SectionsService', () => {
   let service: SectionsService;
@@ -86,11 +87,14 @@ describe('SectionsService', () => {
     mockAcademicYearRepo = {
       findById: jest.fn(),
       findRawById: jest.fn(),
+      findCurrentYear: jest.fn(),
+      getOrCreateCurrentYear: jest.fn(),
     } as any;
 
     mockBranchRepo = {
       findById: jest.fn(),
       findRawById: jest.fn(),
+      getOrCreateDefaultBranch: jest.fn(),
     } as any;
 
     mockAcademicBranchRepo = {
@@ -215,6 +219,81 @@ describe('SectionsService', () => {
 
       await expect(service.create(validDto)).rejects.toThrow(HttpException);
       expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('uses default branch when branchId is omitted in create', async () => {
+      mockBranchRepo.getOrCreateDefaultBranch!.mockResolvedValue(sampleBranch as any);
+      mockAcademicYearRepo.findById!.mockResolvedValue(sampleYear as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
+      mockSectionRepo.create!.mockResolvedValue(sampleSection);
+
+      const { branchId, ...dtoWithoutBranch } = validDto;
+      const result = await service.create(dtoWithoutBranch as any);
+
+      expect(mockBranchRepo.getOrCreateDefaultBranch).toHaveBeenCalled();
+      expect(mockSectionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: sampleBranch.id }),
+      );
+      expect(result).toEqual(sampleSection);
+    });
+
+    it('uses current active academic year when academicYearId is omitted in create', async () => {
+      mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
+      (mockAcademicYearRepo as any).getOrCreateCurrentYear.mockResolvedValue(sampleYear as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
+      mockSectionRepo.create!.mockResolvedValue(sampleSection);
+
+      const { academicYearId, ...dtoWithoutYear } = validDto;
+      const result = await service.create(dtoWithoutYear as any);
+
+      expect((mockAcademicYearRepo as any).getOrCreateCurrentYear).toHaveBeenCalled();
+      expect(mockSectionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ academicYearId: sampleYear.id }),
+      );
+      expect(result).toEqual(sampleSection);
+    });
+
+    it('resolves branch and academic year from RequestContext headers when omitted in DTO', async () => {
+      const headerBranch = { ...sampleBranch, id: 88 };
+      const headerYear = { ...sampleYear, id: 99 };
+      mockBranchRepo.findById!.mockResolvedValue(headerBranch as any);
+      mockAcademicYearRepo.findById!.mockResolvedValue(headerYear as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
+      mockSectionRepo.create!.mockResolvedValue({
+        ...sampleSection,
+        branchId: 88,
+        academicYearId: 99,
+      });
+
+      const dtoWithoutBoth = {
+        name: validDto.name,
+        academicBranchId: validDto.academicBranchId,
+        feeAmount: validDto.feeAmount,
+      };
+
+      await RequestContext.run(
+        {
+          userId: 1,
+          instituteId: currentInstituteId,
+          role: 'ADMIN',
+          language: 'ar',
+          branchId: 88,
+          academicYearId: 99,
+        },
+        async () => {
+          const result = await service.create(dtoWithoutBoth as any);
+          expect(mockBranchRepo.findById).toHaveBeenCalledWith(88);
+          expect(mockAcademicYearRepo.findById).toHaveBeenCalledWith(99);
+          expect(mockSectionRepo.create).toHaveBeenCalledWith(
+            expect.objectContaining({ branchId: 88, academicYearId: 99 }),
+          );
+          expect(result.branchId).toBe(88);
+          expect(result.academicYearId).toBe(99);
+        },
+      );
     });
 
     it('throws NotFoundException when the academic branch does not exist in the system', async () => {

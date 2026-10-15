@@ -171,12 +171,14 @@ export class AcademicYearsService {
   }
 
   /**
-   * Retrieve all sections belonging to a specific academic year.
+   * Retrieve all sections belonging to a specific academic year, optionally scoped to a branch.
    */
-  async findSections(id: number): Promise<unknown[]> {
+  async findSections(id: number, branchId?: number): Promise<unknown[]> {
     const year = await this.academicYearRepository.findById(id);
     Ensure.exists(year, 'Academic year');
-    return this.academicYearRepository.findSections(id);
+    return branchId !== undefined
+      ? this.academicYearRepository.findSections(id, branchId)
+      : this.academicYearRepository.findSections(id);
   }
 }
 

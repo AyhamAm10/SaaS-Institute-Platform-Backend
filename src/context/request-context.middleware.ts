@@ -17,6 +17,10 @@ export class RequestContextMiddleware implements NestMiddleware {
   use(req: Request, _res: Response, next: NextFunction): void {
     const language = this.extractLanguage(req);
     const clientType = this.extractClientType(req);
+    const branchId = this.extractNumericHeader(req, 'x-branch-id');
+    const academicYearId =
+      this.extractNumericHeader(req, 'x-academic-year-id') ??
+      this.extractNumericHeader(req, 'x-year-id');
 
     const context: RequestContextData = {
       userId: 0,
@@ -24,9 +28,20 @@ export class RequestContextMiddleware implements NestMiddleware {
       role: '',
       language,
       clientType,
+      branchId,
+      academicYearId,
     };
 
     RequestContext.run(context, () => next());
+  }
+
+  private extractNumericHeader(req: Request, headerName: string): number | undefined {
+    const raw = req.headers[headerName];
+    if (!raw) return undefined;
+    const value = (Array.isArray(raw) ? raw[0] : raw)?.trim();
+    if (!value) return undefined;
+    const num = Number(value);
+    return !isNaN(num) && num > 0 ? num : undefined;
   }
 
   private extractClientType(req: Request): ClientType | undefined {

@@ -1,18 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Section } from '@prisma/client';
-import { TenantAwareRepository } from '../../database/tenant-aware.repository';
+import { ContextScopedRepository } from '../../database/context-scoped.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { SectionQueryDto } from './dto/section-query.dto';
 import { PaginatedResult } from '../../common/pagination/paginated-result';
 
 /**
- * Tenant-scoped repository for Section entities.
+ * Context-scoped repository for Section entities.
  *
- * All operations are automatically scoped to the current institute
- * through TenantAwareRepository.
+ * Scoped automatically to current institute, and optionally to active academicYearId
+ * and branchId from RequestContext.
  */
 @Injectable()
-export class SectionRepository extends TenantAwareRepository<Section> {
+export class SectionRepository extends ContextScopedRepository<Section> {
+  protected override readonly yearKey = 'academicYearId';
+  protected override readonly branchKey = 'branchId';
+
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'section');
   }
@@ -48,10 +51,7 @@ export class SectionRepository extends TenantAwareRepository<Section> {
   async findByIdWithDetails(id: number): Promise<Record<string, unknown> | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.client as any).section.findFirst({
-      where: {
-        id,
-        instituteId: this.getInstituteId(),
-      },
+      where: this.scopeWhere({ id }),
       include: {
         branch: {
           select: {

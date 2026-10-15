@@ -22,5 +22,23 @@ export class BranchRepository extends TenantAwareRepository<Branch> {
   async findRawById(id: number): Promise<Branch | null> {
     return this.delegate.findUnique({ where: { id } }) as Promise<Branch | null>;
   }
+
+  /**
+   * Get the primary/default branch for the current tenant.
+   * If none exists, creates the default 'الفرع الرئيسي' branch for this institute.
+   */
+  async getOrCreateDefaultBranch(): Promise<Branch> {
+    const existing = await this.findOne({ isActive: true });
+    if (existing) {
+      return existing;
+    }
+    return this.create({
+      name: 'الفرع الرئيسي',
+      code: 'MAIN',
+      phone: '',
+      address: '',
+      isActive: true,
+    });
+  }
 }
 

@@ -1,18 +1,24 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, Room } from '@prisma/client';
-import { TenantAwareRepository } from '../../database/tenant-aware.repository';
+import { ContextScopedRepository } from '../../database/context-scoped.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { RoomQueryDto } from './dto/room-query.dto';
 import { PaginatedResult } from '../../common/pagination/paginated-result';
 
 @Injectable()
-export class RoomRepository extends TenantAwareRepository<Room> {
+export class RoomRepository extends ContextScopedRepository<Room> {
+  protected override readonly branchKey = 'branchId';
+
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'room');
   }
 
-  async findByName(name: string): Promise<Room | null> {
-    return this.findOne({ name });
+  async findByName(name: string, branchId?: number): Promise<Room | null> {
+    const where: Record<string, unknown> = { name };
+    if (branchId !== undefined) {
+      where['branchId'] = branchId;
+    }
+    return this.findOne(where);
   }
 
   async findRawById(id: number): Promise<Room | null> {
@@ -29,10 +35,10 @@ export class RoomRepository extends TenantAwareRepository<Room> {
   }
 
   async findByIdWithDetails(id: number) {
-    const instituteId = this.getInstituteId();
     return (this.client as any).room.findFirst({
-      where: { id, instituteId },
+      where: this.scopeWhere({ id }),
       include: {
+        branch: { select: { id: true, name: true, code: true } },
         availabilities: {
           orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
         },
@@ -50,6 +56,10 @@ export class RoomRepository extends TenantAwareRepository<Room> {
     const where: Prisma.RoomWhereInput = {
       instituteId,
     };
+
+    if (query.branchId !== undefined) {
+      where.branchId = query.branchId;
+    }
 
     if (query.isActive !== undefined) {
       where.isActive = query.isActive;
@@ -70,6 +80,7 @@ export class RoomRepository extends TenantAwareRepository<Room> {
     return this.findManyPaginated(query, {
       where,
       include: {
+        branch: { select: { id: true, name: true, code: true } },
         availabilities: {
           orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
         },

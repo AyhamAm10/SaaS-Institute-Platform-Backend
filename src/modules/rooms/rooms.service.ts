@@ -8,6 +8,8 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { RoomQueryDto } from './dto/room-query.dto';
 import { RoomAvailabilityItemDto } from './dto/room-availability.dto';
+import { BranchRepository } from '../branches/branch.repository';
+import { RequestContext } from '../../context/request-context';
 
 function parseTimeToMinutes(timeStr: string): number {
   const [hours, minutes] = timeStr.split(':').map(Number);
@@ -19,6 +21,8 @@ export class RoomsService {
   constructor(
     @Inject(RoomRepository)
     private readonly roomRepository: RoomRepository,
+    @Inject(BranchRepository)
+    private readonly branchRepository: BranchRepository,
     @Inject(RoomAvailabilityRepository)
     private readonly availabilityRepository: RoomAvailabilityRepository,
     @Inject(TransactionHelper)
@@ -75,7 +79,23 @@ export class RoomsService {
     const trimmedName = dto.name.trim();
     Ensure.required(trimmedName, 'name');
 
-    const existing = await this.roomRepository.findByName(trimmedName);
+    // Resolve & Validate Branch (priority: DTO > RequestContext header > Default Branch)
+    const targetBranchId = dto.branchId ?? RequestContext.getBranchId();
+    let branchId: number;
+    if (targetBranchId) {
+      const branch = await this.branchRepository.findById(targetBranchId);
+      if (!branch) {
+        const rawBranch = await this.branchRepository.findRawById(targetBranchId);
+        Ensure.custom(rawBranch !== null, ErrorMessages.get('branch_mismatch'), 400);
+        Ensure.exists(null, 'Branch');
+      }
+      branchId = targetBranchId;
+    } else {
+      const defaultBranch = await this.branchRepository.getOrCreateDefaultBranch();
+      branchId = defaultBranch.id;
+    }
+
+    const existing = await this.roomRepository.findByName(trimmedName, branchId);
     Ensure.custom(
       Boolean(existing),
       ErrorMessages.get('room_name_duplicate'),
@@ -89,6 +109,7 @@ export class RoomsService {
     return this.transactionHelper.executeInTransaction(async () => {
       const room = await this.roomRepository.create({
         name: trimmedName,
+        branchId,
         code: dto.code?.trim() || null,
         capacity: dto.capacity || 30,
         type: dto.type?.trim() || 'CLASSROOM',
@@ -107,11 +128,28 @@ export class RoomsService {
     const room = await this.roomRepository.findById(id);
     Ensure.exists(room, 'Room');
 
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && room.branchId !== contextBranchId),
+      ErrorMessages.get('room_branch_mismatch'),
+      400,
+    );
+
+    const targetBranchId = dto.branchId ?? room.branchId;
+    if (dto.branchId !== undefined && dto.branchId !== room.branchId) {
+      const branch = await this.branchRepository.findById(dto.branchId);
+      if (!branch) {
+        const rawBranch = await this.branchRepository.findRawById(dto.branchId);
+        Ensure.custom(rawBranch !== null, ErrorMessages.get('branch_mismatch'), 400);
+        Ensure.exists(null, 'Branch');
+      }
+    }
+
     if (dto.name !== undefined) {
       const trimmedName = dto.name.trim();
       Ensure.required(trimmedName, 'name');
-      if (trimmedName !== room.name) {
-        const duplicate = await this.roomRepository.findByName(trimmedName);
+      if (trimmedName !== room.name || targetBranchId !== room.branchId) {
+        const duplicate = await this.roomRepository.findByName(trimmedName, targetBranchId);
         Ensure.custom(
           Boolean(duplicate && duplicate.id !== id),
           ErrorMessages.get('room_name_duplicate'),
@@ -121,6 +159,7 @@ export class RoomsService {
     }
 
     const updateData: Record<string, unknown> = {};
+    if (dto.branchId !== undefined) updateData['branchId'] = dto.branchId;
     if (dto.name !== undefined) updateData['name'] = dto.name.trim();
     if (dto.code !== undefined) updateData['code'] = dto.code ? dto.code.trim() : null;
     if (dto.capacity !== undefined) updateData['capacity'] = dto.capacity;
@@ -134,12 +173,27 @@ export class RoomsService {
   async toggleActive(id: number, isActive: boolean) {
     const room = await this.roomRepository.findById(id);
     Ensure.exists(room, 'Room');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && room.branchId !== contextBranchId),
+      ErrorMessages.get('room_branch_mismatch'),
+      400,
+    );
+
     return this.roomRepository.update(id, { isActive });
   }
 
   async delete(id: number): Promise<void> {
     const room = await this.roomRepository.findById(id);
     Ensure.exists(room, 'Room');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && room.branchId !== contextBranchId),
+      ErrorMessages.get('room_branch_mismatch'),
+      400,
+    );
 
     const count = await this.roomRepository.countTimetableEntries(id);
     Ensure.custom(
@@ -165,6 +219,13 @@ export class RoomsService {
     const room = await this.roomRepository.findById(roomId);
     Ensure.exists(room, 'Room');
 
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && room.branchId !== contextBranchId),
+      ErrorMessages.get('room_branch_mismatch'),
+      400,
+    );
+
     this.validateAvailabilityWindows(windows);
 
     return this.availabilityRepository.replaceAvailabilities(roomId, windows);
@@ -173,6 +234,14 @@ export class RoomsService {
   async getAvailability(roomId: number) {
     const room = await this.roomRepository.findById(roomId);
     Ensure.exists(room, 'Room');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && room.branchId !== contextBranchId),
+      ErrorMessages.get('room_branch_mismatch'),
+      400,
+    );
+
     return this.availabilityRepository.findByRoom(roomId);
   }
 }

@@ -65,6 +65,9 @@ const messages: Record<string, Record<string, string>> = {
     timetable_entry_conflict: 'Scheduling conflict detected for this slot',
     timetable_generation_failed: 'Unable to generate valid timetable due to hard constraint conflicts',
     timetable_slot_unavailable: 'Requested time slot is outside available working hours or during a break',
+    section_branch_mismatch: 'Section does not belong to the active branch',
+    room_branch_mismatch: 'Room does not belong to the active branch',
+    teacher_not_assigned_to_branch: 'Teacher is not assigned to this branch',
   },
   ar: {
     not_found: '{resource} غير موجود',
@@ -118,6 +121,9 @@ const messages: Record<string, Record<string, string>> = {
     timetable_entry_conflict: 'تم اكتشاف تعارض في الحصة الدراسية المحددة',
     timetable_generation_failed: 'تعذر توليد جدول صالح بسبب وجود تعارضات غير قابلة للحل في القيود الأساسية',
     timetable_slot_unavailable: 'الحصة المطلوبة تقع خارج ساعات الدوام أو خلال فترة استراحة',
+    section_branch_mismatch: 'الشعبة لا تتبع للفرع الحالي',
+    room_branch_mismatch: 'القاعة لا تتبع للفرع الحالي',
+    teacher_not_assigned_to_branch: 'المعلم غير مسجل في هذا الفرع',
   },
 };
 

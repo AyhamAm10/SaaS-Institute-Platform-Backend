@@ -5,9 +5,12 @@ import { RoomRepository } from './room.repository';
 import { RoomAvailabilityRepository } from './room-availability.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 
+import { BranchRepository } from '../branches/branch.repository';
+
 describe('RoomsService', () => {
   let service: RoomsService;
   let mockRoomRepo: any;
+  let mockBranchRepo: any;
   let mockAvailabilityRepo: any;
   let mockTransactionHelper: any;
 
@@ -27,6 +30,12 @@ describe('RoomsService', () => {
       },
     };
 
+    mockBranchRepo = {
+      findById: jest.fn().mockResolvedValue({ id: 1 } as any),
+      findRawById: jest.fn().mockResolvedValue(null),
+      getOrCreateDefaultBranch: jest.fn().mockResolvedValue({ id: 1 } as any),
+    };
+
     mockAvailabilityRepo = {
       findByRoom: jest.fn(),
       replaceAvailabilities: jest.fn(),
@@ -40,6 +49,7 @@ describe('RoomsService', () => {
       providers: [
         RoomsService,
         { provide: RoomRepository, useValue: mockRoomRepo },
+        { provide: BranchRepository, useValue: mockBranchRepo },
         { provide: RoomAvailabilityRepository, useValue: mockAvailabilityRepo },
         { provide: TransactionHelper, useValue: mockTransactionHelper },
       ],

@@ -4,6 +4,7 @@ import { TenantAwareRepository } from '../../database/tenant-aware.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationQueryDto } from '../../common/pagination/pagination.dto';
 import { PaginatedResult } from '../../common/pagination/paginated-result';
+import { RequestContext } from '../../context/request-context';
 
 /**
  * Tenant-scoped repository for AcademicYear entities.
@@ -29,6 +30,35 @@ export class AcademicYearRepository extends TenantAwareRepository<AcademicYear> 
    */
   async findCurrentYear(): Promise<AcademicYear | null> {
     return this.findOne({ isCurrent: true });
+  }
+
+  /**
+   * Get the current active academic year for the tenant.
+   * If none is explicitly marked as isCurrent, falls back to the latest academic year.
+   * If no academic years exist for this institute, creates a default current year.
+   */
+  async getOrCreateCurrentYear(): Promise<AcademicYear> {
+    const current = await this.findCurrentYear();
+    if (current) {
+      return current;
+    }
+
+    const latestYears = await this.findMany({
+      orderBy: { endDate: 'desc' },
+      take: 1,
+    });
+    if (latestYears.length > 0) {
+      return latestYears[0];
+    }
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    return this.create({
+      name: `${currentYear} - ${currentYear + 1}`,
+      startDate: new Date(currentYear, 8, 1),
+      endDate: new Date(currentYear + 1, 5, 30),
+      isCurrent: true,
+    });
   }
 
   /**
@@ -104,15 +134,22 @@ export class AcademicYearRepository extends TenantAwareRepository<AcademicYear> 
   }
 
   /**
-   * Find all sections belonging to a specific academic year within the current tenant.
+   * Find all sections belonging to a specific academic year within the current tenant,
+   * scoped to the branch if specified via argument or RequestContext header.
    */
-  async findSections(academicYearId: number): Promise<unknown[]> {
+  async findSections(academicYearId: number, branchId?: number): Promise<unknown[]> {
+    const effectiveBranchId = branchId ?? RequestContext.getBranchId();
+    const where: Record<string, unknown> = {
+      academicYearId,
+      instituteId: this.getInstituteId(),
+    };
+    if (effectiveBranchId !== undefined) {
+      where['branchId'] = effectiveBranchId;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.client as any).section.findMany({
-      where: {
-        academicYearId,
-        instituteId: this.getInstituteId(),
-      },
+      where,
       include: {
         branch: { select: { id: true, name: true, code: true } },
         _count: {

@@ -16,6 +16,7 @@ import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { TeacherQueryDto } from './dto/teacher-query.dto';
 import { TeacherQualificationDto } from './dto/teacher-assignment.dto';
 import { TeacherAvailabilityItemDto } from './dto/teacher-availability.dto';
+import { RequestContext } from '../../context/request-context';
 
 function parseTimeToMinutes(timeStr: string): number {
   const [hours, minutes] = timeStr.split(':').map(Number);
@@ -139,19 +140,28 @@ export class TeachersService {
         },
       });
 
-      // 5. Connect institute branches if provided
-      if (dto.branchIds && dto.branchIds.length > 0) {
-        for (const branchId of dto.branchIds) {
-          const branch = await this.branchRepository.findById(branchId);
-          if (branch) {
-            await client.branchTeacher.create({
-              data: {
-                instituteId,
-                branchId,
-                teacherId: teacher.id,
-              },
-            });
-          }
+      // 5. Connect institute branches (priority: DTO branchIds > RequestContext header > Default branch)
+      const branchIdsToAssign = [...(dto.branchIds ?? [])];
+      if (branchIdsToAssign.length === 0) {
+        const contextBranchId = RequestContext.getBranchId();
+        if (contextBranchId) {
+          branchIdsToAssign.push(contextBranchId);
+        } else {
+          const defaultBranch = await this.branchRepository.getOrCreateDefaultBranch();
+          branchIdsToAssign.push(defaultBranch.id);
+        }
+      }
+
+      for (const branchId of branchIdsToAssign) {
+        const branch = await this.branchRepository.findById(branchId);
+        if (branch) {
+          await client.branchTeacher.create({
+            data: {
+              instituteId,
+              branchId,
+              teacherId: teacher.id,
+            },
+          });
         }
       }
 
@@ -196,6 +206,7 @@ export class TeachersService {
   async update(id: number, dto: UpdateTeacherDto) {
     const teacher = await this.teacherRepository.findById(id);
     Ensure.exists(teacher, 'Teacher');
+    await this.ensureTeacherAssignedToContextBranch(id);
 
     const client = (this.teacherRepository as any).client;
     const user = await client.user.findUnique({ where: { id: teacher.userId } });
@@ -268,6 +279,7 @@ export class TeachersService {
   async toggleActive(id: number, isActive: boolean) {
     const teacher = await this.teacherRepository.findById(id);
     Ensure.exists(teacher, 'Teacher');
+    await this.ensureTeacherAssignedToContextBranch(id);
     return this.teacherRepository.update(id, { isActive });
   }
 
@@ -293,6 +305,7 @@ export class TeachersService {
   async assignQualification(teacherId: number, dto: TeacherQualificationDto) {
     const teacher = await this.teacherRepository.findById(teacherId);
     Ensure.exists(teacher, 'Teacher');
+    await this.ensureTeacherAssignedToContextBranch(teacherId);
 
     const academicBranch = await this.academicBranchRepository.findById(dto.academicBranchId);
     if (!academicBranch) {
@@ -332,6 +345,7 @@ export class TeachersService {
   async removeQualification(teacherId: number, assignmentId: number) {
     const teacher = await this.teacherRepository.findById(teacherId);
     Ensure.exists(teacher, 'Teacher');
+    await this.ensureTeacherAssignedToContextBranch(teacherId);
 
     await this.assignmentRepository.deleteAssignment(assignmentId);
     return { success: true };
@@ -343,6 +357,7 @@ export class TeachersService {
   async setAvailability(teacherId: number, windows: TeacherAvailabilityItemDto[]) {
     const teacher = await this.teacherRepository.findById(teacherId);
     Ensure.exists(teacher, 'Teacher');
+    await this.ensureTeacherAssignedToContextBranch(teacherId);
 
     this.validateAvailabilityWindows(windows);
 
@@ -355,6 +370,25 @@ export class TeachersService {
   async getAvailability(teacherId: number) {
     const teacher = await this.teacherRepository.findById(teacherId);
     Ensure.exists(teacher, 'Teacher');
+    await this.ensureTeacherAssignedToContextBranch(teacherId);
     return this.availabilityRepository.findByTeacher(teacherId);
+  }
+
+  /**
+   * Helper to ensure the teacher is associated with the active context branch.
+   */
+  private async ensureTeacherAssignedToContextBranch(teacherId: number): Promise<void> {
+    const contextBranchId = RequestContext.getBranchId();
+    if (contextBranchId) {
+      const client = (this.teacherRepository as any).client;
+      const count = await client.branchTeacher.count({
+        where: {
+          instituteId: this.teacherRepository.getInstituteId(),
+          teacherId,
+          branchId: contextBranchId,
+        },
+      });
+      Ensure.custom(count === 0, ErrorMessages.get('teacher_not_assigned_to_branch'), 400);
+    }
   }
 }

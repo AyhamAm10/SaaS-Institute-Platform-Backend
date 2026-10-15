@@ -104,6 +104,7 @@ model Branch {
   institute      Institute       @relation(fields: [instituteId], references: [id])
   branchTeachers BranchTeacher[]
   sections       Section[]
+  rooms          Room[]
 
   @@unique([instituteId, code])
   @@unique([instituteId, id])
@@ -418,6 +419,7 @@ model SectionTeacher {
 model Room {
   id          Int      @id @default(autoincrement())
   instituteId Int      @map("institute_id")
+  branchId    Int      @map("branch_id")
   name        String
   code        String?
   capacity    Int      @default(30)
@@ -427,11 +429,12 @@ model Room {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   institute        Institute          @relation(fields: [instituteId], references: [id])
+  branch           Branch             @relation(fields: [branchId], references: [id])
   availabilities   RoomAvailability[]
   timetableEntries TimetableEntry[]
 
   @@unique([instituteId, id])
-  @@unique([instituteId, name])
+  @@unique([instituteId, branchId, name])
   @@map("rooms")
 }
 

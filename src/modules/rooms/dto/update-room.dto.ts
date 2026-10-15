@@ -27,4 +27,9 @@ export class UpdateRoomDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  branchId?: number;
 }

@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, Teacher } from '@prisma/client';
-import { TenantAwareRepository } from '../../database/tenant-aware.repository';
+import { ContextScopedRepository } from '../../database/context-scoped.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { TeacherQueryDto } from './dto/teacher-query.dto';
 import { PaginatedResult } from '../../common/pagination/paginated-result';
 
 @Injectable()
-export class TeacherRepository extends TenantAwareRepository<Teacher> {
+export class TeacherRepository extends ContextScopedRepository<Teacher> {
+  protected override readonly branchKey = 'branchTeachers.some.branchId';
+
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'teacher');
   }
@@ -31,9 +33,8 @@ export class TeacherRepository extends TenantAwareRepository<Teacher> {
    * Find teacher by ID with full details (user, branches, qualifications, availabilities).
    */
   async findByIdWithDetails(id: number) {
-    const instituteId = this.getInstituteId();
     return (this.client as any).teacher.findFirst({
-      where: { id, instituteId },
+      where: this.scopeWhere({ id }),
       include: {
         user: {
           select: {

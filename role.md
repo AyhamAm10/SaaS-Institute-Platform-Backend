@@ -38,7 +38,7 @@ graph TD
     Guard --> Ctrl[Controller Layer]
     Ctrl --> Svc[Service Layer]
     Svc --> Tx[TransactionHelper]
-    Svc --> Repo[TenantAwareRepository / SystemRepository]
+    Svc --> Repo[ContextScopedRepository / TenantAwareRepository / SystemRepository]
     Tx -.-> Repo
     Repo --> PS[PrismaService]
     PS --> DB[(PostgreSQL)]
@@ -92,7 +92,8 @@ Services are the sole orchestrators of business logic and domain invariants.
 Repositories own all data persistence and retrieval logic.
 
 #### Repositories MUST:
-* Extend `TenantAwareRepository<T>` for all tenant-scoped database models (`instituteId`).
+* Extend `ContextScopedRepository<T>` for all entities scoped to operational dimensions (`branchId` and/or `academicYearId`), configuring `branchKey` and/or `yearKey`.
+* Extend `TenantAwareRepository<T>` for all general institute-wide database models (`instituteId`).
 * Extend `SystemRepository<T>` ONLY WHEN explicit cross-tenant access is required by system architecture (e.g., authentication lookup, super-admin maintenance).
 * Encapsulate complex Prisma query filters, nested includes, and aggregations.
 * Automatically leverage `this.client` to support seamless inclusion inside interactive Prisma transactions.
@@ -101,8 +102,8 @@ Repositories own all data persistence and retrieval logic.
 #### Repositories MUST NOT:
 * Contain business rule validation (business validation belongs in Services).
 * Depend on Controllers, HTTP Request/Response objects, or presentation DTOs.
-* Accept manual `instituteId` arguments when extending `TenantAwareRepository` (it is resolved from context).
-* Bypass tenant isolation filters.
+* Accept manual `instituteId` arguments when extending `TenantAwareRepository` or `ContextScopedRepository` (resolved from context).
+* Bypass tenant or operational context isolation filters.
 
 ---
 
@@ -111,60 +112,109 @@ Repositories own all data persistence and retrieval logic.
 Request context isolation is implemented in `src/context/request-context.ts` using Node.js `AsyncLocalStorage`.
 
 ```text
-Incoming Request
+Incoming Request (HTTP Headers: Authorization, Accept-Language, X-Client-Type, X-Branch-Id, X-Academic-Year-Id)
        ↓
-RequestContextMiddleware (sets userId: 0, instituteId: 0, role: '', language: Accept-Language)
+RequestContextMiddleware
+  - Initializes context: { userId: 0, instituteId: 0, role: '', language, clientType, branchId, academicYearId }
+  - Parses Accept-Language header (default: 'en')
+  - Parses X-Client-Type ('web' | 'mobile')
+  - Parses X-Branch-Id (positive integer)
+  - Parses X-Academic-Year-Id or X-Year-Id (positive integer)
        ↓
-JwtAuthGuard (extracts token payload → enriches userId, instituteId, role in RequestContext)
+JwtAuthGuard (validates access token → enriches userId, instituteId, role in RequestContext)
        ↓
-Application Layers (Repositories & Services read RequestContext synchronously & concurrency-safely)
+Application Layers (Controllers, Services, Repositories read RequestContext synchronously & concurrency-safely)
 ```
 
 ### Context Schema (`RequestContextData`)
 ```ts
+import { ClientType } from '../common/types/client-type.enum';
+
 export interface RequestContextData {
   userId: number;
   instituteId: number;
   role: string;
   language: string;
+  clientType?: ClientType;
+  branchId?: number;
+  academicYearId?: number;
 }
 ```
 
 ### Rules & Constraints:
 1. **Concurrency Safety**: Each asynchronous execution chain has an isolated store. Request data MUST NOT be stored in global variables, static class fields, or singleton service properties.
 2. **Lifecycle Flow**:
-   - `RequestContextMiddleware` wraps the entire downstream execution inside `RequestContext.run(...)` with default values and extracts the `Accept-Language` header (defaulting to `'en'`).
+   - `RequestContextMiddleware` wraps the entire downstream execution inside `RequestContext.run(...)` with initialized headers and default identity tokens.
    - `JwtAuthGuard` mutates the active store in place upon validating the JWT access token, setting `userId`, `instituteId`, and `role`.
-3. **Consumption Rules**:
+3. **Operational Context Headers**:
+   - `x-branch-id`: Injects active geographical branch scope for the request.
+   - `x-academic-year-id` (or fallback `x-year-id`): Injects active academic year scope for the request.
+   - `x-client-type`: Injects client platform (`web` | `mobile`).
+   - `accept-language`: Injects user language preference (`ar` | `en`).
+4. **Consumption Rules**:
    - Repositories MUST call `RequestContext.getInstituteId()` to retrieve the tenant ID.
+   - Repositories extending `ContextScopedRepository` call `RequestContext.getBranchId()` and `RequestContext.getAcademicYearId()` for automatic dimensional filtering.
    - Centralized error formatting MUST call `RequestContext.getLanguage()` to resolve translation strings.
-   - Controllers and services MUST NOT pass Express `req` through internal method signatures merely to deliver user or tenant metadata.
-4. **Failure Behavior**: Calling `RequestContext.getInstituteId()` outside an authenticated request context throws an explicit error: `"Institute context is not available. This request may not be authenticated."`
+   - Controllers and services MUST NOT pass Express `req` through internal method signatures merely to deliver user, branch, or tenant metadata.
+5. **Failure Behavior**: Calling `RequestContext.getInstituteId()` outside an authenticated request context throws an explicit error: `"Institute context is not available. This request may not be authenticated."`
 
 ---
 
-## 3. Multi-Tenancy Architecture
+## 3. Multi-Tenancy & Operational Scoping Architecture
 
-The platform operates as a relational multi-tenant SaaS where **`Institute` is the authoritative tenant boundary**.
+The platform operates as a relational multi-tenant SaaS with a strict **Two-Tier Boundary Model**:
 
 ```text
-                        ┌───────────────────────────────┐
-                        │       Institute (Tenant)      │
-                        └───────────────┬───────────────┘
-               ┌────────────────────────┼────────────────────────┐
-               ▼                        ▼                        ▼
-        ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
-        │   Branch    │          │    User     │          │AcademicYear │
-        └──────┬──────┘          └─────────────┘          └──────┬──────┘
-               │                                                 │
-               └────────────────────────┬────────────────────────┘
-                                        ▼
-                                 ┌─────────────┐
-                                 │   Section   │
-                                 └─────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           TIER 1: HARD SECURITY TENANT BOUNDARY                 │
+│                                  Institute (Tenant)                             │
+└────────────────────────────────────────┬────────────────────────────────────────┘
+                                         │
+        ┌────────────────────────────────┼────────────────────────────────┐
+        ▼                                ▼                                ▼
+┌───────────────┐                ┌───────────────┐                ┌───────────────┐
+│AcademicBranch │                │ AcademicYear  │                │    Branch     │
+│ (Educational) │                │  (Time Cycle) │                │ (Geographic)  │
+└───────┬───────┘                └───────┬───────┘                └───────┬───────┘
+        │                                │                                │
+        └────────────────────────────────┼────────────────────────────────┘
+                                         ▼
+                                  ┌─────────────┐
+                                  │   Section   │
+                                  └──────┬──────┘
+                                         ▼
+                                  ┌─────────────┐
+                                  │  Timetable  │
+                                  └─────────────┘
 ```
 
-### Core Multi-Tenancy Invariants:
+### 3.1 The Two-Tier Isolation Boundary
+1. **Tier 1 — Hard Security Boundary (`Institute`)**:
+   - `Institute` is the authoritative, immutable tenant boundary.
+   - Cross-institute data exposure is a critical security vulnerability.
+   - Deterministically resolved exclusively from verified JWT token payload (`RequestContext.getInstituteId()`). Never derived from client body or route parameters.
+2. **Tier 2 — Operational Dimensions (`Branch` and `AcademicYear`)**:
+   - `Branch`: The physical / geographical facility or campus of the Institute.
+   - `AcademicYear`: The pedagogical annual cycle (e.g., 2026-2027).
+   - Resolved primarily via custom HTTP headers (`X-Branch-Id`, `X-Academic-Year-Id`) into `RequestContext` to enable zero-manual-input scoping.
+
+### 3.2 The Comprehensive Entity Scoping Matrix
+
+| Category | Entity | Scoping Keys | Isolation Invariants & Constraints |
+| :--- | :--- | :--- | :--- |
+| **Institute-Wide** *(Shared across branches & years)* | `Institute` | `id` | Root tenant container. |
+| **Institute-Wide** | `Branch` | `instituteId` | Physical branch definition (`@@unique([instituteId, code])`, `@@unique([instituteId, name])`). |
+| **Institute-Wide** | `AcademicYear` | `instituteId` | Academic cycle definition (`@@unique([instituteId, name])`). Dates cannot overlap. |
+| **Institute-Wide** | `AcademicBranch` | `instituteId` | Educational tracks (علمي، أدبي، تأسيسي). Shared across all branches of the institute. |
+| **Institute-Wide** | `Subject` | `instituteId` | Educational subjects/curriculum (`@@unique([instituteId, code])`). |
+| **Institute-Wide** | `InstituteScheduleConfig` | `instituteId` | Master schedule configuration (working hours, period duration, break intervals). Single record per institute. |
+| **Branch-Scoped** *(Physical & Geographic Isolation)* | `Room` | `instituteId`, `branchId` | Physical classroom or laboratory. MUST belong to a specific branch (`@@unique([instituteId, branchId, name])`). Strictly isolated per branch. |
+| **Branch-Scoped** | `Teacher` | `instituteId`, `branch_teachers` | Teacher profile belongs to Institute, but teaching rights are branch-scoped via `BranchTeacher` junction. |
+| **Branch & Year Scoped** *(Operational Cohort)* | `Section` | `instituteId`, `branchId`, `academicYearId` | Active student cohort. Compound uniqueness: `@@unique([instituteId, branchId, academicYearId, name])`. |
+| **Branch & Year Scoped** | `Timetable` | `instituteId`, `academicYearId`, `section.branchId` | Master weekly schedule for a specific section. Inherits branch from `section.branchId`. |
+| **Branch & Year Scoped** | `TimetableEntry` | `instituteId`, `timetableId`, `roomId`, `teacherId` | Timetable slot. Room MUST match section's branch; Teacher MUST be assigned to section's branch. |
+
+### 3.3 Core Multi-Tenancy Invariants:
 1. **Never Trust Client Tenant Input**: The client request body, query parameters, or route headers MUST NEVER be trusted to determine the authoritative `instituteId`. The `instituteId` MUST always be derived from the verified JWT access token in `RequestContext`.
 2. **Subdivisions are Not Tenants**: `Branch` records are subdivisions of an `Institute`, not independent tenants. All branch-level entities belong to the root `Institute`.
 3. **Single Tenant Membership**: Every user belongs to exactly one `Institute`.
@@ -173,11 +223,11 @@ The platform operates as a relational multi-tenant SaaS where **`Institute` is t
 
 ---
 
-## 4. Repository Tenant Enforcement
+## 4. Repository Scoping & Tenant Enforcement
 
-Tenant isolation is an architectural invariant enforced at the base repository layer, eliminating manual developer query filtering.
+Tenant isolation and operational dimension scoping are enforced uniformly at the repository base layer, eliminating manual query filtering by developers.
 
-### 4.1 Hierarchy: `BaseRepository` vs `TenantAwareRepository` vs `SystemRepository`
+### 4.1 Hierarchy: The Four Repository Tiers
 
 ```text
              ┌────────────────────────────────────┐
@@ -194,7 +244,16 @@ Tenant isolation is an architectural invariant enforced at the base repository l
 │  - Injects instituteId        │   │  - NO tenant scoping          │
 │  - Scopes findById/findMany   │   │  - Auth & system maintenance  │
 │  - Protects update/delete     │   │  - Explicit & auditable       │
-└───────────────────────────────┘   └───────────────────────────────┘
+└───────────────┬───────────────┘   └───────────────────────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│  ContextScopedRepository<T>   │
+│  - Auto-scopes branchKey      │
+│  - Auto-scopes yearKey        │
+│  - Supports dot-notated paths │
+│  - Direct create() injection  │
+└───────────────────────────────┘
 ```
 
 ### 4.2 Implementation Rules:
@@ -205,12 +264,91 @@ Tenant isolation is an architectural invariant enforced at the base repository l
   - `create(data)`: Automatically sets `data.instituteId = this.getInstituteId()`.
   - `update(id, data)` / `delete(id)`: Verifies tenant ownership via `findById(id)` before modifying the record. Throws `NotFoundException` if the record does not belong to the current institute.
   - `findMany`, `count`, `exists`, and `findManyPaginated`: Automatically scoped with `scopeWhere()`.
+* **`ContextScopedRepository<T>`**:
+  - Extends `TenantAwareRepository<T>`.
+  - Configured by declaring protected members in the child repository:
+    - `protected readonly branchKey?: string` (e.g. `'branchId'`, `'section.branchId'`, `'branchTeachers.some.branchId'`).
+    - `protected readonly yearKey?: string` (e.g. `'academicYearId'`, `'section.academicYearId'`).
+  - Supports direct column names AND nested dot notation for relational paths.
+  - Automatically enriches `scopeWhere(where)` with `branchId` (from `RequestContext.getBranchId()`) and `academicYearId` (from `RequestContext.getAcademicYearId()`) if not explicitly specified in the query.
+  - Automatically injects direct non-nested `branchId` and `academicYearId` into `create(data)` if present in context and omitted in payload.
 * **`SystemRepository<T>`**:
   - Used ONLY for legitimate cross-tenant requirements:
     1. User login (locating user by unique phone across the entire system prior to authentication).
     2. Token refresh and account validity verification.
     3. Super-admin platform operations.
-  - MUST NOT be used in feature domain modules where `TenantAwareRepository` applies.
+  - MUST NOT be used in feature domain modules where `TenantAwareRepository` or `ContextScopedRepository` applies.
+
+---
+
+### 4.3 The Cross-Branch Zero-Leakage Policy (قواعد منع تسريب البيانات الصارمة)
+
+Under multi-branch operations, branch isolation is a critical boundary. Cross-branch data leakage (e.g., viewing, scheduling, or editing Branch A resources while Branch B is selected) is strictly forbidden.
+
+#### Rule 1: Point-Lookup Isolation (`findByIdWithDetails`)
+All single-entity fetch methods by ID in context-scoped repositories MUST use scoped filters rather than raw ID lookups:
+```ts
+// CORRECT (Strict Branch & Tenant Scoping):
+async findByIdWithDetails(id: number) {
+  return this.client.section.findFirst({
+    where: this.scopeWhere({ id }), // Enforces instituteId AND active branchId
+    include: { ... },
+  });
+}
+
+// FORBIDDEN (Allows leaking entities from other branches):
+async findByIdWithDetails(id: number) {
+  return this.client.section.findFirst({
+    where: { id, instituteId: this.getInstituteId() }, // Missing branch scope!
+    include: { ... },
+  });
+}
+```
+*Result*: When an ID belonging to Branch A is requested with Branch B active in the header, `this.scopeWhere({ id })` yields no match (`null`), and the service correctly throws a `404 Not Found`.
+
+#### Rule 2: Cross-Branch Mutation Protection (Update / Delete / Toggle)
+Services performing updates, deletions, or status toggles MUST assert that the target entity belongs to the active branch context before proceeding:
+```ts
+const contextBranchId = RequestContext.getBranchId();
+Ensure.custom(
+  Boolean(contextBranchId && existing.branchId !== contextBranchId),
+  ErrorMessages.get('section_branch_mismatch'), // or 'room_branch_mismatch'
+  400,
+);
+```
+*Result*: A user or API client authenticated in Branch B cannot mutate, deactivate, or delete records belonging to Branch A.
+
+#### Rule 3: Timetable & Resource Branch Matching Invariants
+Physical resources and personnel cannot be scheduled across branch boundaries:
+1. **Room Branch Compatibility**:
+   - When generating or manually adding timetable entries, the physical `Room` (`roomId`) MUST belong to the exact same branch as the section:
+   ```ts
+   Ensure.custom(
+     room.branchId !== section.branchId,
+     ErrorMessages.get('room_branch_mismatch'),
+     400,
+   );
+   ```
+   - Automated schedule solvers MUST filter available rooms strictly by `where: { branchId: section.branchId }`.
+2. **Teacher Branch Assignment Compatibility**:
+   - A teacher assigned to a section subject or scheduled in a timetable slot MUST be officially assigned to that branch in the `branch_teachers` table:
+   ```ts
+   const branchTeacherCount = await client.branchTeacher.count({
+     where: {
+       instituteId: this.getInstituteId(),
+       teacherId: dto.teacherId,
+       branchId: section.branchId,
+     },
+   });
+   Ensure.custom(
+     branchTeacherCount === 0,
+     ErrorMessages.get('teacher_not_assigned_to_branch'),
+     400,
+   );
+   ```
+
+#### Rule 4: Prisma Transaction Client Consistency
+Inside transactional workflows, repositories MUST access the transactional client via `this.client` or repository methods (`this.findOne`, `this.findMany`) and NEVER invoke `this.prisma` directly. Bypassing `this.client` breaks atomic ACID rollbacks.
 
 ---
 
@@ -346,7 +484,7 @@ Role authorization is enforced at the controller and route level using the `@Rol
 
 Validation is enforced at the HTTP boundary via NestJS `ValidationPipe`.
 
-### Global Configuration (`src/main.ts`):
+### 9.1 Global Configuration (`src/main.ts`):
 ```ts
 app.useGlobalPipes(
   new ValidationPipe({
@@ -360,10 +498,34 @@ app.useGlobalPipes(
 );
 ```
 
-### DTO Rules:
+### 9.2 DTO General Rules:
 * All controller inputs (`@Body()`, `@Query()`, `@Param()`) MUST have strongly typed DTO classes decorated with `class-validator` and `class-transformer` decorators.
 * DTOs MUST ONLY validate syntax, format, data types, and presence.
 * Domain business rules (e.g., verifying user balance, relationship validity) MUST NOT be embedded in DTO custom validators; they belong in Services.
+* Tenant identity (`instituteId`) MUST NEVER be included in Create/Update DTOs; it is always derived from authenticated JWT context.
+
+### 9.3 Header-First Operational Scoping (Zero-Manual-Input Pattern)
+To ensure smooth frontend and mobile developer experience:
+1. **Optional Operational Fields in DTOs**:
+   - Fields representing operational context dimensions (`branchId` and `academicYearId`) MUST be decorated with `@IsOptional()` in operational DTOs (`CreateSectionDto`, `CreateRoomDto`, query DTOs, etc.).
+   - Frontend and mobile applications automatically inject these dimensions via custom HTTP headers (`X-Branch-Id`, `X-Academic-Year-Id`). Developers/forms are not required to manually send them in every request payload.
+2. **Three-Tier Service Fallback Resolution**:
+   - Services MUST implement hierarchical fallback resolution when binding operational dimensions:
+   ```ts
+   // Target Branch Resolution:
+   const targetBranchId = dto.branchId ?? RequestContext.getBranchId();
+   const branch = targetBranchId
+     ? await this.branchRepository.findById(targetBranchId)
+     : await this.branchRepository.getOrCreateDefaultBranch();
+
+   // Target Academic Year Resolution:
+   const targetYearId = dto.academicYearId ?? RequestContext.getAcademicYearId();
+   const academicYear = targetYearId
+     ? await this.academicYearRepository.findById(targetYearId)
+     : await this.academicYearRepository.getCurrentYear();
+   ```
+3. **Repository Context Injection**:
+   - If an operational field is omitted from a creation DTO, `ContextScopedRepository.create()` automatically injects direct column values from `RequestContext` if present.
 
 ---
 
@@ -542,14 +704,19 @@ Any AI coding assistant or automated agent working on this backend MUST obey the
 
 1. **Read `role.md` First**: Always read and adhere to `role.md` before designing or implementing any code changes.
 2. **Preserve Tenant Isolation**: NEVER bypass `TenantAwareRepository` or omit `instituteId` scoping for tenant-owned models.
-3. **No Direct Prisma in Controllers**: Controllers MUST NOT inject or execute `PrismaService`.
-4. **No Competing Patterns**: NEVER introduce a secondary pattern (e.g., TypeORM, Passport strategies, manual SQL queries, ad-hoc exceptions) when a project pattern already exists (`FilterBuilder`, `Ensure`, `JwtTokenService`, `RequestContext`).
-5. **Single Domain Ownership**: NEVER duplicate business logic across modules.
-6. **No Silent Refactoring**: DO NOT refactor existing working modules or change established API contracts unless specifically instructed in the task.
-7. **Maintain Error Standards**: Use `Ensure` and `ErrorMessages` for domain validations and HTTP errors.
-8. **Keep DTOs and Contracts Strict**: All new endpoints MUST have validated DTOs with `class-validator`.
-9. **Preserve Prisma Type Safety**: Do not cast database entities to `any`.
-10. **Consistency Over Preference**: Always prioritize consistency with the established codebase over external conventions or personal style.
+3. **Enforce Operational Scoping via `ContextScopedRepository`**: For entities scoped to branches or academic years, extend `ContextScopedRepository<T>` and declare `branchKey` and/or `yearKey`.
+4. **Prevent Point-Lookup Data Leakage**: Repository single-entity fetch methods (`findByIdWithDetails`) MUST use `where: this.scopeWhere({ id })` to prevent cross-branch entity leakage.
+5. **Assert Branch Ownership on Mutation**: Domain services handling updates, deletions, or status toggles MUST assert that `contextBranchId && entity.branchId !== contextBranchId` throws `400 Bad Request` (`section_branch_mismatch`, `room_branch_mismatch`).
+6. **Validate Cross-Entity Resource Compatibility**: When linking resources (assigning rooms to timetable slots, assigning teachers to sections), ALWAYS verify that physical rooms belong to the section's branch and teachers are assigned to that branch via `branch_teachers`.
+7. **Keep Operational DTO Fields Optional**: Operational fields (`branchId`, `academicYearId`) in Create/Update/Query DTOs MUST be decorated with `@IsOptional()` to allow HTTP headers (`x-branch-id`, `x-academic-year-id`) to drive operational context cleanly.
+8. **No Direct Prisma in Controllers**: Controllers MUST NOT inject or execute `PrismaService`.
+9. **No Competing Patterns**: NEVER introduce a secondary pattern (e.g., TypeORM, Passport strategies, manual SQL queries, ad-hoc exceptions) when a project pattern already exists (`FilterBuilder`, `Ensure`, `JwtTokenService`, `RequestContext`).
+10. **Single Domain Ownership**: NEVER duplicate business logic across modules.
+11. **No Silent Refactoring**: DO NOT refactor existing working modules or change established API contracts unless specifically instructed in the task.
+12. **Maintain Error Standards**: Use `Ensure` and `ErrorMessages` for domain validations and HTTP errors.
+13. **Keep DTOs and Contracts Strict**: All new endpoints MUST have validated DTOs with `class-validator`.
+14. **Preserve Prisma Type Safety**: Do not cast database entities to `any`.
+15. **Consistency Over Preference**: Always prioritize consistency with the established codebase over external conventions or personal style.
 
 ---
 

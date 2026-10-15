@@ -19,14 +19,13 @@ export class UserRepository extends TenantAwareRepository<User> {
 
   /** Find a user by phone within the current institute. */
   async findByPhone(phone: string): Promise<User | null> {
-    return this.prisma.user.findFirst({
-      where: { phone, instituteId: this.getInstituteId() },
-    });
+    return this.findOne({ phone });
   }
 
   /** Find a user by ID with their institute data, scoped to current tenant. */
   async findByIdWithInstitute(id: number) {
-    return this.prisma.user.findFirst({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (this.client as any).user.findFirst({
       where: { id, instituteId: this.getInstituteId() },
       include: { institute: true },
     });

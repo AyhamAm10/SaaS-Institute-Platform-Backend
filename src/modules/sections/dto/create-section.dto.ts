@@ -23,17 +23,17 @@ export class CreateSectionDto {
   @IsString()
   grade?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @IsPositive()
   @Type(() => Number)
-  branchId: number;
+  branchId?: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @IsPositive()
   @Type(() => Number)
-  academicYearId: number;
+  academicYearId?: number;
 
   @IsNotEmpty()
   @IsNumber({ maxDecimalPlaces: 2 })

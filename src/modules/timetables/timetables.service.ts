@@ -15,6 +15,8 @@ import { RoomAvailabilityRepository } from '../rooms/room-availability.repositor
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
+import { ErrorMessages } from '../../common/errors/error-messages';
+import { RequestContext } from '../../context/request-context';
 import { GenerateTimetableDto } from './dto/generate-timetable.dto';
 import { SaveTimetableEntryDto } from './dto/save-timetable-entry.dto';
 
@@ -54,22 +56,34 @@ export class TimetablesService {
   /**
    * Retrieve timetable with full entries and conflict detection report.
    */
-  async getTimetable(academicYearId: number, sectionId: number) {
-    const section = await this.sectionRepository.findById(sectionId);
+  async getTimetable(academicYearId?: number, sectionId?: number) {
+    const targetYearId =
+      academicYearId ??
+      RequestContext.getAcademicYearId() ??
+      (await this.academicYearRepository.getOrCreateCurrentYear()).id;
+
+    const section = await this.sectionRepository.findById(sectionId || 0);
     Ensure.exists(section, 'Section');
 
-    const year = await this.academicYearRepository.findById(academicYearId);
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+
+    const year = await this.academicYearRepository.findById(targetYearId);
     Ensure.exists(year, 'Academic year');
 
     let timetable = await this.timetableRepository.findBySectionAndYear(
-      sectionId,
-      academicYearId,
+      section.id,
+      targetYearId,
     );
 
     if (!timetable) {
       timetable = await this.timetableRepository.upsertTimetable(
-        academicYearId,
-        sectionId,
+        targetYearId,
+        section.id,
         `جدول ${section.name}`,
       );
     }
@@ -78,8 +92,8 @@ export class TimetablesService {
     const entries = fullTimetable?.entries || [];
 
     // All institute entries for cross-section collision checks
-    const allInstituteEntries = await this.entryRepository.findInstituteEntriesForYear(academicYearId);
-    const sectionSubjects = await this.sectionSubjectRepository.findSubjectsBySection(sectionId);
+    const allInstituteEntries = await this.entryRepository.findInstituteEntriesForYear(targetYearId);
+    const sectionSubjects = await this.sectionSubjectRepository.findSubjectsBySection(section.id);
 
     // Retrieve teacher assignments & availabilities for assigned teachers
     const teacherIds: number[] = Array.from(
@@ -161,7 +175,12 @@ export class TimetablesService {
    * Automatically generate timetable for a section using CSP solver.
    */
   async generateTimetable(dto: GenerateTimetableDto) {
-    const year = await this.academicYearRepository.findById(dto.academicYearId);
+    const targetYearId =
+      dto.academicYearId ??
+      RequestContext.getAcademicYearId() ??
+      (await this.academicYearRepository.getOrCreateCurrentYear()).id;
+
+    const year = await this.academicYearRepository.findById(targetYearId);
     Ensure.exists(year, 'Academic year');
 
     // Single section or multi section
@@ -185,14 +204,21 @@ export class TimetablesService {
       const section = await this.sectionRepository.findById(secId);
       if (!section) continue;
 
+      const contextBranchId = RequestContext.getBranchId();
+      Ensure.custom(
+        Boolean(contextBranchId && section.branchId !== contextBranchId),
+        ErrorMessages.get('section_branch_mismatch'),
+        400,
+      );
+
       let timetable = await this.timetableRepository.findBySectionAndYear(
         secId,
-        dto.academicYearId,
+        targetYearId,
       );
 
       if (!timetable) {
         timetable = await this.timetableRepository.upsertTimetable(
-          dto.academicYearId,
+          targetYearId,
           secId,
           `جدول ${section.name}`,
         );
@@ -208,11 +234,13 @@ export class TimetablesService {
       const teachers = await this.teacherRepository.findMany({});
       const teacherAssignments = await this.teacherAssignmentRepository.findMany({});
       const teacherAvailabilities = await this.teacherAvailabilityRepository.findMany({});
-      const rooms = await this.roomRepository.findMany({});
+      const rooms = await this.roomRepository.findMany({
+        where: { branchId: section.branchId },
+      });
       const roomAvailabilities = await this.roomAvailabilityRepository.findMany({});
 
       // Load all entries in institute for other sections to prevent collisions
-      const allInstituteEntries = await this.entryRepository.findInstituteEntriesForYear(dto.academicYearId);
+      const allInstituteEntries = await this.entryRepository.findInstituteEntriesForYear(targetYearId);
       const otherSectionEntries = allInstituteEntries.filter((e: any) => e.timetable?.sectionId !== secId);
 
       // Run solver
@@ -278,7 +306,7 @@ export class TimetablesService {
         );
       });
 
-      const updated = await this.getTimetable(dto.academicYearId, secId);
+      const updated = await this.getTimetable(targetYearId, secId);
       results.push({
         sectionId: secId,
         sectionName: section.name,
@@ -299,12 +327,42 @@ export class TimetablesService {
     const timetable = await this.timetableRepository.findById(timetableId);
     Ensure.exists(timetable, 'Timetable');
 
+    const section = await this.sectionRepository.findById(timetable.sectionId);
+    Ensure.exists(section, 'Section');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+
     const teacher = await this.teacherRepository.findById(dto.teacherId);
     Ensure.exists(teacher, 'Teacher');
+
+    // Verify teacher is assigned to this section's branch
+    const client = (this.timetableRepository as any).client;
+    const branchTeacherCount = await client.branchTeacher.count({
+      where: {
+        instituteId: this.timetableRepository.getInstituteId(),
+        teacherId: dto.teacherId,
+        branchId: section.branchId,
+      },
+    });
+    Ensure.custom(
+      branchTeacherCount === 0,
+      ErrorMessages.get('teacher_not_assigned_to_branch'),
+      400,
+    );
 
     if (dto.roomId) {
       const room = await this.roomRepository.findById(dto.roomId);
       Ensure.exists(room, 'Room');
+      Ensure.custom(
+        room.branchId !== section.branchId,
+        ErrorMessages.get('room_branch_mismatch'),
+        400,
+      );
     }
 
     if (entryId) {
@@ -325,6 +383,16 @@ export class TimetablesService {
     const timetable = await this.timetableRepository.findById(timetableId);
     Ensure.exists(timetable, 'Timetable');
 
+    const section = await this.sectionRepository.findById(timetable.sectionId);
+    Ensure.exists(section, 'Section');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+
     const entry = await this.entryRepository.findById(entryId);
     Ensure.exists(entry, 'Timetable entry');
 
@@ -339,6 +407,16 @@ export class TimetablesService {
     const timetable = await this.timetableRepository.findById(timetableId);
     Ensure.exists(timetable, 'Timetable');
 
+    const section = await this.sectionRepository.findById(timetable.sectionId);
+    Ensure.exists(section, 'Section');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+
     const entry = await this.entryRepository.findById(entryId);
     Ensure.exists(entry, 'Timetable entry');
 
@@ -352,6 +430,17 @@ export class TimetablesService {
   async getConflicts(timetableId: number) {
     const timetable = await this.timetableRepository.findById(timetableId);
     Ensure.exists(timetable, 'Timetable');
+
+    const section = await this.sectionRepository.findById(timetable.sectionId);
+    Ensure.exists(section, 'Section');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+
     const result = await this.getTimetable(timetable.academicYearId, timetable.sectionId);
     return result.conflicts;
   }

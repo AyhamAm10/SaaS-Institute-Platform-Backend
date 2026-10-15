@@ -76,11 +76,17 @@ export class AcademicYearsController {
   }
 
   /**
-   * List all sections under a specific academic year.
+   * List all sections under a specific academic year (scoped to branch via header or query).
    */
   @Get(':id/sections')
-  async findSections(@Param('id', ParseIntPipe) id: number) {
-    return this.academicYearsService.findSections(id);
+  async findSections(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('branchId') branchId?: string,
+  ) {
+    const parsedBranchId = branchId ? parseInt(branchId, 10) : undefined;
+    return parsedBranchId !== undefined
+      ? this.academicYearsService.findSections(id, parsedBranchId)
+      : this.academicYearsService.findSections(id);
   }
 }
 

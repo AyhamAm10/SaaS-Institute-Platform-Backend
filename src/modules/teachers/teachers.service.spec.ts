@@ -9,6 +9,7 @@ import { AcademicBranchRepository } from '../academic-branches/academic-branch.r
 import { SubjectRepository } from '../subjects/subject.repository';
 import { BranchRepository } from '../branches/branch.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
+import { RequestContext } from '../../context/request-context';
 
 describe('TeachersService', () => {
   let service: TeachersService;
@@ -64,7 +65,8 @@ describe('TeachersService', () => {
     };
 
     mockBranchRepo = {
-      findById: jest.fn(),
+      findById: jest.fn().mockResolvedValue({ id: 5 } as any),
+      getOrCreateDefaultBranch: jest.fn().mockResolvedValue({ id: 5 } as any),
     };
 
     mockTransactionHelper = {
@@ -143,6 +145,42 @@ describe('TeachersService', () => {
       expect(result).toBeDefined();
       expect(mockTeacherRepo.client.user.create).toHaveBeenCalled();
       expect(mockTeacherRepo.client.teacher.create).toHaveBeenCalled();
+      expect(mockBranchRepo.getOrCreateDefaultBranch).toHaveBeenCalled();
+      expect(mockTeacherRepo.client.branchTeacher.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ branchId: 5 }),
+        }),
+      );
+    });
+
+    it('should assign context branchId from RequestContext when dto.branchIds is omitted', async () => {
+      mockUserSystemRepo.findByPhone.mockResolvedValue(null);
+      mockTeacherRepo.client.user.create.mockResolvedValue({ id: 10, fullName: 'Branch Teacher' });
+      mockTeacherRepo.client.teacher.create.mockResolvedValue({ id: 1, userId: 10 });
+      mockTeacherRepo.findByIdWithDetails.mockResolvedValue({ id: 1, userId: 10, user: { fullName: 'Branch Teacher' } });
+      mockBranchRepo.findById.mockResolvedValue({ id: 77 } as any);
+
+      await RequestContext.run(
+        {
+          userId: 1,
+          instituteId: 1,
+          role: 'ADMIN',
+          language: 'ar',
+          branchId: 77,
+        },
+        async () => {
+          await service.create({
+            fullName: 'Branch Teacher',
+            phone: '+966512345679',
+          });
+          expect(mockBranchRepo.findById).toHaveBeenCalledWith(77);
+          expect(mockTeacherRepo.client.branchTeacher.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({ branchId: 77 }),
+            }),
+          );
+        },
+      );
     });
   });
 

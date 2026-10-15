@@ -1,10 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Timetable } from '@prisma/client';
-import { TenantAwareRepository } from '../../database/tenant-aware.repository';
+import { ContextScopedRepository } from '../../database/context-scoped.repository';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
-export class TimetableRepository extends TenantAwareRepository<Timetable> {
+export class TimetableRepository extends ContextScopedRepository<Timetable> {
+  protected override readonly yearKey = 'academicYearId';
+  protected override readonly branchKey = 'section.branchId';
+
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'timetable');
   }
@@ -13,16 +16,14 @@ export class TimetableRepository extends TenantAwareRepository<Timetable> {
     sectionId: number,
     academicYearId: number,
   ): Promise<Timetable | null> {
-    const instituteId = this.getInstituteId();
     return (this.client as any).timetable.findFirst({
-      where: { instituteId, sectionId, academicYearId },
+      where: this.scopeWhere({ sectionId, academicYearId }),
     });
   }
 
   async findWithEntries(id: number) {
-    const instituteId = this.getInstituteId();
     return (this.client as any).timetable.findFirst({
-      where: { id, instituteId },
+      where: this.scopeWhere({ id }),
       include: {
         section: {
           include: {
@@ -76,9 +77,8 @@ export class TimetableRepository extends TenantAwareRepository<Timetable> {
   }
 
   async findAllForYear(academicYearId: number) {
-    const instituteId = this.getInstituteId();
-    return (this.client as any).timetable.findMany({
-      where: { instituteId, academicYearId },
+    return this.findMany({
+      where: { academicYearId },
       include: {
         section: true,
         entries: {

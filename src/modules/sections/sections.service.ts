@@ -1,9 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, Section } from '@prisma/client';
+import { AcademicYear, Branch, Prisma, Section } from '@prisma/client';
 import { SectionRepository } from './section.repository';
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { BranchRepository } from '../branches/branch.repository';
 import { AcademicBranchRepository } from '../academic-branches/academic-branch.repository';
+import { RequestContext } from '../../context/request-context';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
@@ -65,28 +66,42 @@ export class SectionsService {
       400,
     );
 
-    // 2. Validate Branch tenant ownership
-    const branch = await this.branchRepository.findById(dto.branchId);
-    if (!branch) {
-      const rawBranch = await this.branchRepository.findRawById(dto.branchId);
-      Ensure.custom(
-        rawBranch !== null,
-        ErrorMessages.get('branch_mismatch'),
-        400,
-      );
-      Ensure.exists(null, 'Branch');
+    // 2. Resolve & Validate Branch (priority: DTO > RequestContext header > Default Branch)
+    const targetBranchId = dto.branchId ?? RequestContext.getBranchId();
+    let branch: Branch;
+    if (targetBranchId) {
+      const foundBranch = await this.branchRepository.findById(targetBranchId);
+      if (!foundBranch) {
+        const rawBranch = await this.branchRepository.findRawById(targetBranchId);
+        Ensure.custom(
+          rawBranch !== null,
+          ErrorMessages.get('branch_mismatch'),
+          400,
+        );
+        Ensure.exists(null, 'Branch');
+      }
+      branch = foundBranch!;
+    } else {
+      branch = await this.branchRepository.getOrCreateDefaultBranch();
     }
 
-    // 3. Validate Academic Year tenant ownership
-    const academicYear = await this.academicYearRepository.findById(dto.academicYearId);
-    if (!academicYear) {
-      const rawYear = await this.academicYearRepository.findRawById(dto.academicYearId);
-      Ensure.custom(
-        rawYear !== null,
-        ErrorMessages.get('academic_year_mismatch'),
-        400,
-      );
-      Ensure.exists(null, 'Academic year');
+    // 3. Resolve & Validate Academic Year (priority: DTO > RequestContext header > Active Academic Year)
+    const targetYearId = dto.academicYearId ?? RequestContext.getAcademicYearId();
+    let academicYear: AcademicYear;
+    if (targetYearId) {
+      const foundYear = await this.academicYearRepository.findById(targetYearId);
+      if (!foundYear) {
+        const rawYear = await this.academicYearRepository.findRawById(targetYearId);
+        Ensure.custom(
+          rawYear !== null,
+          ErrorMessages.get('academic_year_mismatch'),
+          400,
+        );
+        Ensure.exists(null, 'Academic year');
+      }
+      academicYear = foundYear!;
+    } else {
+      academicYear = await this.academicYearRepository.getOrCreateCurrentYear();
     }
 
     // 4. Validate Academic Branch tenant ownership
@@ -103,8 +118,8 @@ export class SectionsService {
 
     // 5. Validate unique name per (branchId, academicYearId) within the tenant
     const existing = await this.sectionRepository.findByNameAndBranch(
-      dto.branchId,
-      dto.academicYearId,
+      branch.id,
+      academicYear.id,
       dto.name,
     );
     Ensure.custom(
@@ -117,8 +132,8 @@ export class SectionsService {
     return this.sectionRepository.create({
       name: dto.name,
       grade: dto.grade ?? academicBranch!.name,
-      branchId: dto.branchId,
-      academicYearId: dto.academicYearId,
+      branchId: branch.id,
+      academicYearId: academicYear.id,
       academicBranchId: dto.academicBranchId,
       feeAmount: new Prisma.Decimal(dto.feeAmount),
     });
@@ -131,6 +146,13 @@ export class SectionsService {
     // 1. Verify existence and tenant ownership
     const existing = await this.sectionRepository.findById(id);
     Ensure.exists(existing, 'Section');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && existing.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
 
     // 2. Validate fee if provided
     if (dto.feeAmount !== undefined) {
@@ -227,6 +249,13 @@ export class SectionsService {
     const existing = await this.sectionRepository.findById(id);
     Ensure.exists(existing, 'Section');
 
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && existing.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+
     return this.sectionRepository.update(id, {
       feeAmount: new Prisma.Decimal(dto.feeAmount),
     });
@@ -254,6 +283,14 @@ export class SectionsService {
   async findById(id: number): Promise<Section> {
     const section = await this.sectionRepository.findById(id);
     Ensure.exists(section, 'Section');
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+
     return section;
   }
 
@@ -305,6 +342,14 @@ export class SectionsService {
       Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
       Ensure.exists(null, 'Section');
     }
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section!.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+
     return this.sectionSubjectRepository.findSubjectsBySection(sectionId);
   }
 
@@ -312,13 +357,20 @@ export class SectionsService {
    * Assign a subject to a section within the current tenant with optional teacher and weekly periods.
    */
   async assignSubject(sectionId: number, dto: AssignSubjectDto) {
-    // 1. Validate section belongs to current tenant
+    // 1. Validate section belongs to current tenant and context branch
     const section = await this.sectionRepository.findById(sectionId);
     if (!section) {
       const rawSection = await this.sectionRepository.findRawById(sectionId);
       Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
       Ensure.exists(null, 'Section');
     }
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section!.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
 
     // 2. Validate subject belongs to current tenant
     const subject = await this.subjectRepository.findById(dto.subjectId);
@@ -336,6 +388,21 @@ export class SectionsService {
         Ensure.custom(rawTeacher !== null, ErrorMessages.get('teacher_mismatch'), 400);
         Ensure.exists(null, 'Teacher');
       }
+
+      // Validate teacher is assigned to this section's branch
+      const client = (this.sectionRepository as any).client;
+      const branchTeacherCount = await client.branchTeacher.count({
+        where: {
+          instituteId: this.sectionRepository.getInstituteId(),
+          teacherId: dto.teacherId,
+          branchId: section!.branchId,
+        },
+      });
+      Ensure.custom(
+        branchTeacherCount === 0,
+        ErrorMessages.get('teacher_not_assigned_to_branch'),
+        400,
+      );
 
       // Validate teacher is qualified for this academic branch and subject
       const assignment = await this.teacherAssignmentRepository.findByTeacherBranchSubject(
@@ -374,13 +441,20 @@ export class SectionsService {
     subjectId: number,
     dto: UpdateSectionSubjectDto,
   ) {
-    // 1. Validate section belongs to current tenant
+    // 1. Validate section belongs to current tenant and context branch
     const section = await this.sectionRepository.findById(sectionId);
     if (!section) {
       const rawSection = await this.sectionRepository.findRawById(sectionId);
       Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
       Ensure.exists(null, 'Section');
     }
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section!.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
 
     // 2. Validate assignment exists
     const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, subjectId);
@@ -394,6 +468,21 @@ export class SectionsService {
         Ensure.custom(rawTeacher !== null, ErrorMessages.get('teacher_mismatch'), 400);
         Ensure.exists(null, 'Teacher');
       }
+
+      // Validate teacher is assigned to this section's branch
+      const client = (this.sectionRepository as any).client;
+      const branchTeacherCount = await client.branchTeacher.count({
+        where: {
+          instituteId: this.sectionRepository.getInstituteId(),
+          teacherId: dto.teacherId,
+          branchId: section!.branchId,
+        },
+      });
+      Ensure.custom(
+        branchTeacherCount === 0,
+        ErrorMessages.get('teacher_not_assigned_to_branch'),
+        400,
+      );
 
       const assignment = await this.teacherAssignmentRepository.findByTeacherBranchSubject(
         dto.teacherId,
@@ -423,13 +512,20 @@ export class SectionsService {
    * Remove a subject from a section within the current tenant.
    */
   async removeSubject(sectionId: number, subjectId: number) {
-    // 1. Validate section belongs to current tenant
+    // 1. Validate section belongs to current tenant and context branch
     const section = await this.sectionRepository.findById(sectionId);
     if (!section) {
       const rawSection = await this.sectionRepository.findRawById(sectionId);
       Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
       Ensure.exists(null, 'Section');
     }
+
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section!.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
 
     // 2. Validate assignment exists
     const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, subjectId);

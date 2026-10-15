@@ -15,6 +15,8 @@ export interface RequestContextData {
   role: string;
   language: string;
   clientType?: ClientType;
+  branchId?: number;
+  academicYearId?: number;
 }
 
 /**
@@ -77,5 +79,13 @@ export class RequestContext {
 
   static getClientType(): ClientType | undefined {
     return this.get()?.clientType;
+  }
+
+  static getBranchId(): number | undefined {
+    return this.get()?.branchId;
+  }
+
+  static getAcademicYearId(): number | undefined {
+    return this.get()?.academicYearId;
   }
 }

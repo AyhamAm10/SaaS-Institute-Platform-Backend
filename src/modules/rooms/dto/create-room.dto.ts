@@ -29,6 +29,12 @@ export class CreateRoomDto {
   type?: string;
 
   @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  branchId?: number;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => RoomAvailabilityItemDto)
