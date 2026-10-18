@@ -14,6 +14,9 @@ import { InstituteScheduleConfigModule } from './modules/institute-schedule-conf
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { TimetablesModule } from './modules/timetables/timetables.module';
+import { FamiliesModule } from './modules/families/families.module';
+import { StudentFieldsModule } from './modules/student-fields/student-fields.module';
+import { StudentsModule } from './modules/students/students.module';
 
 @Module({
   imports: [
@@ -40,6 +43,9 @@ import { TimetablesModule } from './modules/timetables/timetables.module';
     TeachersModule,
     RoomsModule,
     TimetablesModule,
+    FamiliesModule,
+    StudentFieldsModule,
+    StudentsModule,
   ],
 })
 export class AppModule {}
