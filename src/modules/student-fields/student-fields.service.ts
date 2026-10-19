@@ -17,10 +17,12 @@ export class StudentFieldsService {
   }
 
   async create(dto: CreateStudentFieldDto): Promise<StudentField> {
-    Ensure.required(dto.name?.trim(), 'name');
+    const name =
+      dto.name?.trim() ||
+      `field_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     Ensure.required(dto.label?.trim(), 'label');
 
-    const existing = await this.fieldRepository.findByName(dto.name.trim());
+    const existing = await this.fieldRepository.findByName(name);
     Ensure.alreadyExists(existing, 'StudentField');
 
     if (dto.type === 'SELECT') {
@@ -32,7 +34,7 @@ export class StudentFieldsService {
     }
 
     return this.fieldRepository.create({
-      name: dto.name.trim(),
+      name,
       label: dto.label.trim(),
       type: dto.type,
       options: dto.options || [],

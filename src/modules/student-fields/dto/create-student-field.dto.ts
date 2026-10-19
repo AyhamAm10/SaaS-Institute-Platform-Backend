@@ -14,11 +14,11 @@ export type FieldType = typeof FIELD_TYPES[number];
 
 export class CreateStudentFieldDto {
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @Matches(/^[a-z0-9_]+$/, {
     message: 'Field name must contain only lowercase letters, numbers, and underscores (e.g. blood_type)',
   })
-  name: string;
+  name?: string;
 
   @IsString()
   @IsNotEmpty()
