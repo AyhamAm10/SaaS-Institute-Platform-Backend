@@ -23,17 +23,16 @@ describe('InstituteScheduleConfigService', () => {
       ],
     }).compile();
 
-    service = module.get<InstituteScheduleConfigService>(InstituteScheduleConfigService);
+    service = module.get<InstituteScheduleConfigService>(
+      InstituteScheduleConfigService,
+    );
   });
 
   describe('calculateTimeSlots', () => {
     it('should correctly calculate periods around breaks', () => {
-      const slots = service.calculateTimeSlots(
-        '08:00',
-        '11:00',
-        60,
-        [{ name: 'Break', startTime: '09:00', endTime: '09:30' }],
-      );
+      const slots = service.calculateTimeSlots('08:00', '11:00', 60, [
+        { name: 'Break', startTime: '09:00', endTime: '09:30' },
+      ]);
 
       expect(slots).toHaveLength(3);
       expect(slots[0]).toEqual({
@@ -79,7 +78,9 @@ describe('InstituteScheduleConfigService', () => {
           dayStartTime: '08:00',
           dayEndTime: '14:00',
           periodDurationMinutes: 45,
-          breaks: [{ name: 'Late Break', startTime: '14:30', endTime: '15:00' }],
+          breaks: [
+            { name: 'Late Break', startTime: '14:30', endTime: '15:00' },
+          ],
         }),
       ).rejects.toThrow();
     });

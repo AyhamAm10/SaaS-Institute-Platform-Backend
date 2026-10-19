@@ -9,9 +9,6 @@ import { InstituteScheduleConfigRepository } from './institute-schedule-config.r
     InstituteScheduleConfigService,
     InstituteScheduleConfigRepository,
   ],
-  exports: [
-    InstituteScheduleConfigService,
-    InstituteScheduleConfigRepository,
-  ],
+  exports: [InstituteScheduleConfigService, InstituteScheduleConfigRepository],
 })
 export class InstituteScheduleConfigModule {}

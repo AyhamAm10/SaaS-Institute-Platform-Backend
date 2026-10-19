@@ -38,4 +38,3 @@ export interface WebAuthResponse {
 export interface WebRefreshResponse {
   message: string;
 }
-

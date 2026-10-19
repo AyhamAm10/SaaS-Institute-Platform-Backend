@@ -89,4 +89,3 @@ export class AcademicYearsController {
       : this.academicYearsService.findSections(id);
   }
 }
-

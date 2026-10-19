@@ -69,7 +69,8 @@ export class JwtAuthGuard implements CanActivate {
       };
 
       // Attach user to request
-      (request as Request & { user: AuthenticatedUser }).user = authenticatedUser;
+      (request as Request & { user: AuthenticatedUser }).user =
+        authenticatedUser;
 
       // Update the AsyncLocalStorage context (for repositories and services)
       const ctx = RequestContext.get();
@@ -113,7 +114,9 @@ export class JwtAuthGuard implements CanActivate {
     const cookieHeader = request.headers.cookie;
     if (!cookieHeader) return undefined;
 
-    const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]*)`));
+    const match = cookieHeader.match(
+      new RegExp(`(?:^|;\\s*)${cookieName}=([^;]*)`),
+    );
     return match ? decodeURIComponent(match[1]) : undefined;
   }
 }

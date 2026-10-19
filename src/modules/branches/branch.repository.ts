@@ -20,7 +20,9 @@ export class BranchRepository extends TenantAwareRepository<Branch> {
    * Used strictly for cross-tenant validation checks.
    */
   async findRawById(id: number): Promise<Branch | null> {
-    return this.delegate.findUnique({ where: { id } }) as Promise<Branch | null>;
+    return this.delegate.findUnique({
+      where: { id },
+    }) as Promise<Branch | null>;
   }
 
   /**
@@ -41,4 +43,3 @@ export class BranchRepository extends TenantAwareRepository<Branch> {
     });
   }
 }
-

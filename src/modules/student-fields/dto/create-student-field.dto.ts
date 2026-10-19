@@ -9,14 +9,21 @@ import {
   Matches,
 } from 'class-validator';
 
-export const FIELD_TYPES = ['TEXT', 'NUMBER', 'DATE', 'SELECT', 'BOOLEAN'] as const;
-export type FieldType = typeof FIELD_TYPES[number];
+export const FIELD_TYPES = [
+  'TEXT',
+  'NUMBER',
+  'DATE',
+  'SELECT',
+  'BOOLEAN',
+] as const;
+export type FieldType = (typeof FIELD_TYPES)[number];
 
 export class CreateStudentFieldDto {
   @IsString()
   @IsOptional()
   @Matches(/^[a-z0-9_]+$/, {
-    message: 'Field name must contain only lowercase letters, numbers, and underscores (e.g. blood_type)',
+    message:
+      'Field name must contain only lowercase letters, numbers, and underscores (e.g. blood_type)',
   })
   name?: string;
 

@@ -42,7 +42,8 @@ describe('RolesGuard', () => {
 
   it('allows access if user has one of the required roles', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {
-      if (key === 'roles') return [UserRole.SUPER_ADMIN, UserRole.INSTITUTE_ADMIN];
+      if (key === 'roles')
+        return [UserRole.SUPER_ADMIN, UserRole.INSTITUTE_ADMIN];
       return undefined;
     });
 

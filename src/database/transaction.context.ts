@@ -18,7 +18,9 @@ export class TransactionContext {
   // The stored value is a Prisma transaction client, which has the same
   // model accessor API as PrismaClient but operates within a transaction.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private static readonly storage = new AsyncLocalStorage<Record<string, any>>();
+  private static readonly storage = new AsyncLocalStorage<
+    Record<string, any>
+  >();
 
   /** Run a function within a transaction context. */
   static run<T>(

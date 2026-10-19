@@ -25,9 +25,7 @@ export const ClientTypeHeader = createParamDecorator(
       );
     }
 
-    const value = (
-      Array.isArray(rawHeader) ? rawHeader[0] : rawHeader
-    )
+    const value = (Array.isArray(rawHeader) ? rawHeader[0] : rawHeader)
       ?.trim()
       .toLowerCase();
 

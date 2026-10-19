@@ -8,17 +8,9 @@ import { StudentFieldsModule } from '../student-fields/student-fields.module';
 import { SectionsModule } from '../sections/sections.module';
 
 @Module({
-  imports: [
-    FamiliesModule,
-    StudentFieldsModule,
-    SectionsModule,
-  ],
+  imports: [FamiliesModule, StudentFieldsModule, SectionsModule],
   controllers: [StudentsController],
-  providers: [
-    StudentsService,
-    StudentRepository,
-    StudentEnrollmentRepository,
-  ],
+  providers: [StudentsService, StudentRepository, StudentEnrollmentRepository],
   exports: [StudentsService, StudentRepository, StudentEnrollmentRepository],
 })
 export class StudentsModule {}

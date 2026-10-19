@@ -101,7 +101,9 @@ export class TeacherRepository extends ContextScopedRepository<Teacher> {
     if (query.academicBranchId || query.subjectId) {
       where.assignments = {
         some: {
-          ...(query.academicBranchId ? { academicBranchId: query.academicBranchId } : {}),
+          ...(query.academicBranchId
+            ? { academicBranchId: query.academicBranchId }
+            : {}),
           ...(query.subjectId ? { subjectId: query.subjectId } : {}),
         },
       };

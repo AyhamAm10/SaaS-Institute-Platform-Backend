@@ -37,7 +37,7 @@ export class AuthService {
     private readonly jwtTokenService: JwtTokenService,
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   /**
    * Authenticate a user with phone + password.
@@ -55,7 +55,10 @@ export class AuthService {
     Ensure.exists(user, 'User');
 
     // 2. Verify password
-    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
     Ensure.unauthorized(
       !isPasswordValid,
       ErrorMessages.get('invalid_credentials'),

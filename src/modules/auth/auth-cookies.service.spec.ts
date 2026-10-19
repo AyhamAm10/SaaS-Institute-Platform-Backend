@@ -1,5 +1,9 @@
 import { jest } from '@jest/globals';
-import { AuthCookiesService, ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from './auth-cookies.service';
+import {
+  AuthCookiesService,
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+} from './auth-cookies.service';
 import { ConfigService } from '@nestjs/config';
 import { Response, Request } from 'express';
 

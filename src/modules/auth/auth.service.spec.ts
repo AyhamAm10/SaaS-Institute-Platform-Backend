@@ -47,7 +47,11 @@ describe('AuthService', () => {
       },
     };
 
-    authService = new AuthService(userSystemRepo, jwtTokenService, prismaService);
+    authService = new AuthService(
+      userSystemRepo,
+      jwtTokenService,
+      prismaService,
+    );
   });
 
   describe('login', () => {
@@ -85,7 +89,10 @@ describe('AuthService', () => {
       userSystemRepo.findByPhone.mockResolvedValue(mockUser as any);
 
       await expect(
-        authService.login({ phone: '+966500000001', password: 'WrongPassword' }),
+        authService.login({
+          phone: '+966500000001',
+          password: 'WrongPassword',
+        }),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -101,7 +108,9 @@ describe('AuthService', () => {
       } as never);
       userSystemRepo.findById.mockResolvedValue(mockUser as any);
 
-      const result = await authService.refresh({ refreshToken: 'mock-refresh-token' });
+      const result = await authService.refresh({
+        refreshToken: 'mock-refresh-token',
+      });
 
       expect(result.accessToken).toBe('mock-access-token');
       expect(result.refreshToken).toBe('mock-refresh-token');
@@ -161,7 +170,9 @@ describe('AuthService', () => {
         ...mockUser,
         institute: { id: 10, name: 'Al-Noor Academy' },
       };
-      userSystemRepo.findByIdWithInstitute.mockResolvedValue(userWithInstitute as any);
+      userSystemRepo.findByIdWithInstitute.mockResolvedValue(
+        userWithInstitute as any,
+      );
 
       const profile = await authService.getProfile(1);
       expect(profile.id).toBe(1);

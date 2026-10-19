@@ -19,4 +19,3 @@ export class AssignSubjectDto {
   @IsPositive()
   weeklyPeriods?: number;
 }
-

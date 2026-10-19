@@ -6,9 +6,13 @@ import { AppModule } from '../src/app.module';
 import { GlobalExceptionFilter } from '../src/common/errors/http-exception.filter';
 
 async function testLiveFlow() {
-  console.log('🚀 Bootstrapping NestJS for Live API Verification (Mobile + Web Flows)...\n');
+  console.log(
+    '🚀 Bootstrapping NestJS for Live API Verification (Mobile + Web Flows)...\n',
+  );
 
-  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'] });
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn'],
+  });
   app.use(cookieParser());
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
@@ -32,10 +36,15 @@ async function testLiveFlow() {
     const missingHeaderRes = await fetch(`${baseUrl}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: '+966500000000', password: 'Password123!' }),
+      body: JSON.stringify({
+        phone: '+966500000000',
+        password: 'Password123!',
+      }),
     });
     if (missingHeaderRes.status !== 400) {
-      throw new Error(`Expected 400 for missing X-Client-Type, got ${missingHeaderRes.status}`);
+      throw new Error(
+        `Expected 400 for missing X-Client-Type, got ${missingHeaderRes.status}`,
+      );
     }
     console.log('  ✅ Missing X-Client-Type rejected with 400 Bad Request');
 
@@ -45,12 +54,19 @@ async function testLiveFlow() {
         'Content-Type': 'application/json',
         'X-Client-Type': 'desktop',
       },
-      body: JSON.stringify({ phone: '+966500000000', password: 'Password123!' }),
+      body: JSON.stringify({
+        phone: '+966500000000',
+        password: 'Password123!',
+      }),
     });
     if (invalidHeaderRes.status !== 400) {
-      throw new Error(`Expected 400 for invalid X-Client-Type, got ${invalidHeaderRes.status}`);
+      throw new Error(
+        `Expected 400 for invalid X-Client-Type, got ${invalidHeaderRes.status}`,
+      );
     }
-    console.log('  ✅ Invalid X-Client-Type ("desktop") rejected with 400 Bad Request');
+    console.log(
+      '  ✅ Invalid X-Client-Type ("desktop") rejected with 400 Bad Request',
+    );
 
     // =========================================================================
     // 1. Mobile Flow: Tokens in JSON payload
@@ -70,11 +86,15 @@ async function testLiveFlow() {
 
     const mobileLoginData = await mobileLoginRes.json();
     if (!mobileLoginRes.ok) {
-      throw new Error(`Mobile login failed: ${JSON.stringify(mobileLoginData)}`);
+      throw new Error(
+        `Mobile login failed: ${JSON.stringify(mobileLoginData)}`,
+      );
     }
 
     if (!mobileLoginData.accessToken || !mobileLoginData.refreshToken) {
-      throw new Error('Mobile login response must include accessToken and refreshToken in JSON');
+      throw new Error(
+        'Mobile login response must include accessToken and refreshToken in JSON',
+      );
     }
     console.log('  ✅ Mobile login: tokens received in JSON payload');
     console.log(`  ✅ User role: ${mobileLoginData.user.role}`);
@@ -86,7 +106,9 @@ async function testLiveFlow() {
     const testInstitutePhone = `+9665${randomSuffix}0`;
     const testAdminPhone = `+9665${randomSuffix}1`;
 
-    console.log(`\n  Creating Institute + Admin (${testAdminPhone}) via Mobile Bearer token...`);
+    console.log(
+      `\n  Creating Institute + Admin (${testAdminPhone}) via Mobile Bearer token...`,
+    );
     const createInstituteRes = await fetch(`${baseUrl}/institutes`, {
       method: 'POST',
       headers: {
@@ -109,12 +131,18 @@ async function testLiveFlow() {
 
     const instituteData = await createInstituteRes.json();
     if (!createInstituteRes.ok) {
-      throw new Error(`Institute creation failed: ${JSON.stringify(instituteData)}`);
+      throw new Error(
+        `Institute creation failed: ${JSON.stringify(instituteData)}`,
+      );
     }
-    console.log(`  ✅ Institute created: ID ${instituteData.institute.id}, Name "${instituteData.institute.name}"`);
+    console.log(
+      `  ✅ Institute created: ID ${instituteData.institute.id}, Name "${instituteData.institute.name}"`,
+    );
 
     // Mobile: Test Token Refresh (token in body)
-    console.log('\n  Refreshing token via Mobile flow (refreshToken in body)...');
+    console.log(
+      '\n  Refreshing token via Mobile flow (refreshToken in body)...',
+    );
     const mobileRefreshRes = await fetch(`${baseUrl}/auth/refresh`, {
       method: 'POST',
       headers: {
@@ -127,9 +155,13 @@ async function testLiveFlow() {
     });
     const mobileRefreshData = await mobileRefreshRes.json();
     if (!mobileRefreshRes.ok || !mobileRefreshData.accessToken) {
-      throw new Error(`Mobile refresh failed: ${JSON.stringify(mobileRefreshData)}`);
+      throw new Error(
+        `Mobile refresh failed: ${JSON.stringify(mobileRefreshData)}`,
+      );
     }
-    console.log('  ✅ Mobile refresh succeeded: new accessToken received in JSON');
+    console.log(
+      '  ✅ Mobile refresh succeeded: new accessToken received in JSON',
+    );
 
     // =========================================================================
     // 2. Web Flow: Tokens in HttpOnly Cookies
@@ -154,21 +186,31 @@ async function testLiveFlow() {
 
     // Verify tokens NOT in JSON body
     if (webLoginData.accessToken || webLoginData.refreshToken) {
-      throw new Error('Security violation: Web login returned tokens in JSON body!');
+      throw new Error(
+        'Security violation: Web login returned tokens in JSON body!',
+      );
     }
-    console.log('  ✅ Web login: tokens omitted from JSON body (XSS mitigation)');
+    console.log(
+      '  ✅ Web login: tokens omitted from JSON body (XSS mitigation)',
+    );
 
     // Verify Set-Cookie header contains access_token and refresh_token
-    const rawSetCookies = webLoginRes.headers.getSetCookie?.() ?? [webLoginRes.headers.get('set-cookie') ?? ''];
+    const rawSetCookies = webLoginRes.headers.getSetCookie?.() ?? [
+      webLoginRes.headers.get('set-cookie') ?? '',
+    ];
     const cookiesString = rawSetCookies.join('; ');
     const hasAccessTokenCookie = cookiesString.includes('access_token=');
     const hasRefreshTokenCookie = cookiesString.includes('refresh_token=');
     const hasHttpOnly = cookiesString.toLowerCase().includes('httponly');
 
     if (!hasAccessTokenCookie || !hasRefreshTokenCookie || !hasHttpOnly) {
-      throw new Error(`Web login did not set HttpOnly cookies! Set-Cookie: ${cookiesString}`);
+      throw new Error(
+        `Web login did not set HttpOnly cookies! Set-Cookie: ${cookiesString}`,
+      );
     }
-    console.log('  ✅ Web login: access_token & refresh_token delivered as HttpOnly cookies');
+    console.log(
+      '  ✅ Web login: access_token & refresh_token delivered as HttpOnly cookies',
+    );
 
     // Extract cookie values for subsequent requests
     const accessTokenMatch = cookiesString.match(/access_token=([^;]+)/);
@@ -177,7 +219,9 @@ async function testLiveFlow() {
     const refreshTokenCookie = refreshTokenMatch ? refreshTokenMatch[1] : '';
 
     // Web: Call /auth/me using ONLY Cookie (no Authorization Bearer header!)
-    console.log('\n  Accessing /auth/me using ONLY access_token Cookie (no Bearer header)...');
+    console.log(
+      '\n  Accessing /auth/me using ONLY access_token Cookie (no Bearer header)...',
+    );
     const webMeRes = await fetch(`${baseUrl}/auth/me`, {
       headers: {
         'X-Client-Type': 'web',
@@ -188,10 +232,14 @@ async function testLiveFlow() {
     if (!webMeRes.ok) {
       throw new Error(`Web cookie auth failed: ${JSON.stringify(webMeData)}`);
     }
-    console.log(`  ✅ Profile retrieved via Cookie: Name "${webMeData.fullName}", Role "${webMeData.role}"`);
+    console.log(
+      `  ✅ Profile retrieved via Cookie: Name "${webMeData.fullName}", Role "${webMeData.role}"`,
+    );
 
     // Web: Refresh token using ONLY Cookie (empty body!)
-    console.log('\n  Refreshing token via Web flow using ONLY refresh_token Cookie (empty body)...');
+    console.log(
+      '\n  Refreshing token via Web flow using ONLY refresh_token Cookie (empty body)...',
+    );
     const webRefreshRes = await fetch(`${baseUrl}/auth/refresh`, {
       method: 'POST',
       headers: {
@@ -208,7 +256,9 @@ async function testLiveFlow() {
     if (webRefreshData.accessToken) {
       throw new Error('Web refresh must not expose accessToken in JSON body');
     }
-    console.log('  ✅ Web refresh succeeded: new HttpOnly cookies set, JSON contains message');
+    console.log(
+      '  ✅ Web refresh succeeded: new HttpOnly cookies set, JSON contains message',
+    );
 
     // Web: Logout clears cookies
     console.log('\n  Logging out via Web flow...');
@@ -241,7 +291,9 @@ async function testLiveFlow() {
         adminPassword: 'Password123!',
       }),
     });
-    console.log(`  ✅ Expected 403 Forbidden received: Status ${forbiddenRes.status}`);
+    console.log(
+      `  ✅ Expected 403 Forbidden received: Status ${forbiddenRes.status}`,
+    );
 
     console.log('\n========================================================');
     console.log('🎉 ALL LIVE TESTS PASSED (MOBILE JSON + WEB HTTPONLY)!');

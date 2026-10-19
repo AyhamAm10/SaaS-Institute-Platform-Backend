@@ -31,7 +31,7 @@ export class AuthCookiesService {
     this.secure =
       rawSecure !== undefined
         ? rawSecure === 'true'
-        : (process.env['NODE_ENV'] === 'production');
+        : process.env['NODE_ENV'] === 'production';
 
     const rawSameSite = (
       this.configService?.get<string>('COOKIE_SAME_SITE') ??
@@ -50,7 +50,10 @@ export class AuthCookiesService {
       this.configService?.get<string>('JWT_ACCESS_EXPIRES_IN') ??
       process.env['JWT_ACCESS_EXPIRES_IN'] ??
       '15m';
-    this.accessMaxAgeMs = this.parseDurationToMs(accessExpiryStr, 15 * 60 * 1000);
+    this.accessMaxAgeMs = this.parseDurationToMs(
+      accessExpiryStr,
+      15 * 60 * 1000,
+    );
 
     const refreshExpiryStr =
       this.configService?.get<string>('JWT_REFRESH_EXPIRES_IN') ??
@@ -66,8 +69,16 @@ export class AuthCookiesService {
    * Set both Access Token and Refresh Token as secure HttpOnly cookies.
    */
   setAuthCookies(res: Response, tokens: TokenResponse): void {
-    res.cookie(ACCESS_TOKEN_COOKIE, tokens.accessToken, this.getAccessCookieOptions());
-    res.cookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken, this.getRefreshCookieOptions());
+    res.cookie(
+      ACCESS_TOKEN_COOKIE,
+      tokens.accessToken,
+      this.getAccessCookieOptions(),
+    );
+    res.cookie(
+      REFRESH_TOKEN_COOKIE,
+      tokens.refreshToken,
+      this.getRefreshCookieOptions(),
+    );
   }
 
   /**

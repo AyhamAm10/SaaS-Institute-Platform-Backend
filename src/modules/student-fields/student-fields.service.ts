@@ -53,7 +53,8 @@ export class StudentFieldsService {
     if (dto.label !== undefined) data['label'] = dto.label.trim();
     if (dto.options !== undefined) data['options'] = dto.options;
     if (dto.isRequired !== undefined) data['isRequired'] = dto.isRequired;
-    if (dto.displayInReport !== undefined) data['displayInReport'] = dto.displayInReport;
+    if (dto.displayInReport !== undefined)
+      data['displayInReport'] = dto.displayInReport;
     if (dto.sortOrder !== undefined) data['sortOrder'] = dto.sortOrder;
     if (dto.isActive !== undefined) data['isActive'] = dto.isActive;
 

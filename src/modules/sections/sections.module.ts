@@ -22,4 +22,3 @@ import { TeachersModule } from '../teachers/teachers.module';
   exports: [SectionsService, SectionRepository, SectionSubjectRepository],
 })
 export class SectionsModule {}
-

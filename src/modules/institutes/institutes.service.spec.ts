@@ -35,7 +35,9 @@ describe('InstitutesService', () => {
 
     // Execute callback directly for transactions
     mockTransactionHelper = {
-      executeInTransaction: (jest.fn() as any).mockImplementation((cb: () => Promise<unknown>) => cb()),
+      executeInTransaction: (jest.fn() as any).mockImplementation(
+        (cb: () => Promise<unknown>) => cb(),
+      ),
     };
 
     service = new InstitutesService(
@@ -65,7 +67,9 @@ describe('InstitutesService', () => {
         phone: validDto.adminPhone,
       });
 
-      await expect(service.createInstitute(validDto)).rejects.toThrow(ConflictException);
+      await expect(service.createInstitute(validDto)).rejects.toThrow(
+        ConflictException,
+      );
       expect(mockInstituteRepo.create).not.toHaveBeenCalled();
     });
 
@@ -97,7 +101,11 @@ describe('InstitutesService', () => {
 
       mockInstituteRepo.create.mockResolvedValue(createdInstitute);
       mockUserSystemRepo.create.mockResolvedValue(createdUser);
-      mockInstituteRepo.createAdminLink.mockResolvedValue({ id: 1, instituteId: 10, userId: 25 });
+      mockInstituteRepo.createAdminLink.mockResolvedValue({
+        id: 1,
+        instituteId: 10,
+        userId: 25,
+      });
 
       const result = await service.createInstitute(validDto);
 
@@ -121,11 +129,15 @@ describe('InstitutesService', () => {
       );
 
       expect(mockInstituteRepo.createAdminLink).toHaveBeenCalledWith(10, 25);
-      expect(mockAcademicBranchesService.provisionDefaultBranches).toHaveBeenCalledWith(10);
+      expect(
+        mockAcademicBranchesService.provisionDefaultBranches,
+      ).toHaveBeenCalledWith(10);
       expect(result.institute).toEqual(createdInstitute);
       expect(result.admin.id).toBe(25);
       expect(result.admin.role).toBe(UserRole.INSTITUTE_ADMIN);
-      expect((result.admin as unknown as Record<string, unknown>).passwordHash).toBeUndefined();
+      expect(
+        (result.admin as unknown as Record<string, unknown>).passwordHash,
+      ).toBeUndefined();
     });
   });
 

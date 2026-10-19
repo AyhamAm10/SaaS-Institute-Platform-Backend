@@ -22,7 +22,11 @@ export class TimetableEntryRepository extends TenantAwareRepository<TimetableEnt
         },
         room: true,
       },
-      orderBy: [{ dayOfWeek: 'asc' }, { periodNumber: 'asc' }, { startTime: 'asc' }],
+      orderBy: [
+        { dayOfWeek: 'asc' },
+        { periodNumber: 'asc' },
+        { startTime: 'asc' },
+      ],
     });
   }
 

@@ -101,7 +101,9 @@ export class AcademicYearRepository extends TenantAwareRepository<AcademicYear> 
    * Used strictly for cross-tenant validation checks.
    */
   async findRawById(id: number): Promise<AcademicYear | null> {
-    return this.delegate.findUnique({ where: { id } }) as Promise<AcademicYear | null>;
+    return this.delegate.findUnique({
+      where: { id },
+    }) as Promise<AcademicYear | null>;
   }
 
   /**
@@ -112,7 +114,8 @@ export class AcademicYearRepository extends TenantAwareRepository<AcademicYear> 
   async lockInstituteForUpdate(): Promise<void> {
     const instituteId = this.getInstituteId();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (this.client as any).$executeRaw`SELECT id FROM institutes WHERE id = ${instituteId} FOR UPDATE`;
+    await (this.client as any)
+      .$executeRaw`SELECT id FROM institutes WHERE id = ${instituteId} FOR UPDATE`;
   }
 
   /**
@@ -137,7 +140,10 @@ export class AcademicYearRepository extends TenantAwareRepository<AcademicYear> 
    * Find all sections belonging to a specific academic year within the current tenant,
    * scoped to the branch if specified via argument or RequestContext header.
    */
-  async findSections(academicYearId: number, branchId?: number): Promise<unknown[]> {
+  async findSections(
+    academicYearId: number,
+    branchId?: number,
+  ): Promise<unknown[]> {
     const effectiveBranchId = branchId ?? RequestContext.getBranchId();
     const where: Record<string, unknown> = {
       academicYearId,
@@ -164,4 +170,3 @@ export class AcademicYearRepository extends TenantAwareRepository<AcademicYear> 
     });
   }
 }
-

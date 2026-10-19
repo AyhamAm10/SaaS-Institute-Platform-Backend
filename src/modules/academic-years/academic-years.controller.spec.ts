@@ -23,8 +23,14 @@ describe('AcademicYearsController', () => {
   beforeEach(() => {
     service = {
       create: (jest.fn() as any).mockResolvedValue(mockYear),
-      update: (jest.fn() as any).mockResolvedValue({ ...mockYear, name: '2026-2027 (Updated)' }),
-      setCurrent: (jest.fn() as any).mockResolvedValue({ ...mockYear, isCurrent: true }),
+      update: (jest.fn() as any).mockResolvedValue({
+        ...mockYear,
+        name: '2026-2027 (Updated)',
+      }),
+      setCurrent: (jest.fn() as any).mockResolvedValue({
+        ...mockYear,
+        isCurrent: true,
+      }),
       findAll: (jest.fn() as any).mockResolvedValue({
         data: [mockYear],
         total: 1,
@@ -33,7 +39,9 @@ describe('AcademicYearsController', () => {
         totalPages: 1,
       }),
       findById: (jest.fn() as any).mockResolvedValue(mockYear),
-      findSections: (jest.fn() as any).mockResolvedValue([{ id: 1, name: 'Section A' }]),
+      findSections: (jest.fn() as any).mockResolvedValue([
+        { id: 1, name: 'Section A' },
+      ]),
     } as any;
 
     controller = new AcademicYearsController(service);

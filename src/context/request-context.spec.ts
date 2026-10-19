@@ -4,7 +4,12 @@ describe('RequestContext Concurrency & Isolation', () => {
   it('guarantees complete isolation between concurrent async contexts', async () => {
     const runConcurrentTask = (id: number, delayMs: number) => {
       return RequestContext.run(
-        { userId: id, instituteId: id * 10, role: `ROLE_${id}`, language: 'en' },
+        {
+          userId: id,
+          instituteId: id * 10,
+          role: `ROLE_${id}`,
+          language: 'en',
+        },
         async () => {
           // Verify initial context
           expect(RequestContext.getInstituteId()).toBe(id * 10);

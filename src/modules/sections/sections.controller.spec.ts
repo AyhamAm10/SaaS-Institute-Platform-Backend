@@ -39,9 +39,17 @@ describe('SectionsController', () => {
         academicYear: { id: 2, name: '2026-2027' },
         _count: { studentEnrollments: 10 },
       }),
-      update: (jest.fn() as any).mockResolvedValue({ ...mockSection, name: 'Section 1B' }),
-      updateFee: (jest.fn() as any).mockResolvedValue({ ...mockSection, feeAmount: new Prisma.Decimal(2000) }),
-      validateSectionBelongsToAcademicYear: (jest.fn() as any).mockResolvedValue({ valid: true, section: mockSection }),
+      update: (jest.fn() as any).mockResolvedValue({
+        ...mockSection,
+        name: 'Section 1B',
+      }),
+      updateFee: (jest.fn() as any).mockResolvedValue({
+        ...mockSection,
+        feeAmount: new Prisma.Decimal(2000),
+      }),
+      validateSectionBelongsToAcademicYear: (
+        jest.fn() as any
+      ).mockResolvedValue({ valid: true, section: mockSection }),
     } as any;
 
     controller = new SectionsController(service);
@@ -96,7 +104,10 @@ describe('SectionsController', () => {
 
   it('delegates validateAcademicYear to service', async () => {
     const result = await controller.validateAcademicYear(1, 2);
-    expect(service.validateSectionBelongsToAcademicYear).toHaveBeenCalledWith(1, 2);
+    expect(service.validateSectionBelongsToAcademicYear).toHaveBeenCalledWith(
+      1,
+      2,
+    );
     expect(result.valid).toBe(true);
   });
 });

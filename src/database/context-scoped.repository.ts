@@ -16,7 +16,9 @@ import { RequestContext } from '../context/request-context';
  * Supports direct fields (e.g., 'academicYearId', 'branchId') and nested relations
  * (e.g., 'section.academicYearId', 'section.branchId').
  */
-export abstract class ContextScopedRepository<T> extends TenantAwareRepository<T> {
+export abstract class ContextScopedRepository<
+  T,
+> extends TenantAwareRepository<T> {
   protected readonly yearKey?: string;
   protected readonly branchKey?: string;
 
@@ -28,12 +30,20 @@ export abstract class ContextScopedRepository<T> extends TenantAwareRepository<T
    * Helper to check if a direct or dot-notated nested field is already
    * defined in a filter object.
    */
-  private hasField(obj: Record<string, unknown> | undefined, path: string): boolean {
+  private hasField(
+    obj: Record<string, unknown> | undefined,
+    path: string,
+  ): boolean {
     if (!obj) return false;
     const parts = path.split('.');
     let curr: unknown = obj;
     for (const part of parts) {
-      if (curr === undefined || curr === null || typeof curr !== 'object' || !(part in curr)) {
+      if (
+        curr === undefined ||
+        curr === null ||
+        typeof curr !== 'object' ||
+        !(part in curr)
+      ) {
         return false;
       }
       curr = (curr as Record<string, unknown>)[part];
@@ -71,12 +81,20 @@ export abstract class ContextScopedRepository<T> extends TenantAwareRepository<T
     const baseWhere = super.scopeWhere(where);
 
     const yearId = RequestContext.getAcademicYearId();
-    if (this.yearKey && yearId !== undefined && !this.hasField(where, this.yearKey)) {
+    if (
+      this.yearKey &&
+      yearId !== undefined &&
+      !this.hasField(where, this.yearKey)
+    ) {
       this.setNestedField(baseWhere, this.yearKey, yearId);
     }
 
     const branchId = RequestContext.getBranchId();
-    if (this.branchKey && branchId !== undefined && !this.hasField(where, this.branchKey)) {
+    if (
+      this.branchKey &&
+      branchId !== undefined &&
+      !this.hasField(where, this.branchKey)
+    ) {
       this.setNestedField(baseWhere, this.branchKey, branchId);
     }
 

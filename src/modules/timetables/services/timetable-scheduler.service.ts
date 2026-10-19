@@ -287,7 +287,12 @@ export class TimetableSchedulerService {
         );
         if (teacherWins.length === 0) return false;
         const withinWin = teacherWins.some((w) =>
-          isTimeWithinWindow(loc.slot.startTime, loc.slot.endTime, w.startTime, w.endTime),
+          isTimeWithinWindow(
+            loc.slot.startTime,
+            loc.slot.endTime,
+            w.startTime,
+            w.endTime,
+          ),
         );
         if (!withinWin) return false;
       }
@@ -303,7 +308,12 @@ export class TimetableSchedulerService {
           );
           if (roomWins.length === 0) return false;
           const withinWin = roomWins.some((w) =>
-            isTimeWithinWindow(loc.slot.startTime, loc.slot.endTime, w.startTime, w.endTime),
+            isTimeWithinWindow(
+              loc.slot.startTime,
+              loc.slot.endTime,
+              w.startTime,
+              w.endTime,
+            ),
           );
           if (!withinWin) return false;
         }
@@ -330,14 +340,19 @@ export class TimetableSchedulerService {
 
       // Prefer compactness: avoid wide idle gaps for section
       const sectionLessonsOnDay = currentAssignments
-        .filter((a) => a.sectionId === req.sectionId && a.dayOfWeek === loc.dayOfWeek)
+        .filter(
+          (a) => a.sectionId === req.sectionId && a.dayOfWeek === loc.dayOfWeek,
+        )
         .map((a) => a.periodNumber);
 
       if (sectionLessonsOnDay.length > 0) {
         const minP = Math.min(...sectionLessonsOnDay);
         const maxP = Math.max(...sectionLessonsOnDay);
         // Bonus if adjacent to an existing period
-        if (loc.slot.periodNumber === minP - 1 || loc.slot.periodNumber === maxP + 1) {
+        if (
+          loc.slot.periodNumber === minP - 1 ||
+          loc.slot.periodNumber === maxP + 1
+        ) {
           score += 15;
         }
       }
@@ -351,8 +366,12 @@ export class TimetableSchedulerService {
 
     // Sort requirements: MRV heuristic (schedule hardest subjects first)
     requirements.sort((a, b) => {
-      const aTeacherWins = input.teacherAvailabilities.filter((w) => w.teacherId === a.teacherId).length;
-      const bTeacherWins = input.teacherAvailabilities.filter((w) => w.teacherId === b.teacherId).length;
+      const aTeacherWins = input.teacherAvailabilities.filter(
+        (w) => w.teacherId === a.teacherId,
+      ).length;
+      const bTeacherWins = input.teacherAvailabilities.filter(
+        (w) => w.teacherId === b.teacherId,
+      ).length;
       return aTeacherWins - bTeacherWins;
     });
 
@@ -432,7 +451,8 @@ export class TimetableSchedulerService {
     });
 
     return {
-      success: solved && conflicts.filter((c) => c.severity === 'HARD').length === 0,
+      success:
+        solved && conflicts.filter((c) => c.severity === 'HARD').length === 0,
       entries: currentAssignments,
       conflicts,
       unassignedRequirements: unassigned,

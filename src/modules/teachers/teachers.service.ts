@@ -75,7 +75,8 @@ export class TeachersService {
     // Check overlaps per day
     for (const day in windowsByDay) {
       const dayWindows = [...windowsByDay[day]!].sort(
-        (a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
+        (a, b) =>
+          parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
       );
 
       for (let i = 1; i < dayWindows.length; i++) {
@@ -100,7 +101,8 @@ export class TeachersService {
     Ensure.required(trimmedPhone, 'phone');
 
     // 1. Validate phone uniqueness system-wide
-    const existingUser = await this.userSystemRepository.findByPhone(trimmedPhone);
+    const existingUser =
+      await this.userSystemRepository.findByPhone(trimmedPhone);
     Ensure.custom(
       Boolean(existingUser),
       ErrorMessages.get('teacher_phone_duplicate'),
@@ -147,7 +149,8 @@ export class TeachersService {
         if (contextBranchId) {
           branchIdsToAssign.push(contextBranchId);
         } else {
-          const defaultBranch = await this.branchRepository.getOrCreateDefaultBranch();
+          const defaultBranch =
+            await this.branchRepository.getOrCreateDefaultBranch();
           branchIdsToAssign.push(defaultBranch.id);
         }
       }
@@ -168,7 +171,9 @@ export class TeachersService {
       // 6. Connect qualifications (TeacherAssignment) if provided
       if (dto.qualifications && dto.qualifications.length > 0) {
         for (const q of dto.qualifications) {
-          const academicBranch = await this.academicBranchRepository.findById(q.academicBranchId);
+          const academicBranch = await this.academicBranchRepository.findById(
+            q.academicBranchId,
+          );
           const subject = await this.subjectRepository.findById(q.subjectId);
           if (academicBranch && subject) {
             await client.teacherAssignment.create({
@@ -209,7 +214,9 @@ export class TeachersService {
     await this.ensureTeacherAssignedToContextBranch(id);
 
     const client = (this.teacherRepository as any).client;
-    const user = await client.user.findUnique({ where: { id: teacher.userId } });
+    const user = await client.user.findUnique({
+      where: { id: teacher.userId },
+    });
     Ensure.exists(user, 'User');
 
     // Phone uniqueness check if changed
@@ -217,7 +224,8 @@ export class TeachersService {
       const trimmedPhone = dto.phone.trim();
       Ensure.required(trimmedPhone, 'phone');
       if (trimmedPhone !== user.phone) {
-        const existing = await this.userSystemRepository.findByPhone(trimmedPhone);
+        const existing =
+          await this.userSystemRepository.findByPhone(trimmedPhone);
         Ensure.custom(
           Boolean(existing && existing.id !== user.id),
           ErrorMessages.get('teacher_phone_duplicate'),
@@ -231,7 +239,9 @@ export class TeachersService {
         await client.user.update({
           where: { id: user.id },
           data: {
-            ...(dto.fullName !== undefined ? { fullName: dto.fullName.trim() } : {}),
+            ...(dto.fullName !== undefined
+              ? { fullName: dto.fullName.trim() }
+              : {}),
             ...(dto.phone !== undefined ? { phone: dto.phone.trim() } : {}),
           },
         });
@@ -239,7 +249,9 @@ export class TeachersService {
 
       const teacherUpdate: Record<string, unknown> = {};
       if (dto.specialization !== undefined) {
-        teacherUpdate['specialization'] = dto.specialization ? dto.specialization.trim() : null;
+        teacherUpdate['specialization'] = dto.specialization
+          ? dto.specialization.trim()
+          : null;
       }
       if (dto.isActive !== undefined) {
         teacherUpdate['isActive'] = dto.isActive;
@@ -307,17 +319,31 @@ export class TeachersService {
     Ensure.exists(teacher, 'Teacher');
     await this.ensureTeacherAssignedToContextBranch(teacherId);
 
-    const academicBranch = await this.academicBranchRepository.findById(dto.academicBranchId);
+    const academicBranch = await this.academicBranchRepository.findById(
+      dto.academicBranchId,
+    );
     if (!academicBranch) {
-      const rawBranch = await this.academicBranchRepository.findRawById(dto.academicBranchId);
-      Ensure.custom(rawBranch !== null, ErrorMessages.get('academic_branch_mismatch'), 400);
+      const rawBranch = await this.academicBranchRepository.findRawById(
+        dto.academicBranchId,
+      );
+      Ensure.custom(
+        rawBranch !== null,
+        ErrorMessages.get('academic_branch_mismatch'),
+        400,
+      );
       Ensure.exists(null, 'Academic branch');
     }
 
     const subject = await this.subjectRepository.findById(dto.subjectId);
     if (!subject) {
-      const rawSubject = await this.subjectRepository.findRawById(dto.subjectId);
-      Ensure.custom(rawSubject !== null, ErrorMessages.get('subject_mismatch'), 400);
+      const rawSubject = await this.subjectRepository.findRawById(
+        dto.subjectId,
+      );
+      Ensure.custom(
+        rawSubject !== null,
+        ErrorMessages.get('subject_mismatch'),
+        400,
+      );
       Ensure.exists(null, 'Subject');
     }
 
@@ -354,14 +380,20 @@ export class TeachersService {
   /**
    * Set weekly availability windows for a teacher.
    */
-  async setAvailability(teacherId: number, windows: TeacherAvailabilityItemDto[]) {
+  async setAvailability(
+    teacherId: number,
+    windows: TeacherAvailabilityItemDto[],
+  ) {
     const teacher = await this.teacherRepository.findById(teacherId);
     Ensure.exists(teacher, 'Teacher');
     await this.ensureTeacherAssignedToContextBranch(teacherId);
 
     this.validateAvailabilityWindows(windows);
 
-    return this.availabilityRepository.replaceAvailabilities(teacherId, windows);
+    return this.availabilityRepository.replaceAvailabilities(
+      teacherId,
+      windows,
+    );
   }
 
   /**
@@ -377,7 +409,9 @@ export class TeachersService {
   /**
    * Helper to ensure the teacher is associated with the active context branch.
    */
-  private async ensureTeacherAssignedToContextBranch(teacherId: number): Promise<void> {
+  private async ensureTeacherAssignedToContextBranch(
+    teacherId: number,
+  ): Promise<void> {
     const contextBranchId = RequestContext.getBranchId();
     if (contextBranchId) {
       const client = (this.teacherRepository as any).client;
@@ -388,7 +422,11 @@ export class TeachersService {
           branchId: contextBranchId,
         },
       });
-      Ensure.custom(count === 0, ErrorMessages.get('teacher_not_assigned_to_branch'), 400);
+      Ensure.custom(
+        count === 0,
+        ErrorMessages.get('teacher_not_assigned_to_branch'),
+        400,
+      );
     }
   }
 }

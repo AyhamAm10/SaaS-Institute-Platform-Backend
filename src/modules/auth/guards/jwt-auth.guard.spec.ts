@@ -56,7 +56,9 @@ describe('JwtAuthGuard — Dual Token Extraction (Header & Cookie)', () => {
     const result = guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(jwtTokenService.verifyAccessToken).toHaveBeenCalledWith('mobile-jwt-token');
+    expect(jwtTokenService.verifyAccessToken).toHaveBeenCalledWith(
+      'mobile-jwt-token',
+    );
     expect(request.user).toEqual({
       id: 1,
       instituteId: 10,
@@ -81,7 +83,9 @@ describe('JwtAuthGuard — Dual Token Extraction (Header & Cookie)', () => {
     const result = guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(jwtTokenService.verifyAccessToken).toHaveBeenCalledWith('web-cookie-jwt-token');
+    expect(jwtTokenService.verifyAccessToken).toHaveBeenCalledWith(
+      'web-cookie-jwt-token',
+    );
     expect(request.user).toEqual({
       id: 2,
       instituteId: 20,
@@ -99,7 +103,8 @@ describe('JwtAuthGuard — Dual Token Extraction (Header & Cookie)', () => {
 
     const request: any = {
       headers: {
-        cookie: 'sessionId=abc; access_token=raw-header-cookie-token; other=xyz',
+        cookie:
+          'sessionId=abc; access_token=raw-header-cookie-token; other=xyz',
       },
       cookies: undefined,
     };
@@ -108,7 +113,9 @@ describe('JwtAuthGuard — Dual Token Extraction (Header & Cookie)', () => {
     const result = guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(jwtTokenService.verifyAccessToken).toHaveBeenCalledWith('raw-header-cookie-token');
+    expect(jwtTokenService.verifyAccessToken).toHaveBeenCalledWith(
+      'raw-header-cookie-token',
+    );
     expect(request.user).toEqual({
       id: 3,
       instituteId: 30,

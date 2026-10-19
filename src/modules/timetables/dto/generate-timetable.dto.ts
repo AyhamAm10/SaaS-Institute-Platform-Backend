@@ -1,4 +1,10 @@
-import { IsArray, IsBoolean, IsInt, IsOptional, IsPositive } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsPositive,
+} from 'class-validator';
 
 export class GenerateTimetableDto {
   @IsOptional()

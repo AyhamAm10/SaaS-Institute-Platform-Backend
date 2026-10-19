@@ -44,7 +44,11 @@ export class TimetableRepository extends ContextScopedRepository<Timetable> {
             },
             room: true,
           },
-          orderBy: [{ dayOfWeek: 'asc' }, { periodNumber: 'asc' }, { startTime: 'asc' }],
+          orderBy: [
+            { dayOfWeek: 'asc' },
+            { periodNumber: 'asc' },
+            { startTime: 'asc' },
+          ],
         },
       },
     });

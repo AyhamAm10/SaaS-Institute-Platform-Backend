@@ -60,11 +60,7 @@ export class SectionsService {
    */
   async create(dto: CreateSectionDto): Promise<Section> {
     // 1. Validate non-negative fee
-    Ensure.custom(
-      dto.feeAmount < 0,
-      ErrorMessages.get('invalid_fee'),
-      400,
-    );
+    Ensure.custom(dto.feeAmount < 0, ErrorMessages.get('invalid_fee'), 400);
 
     // 2. Resolve & Validate Branch (priority: DTO > RequestContext header > Default Branch)
     const targetBranchId = dto.branchId ?? RequestContext.getBranchId();
@@ -72,7 +68,8 @@ export class SectionsService {
     if (targetBranchId) {
       const foundBranch = await this.branchRepository.findById(targetBranchId);
       if (!foundBranch) {
-        const rawBranch = await this.branchRepository.findRawById(targetBranchId);
+        const rawBranch =
+          await this.branchRepository.findRawById(targetBranchId);
         Ensure.custom(
           rawBranch !== null,
           ErrorMessages.get('branch_mismatch'),
@@ -86,12 +83,15 @@ export class SectionsService {
     }
 
     // 3. Resolve & Validate Academic Year (priority: DTO > RequestContext header > Active Academic Year)
-    const targetYearId = dto.academicYearId ?? RequestContext.getAcademicYearId();
+    const targetYearId =
+      dto.academicYearId ?? RequestContext.getAcademicYearId();
     let academicYear: AcademicYear;
     if (targetYearId) {
-      const foundYear = await this.academicYearRepository.findById(targetYearId);
+      const foundYear =
+        await this.academicYearRepository.findById(targetYearId);
       if (!foundYear) {
-        const rawYear = await this.academicYearRepository.findRawById(targetYearId);
+        const rawYear =
+          await this.academicYearRepository.findRawById(targetYearId);
         Ensure.custom(
           rawYear !== null,
           ErrorMessages.get('academic_year_mismatch'),
@@ -105,9 +105,13 @@ export class SectionsService {
     }
 
     // 4. Validate Academic Branch tenant ownership
-    const academicBranch = await this.academicBranchRepository.findById(dto.academicBranchId);
+    const academicBranch = await this.academicBranchRepository.findById(
+      dto.academicBranchId,
+    );
     if (!academicBranch) {
-      const rawBranch = await this.academicBranchRepository.findRawById(dto.academicBranchId);
+      const rawBranch = await this.academicBranchRepository.findRawById(
+        dto.academicBranchId,
+      );
       Ensure.custom(
         rawBranch !== null,
         ErrorMessages.get('academic_branch_mismatch'),
@@ -156,11 +160,7 @@ export class SectionsService {
 
     // 2. Validate fee if provided
     if (dto.feeAmount !== undefined) {
-      Ensure.custom(
-        dto.feeAmount < 0,
-        ErrorMessages.get('invalid_fee'),
-        400,
-      );
+      Ensure.custom(dto.feeAmount < 0, ErrorMessages.get('invalid_fee'), 400);
     }
 
     // 3. Validate Branch if changed
@@ -180,10 +180,17 @@ export class SectionsService {
 
     // 4. Validate Academic Year if changed
     const targetAcademicYearId = dto.academicYearId ?? existing.academicYearId;
-    if (dto.academicYearId !== undefined && dto.academicYearId !== existing.academicYearId) {
-      const academicYear = await this.academicYearRepository.findById(dto.academicYearId);
+    if (
+      dto.academicYearId !== undefined &&
+      dto.academicYearId !== existing.academicYearId
+    ) {
+      const academicYear = await this.academicYearRepository.findById(
+        dto.academicYearId,
+      );
       if (!academicYear) {
-        const rawYear = await this.academicYearRepository.findRawById(dto.academicYearId);
+        const rawYear = await this.academicYearRepository.findRawById(
+          dto.academicYearId,
+        );
         Ensure.custom(
           rawYear !== null,
           ErrorMessages.get('academic_year_mismatch'),
@@ -194,10 +201,17 @@ export class SectionsService {
     }
 
     // 5. Validate Academic Branch if changed
-    if (dto.academicBranchId !== undefined && dto.academicBranchId !== existing.academicBranchId) {
-      const academicBranch = await this.academicBranchRepository.findById(dto.academicBranchId);
+    if (
+      dto.academicBranchId !== undefined &&
+      dto.academicBranchId !== existing.academicBranchId
+    ) {
+      const academicBranch = await this.academicBranchRepository.findById(
+        dto.academicBranchId,
+      );
       if (!academicBranch) {
-        const rawBranch = await this.academicBranchRepository.findRawById(dto.academicBranchId);
+        const rawBranch = await this.academicBranchRepository.findRawById(
+          dto.academicBranchId,
+        );
         Ensure.custom(
           rawBranch !== null,
           ErrorMessages.get('academic_branch_mismatch'),
@@ -209,7 +223,11 @@ export class SectionsService {
 
     // 6. Validate unique name per (branchId, academicYearId) if name or relations changed
     const targetName = dto.name ?? existing.name;
-    if (dto.name !== undefined || dto.branchId !== undefined || dto.academicYearId !== undefined) {
+    if (
+      dto.name !== undefined ||
+      dto.branchId !== undefined ||
+      dto.academicYearId !== undefined
+    ) {
       const duplicate = await this.sectionRepository.findByNameAndBranch(
         targetBranchId,
         targetAcademicYearId,
@@ -227,8 +245,10 @@ export class SectionsService {
     if (dto.name !== undefined) updateData['name'] = dto.name;
     if (dto.grade !== undefined) updateData['grade'] = dto.grade;
     if (dto.branchId !== undefined) updateData['branchId'] = dto.branchId;
-    if (dto.academicYearId !== undefined) updateData['academicYearId'] = dto.academicYearId;
-    if (dto.academicBranchId !== undefined) updateData['academicBranchId'] = dto.academicBranchId;
+    if (dto.academicYearId !== undefined)
+      updateData['academicYearId'] = dto.academicYearId;
+    if (dto.academicBranchId !== undefined)
+      updateData['academicBranchId'] = dto.academicBranchId;
     if (dto.feeAmount !== undefined) {
       updateData['feeAmount'] = new Prisma.Decimal(dto.feeAmount);
     }
@@ -240,11 +260,7 @@ export class SectionsService {
    * Dedicated method to update the section fee amount.
    */
   async updateFee(id: number, dto: UpdateSectionFeeDto): Promise<Section> {
-    Ensure.custom(
-      dto.feeAmount < 0,
-      ErrorMessages.get('invalid_fee'),
-      400,
-    );
+    Ensure.custom(dto.feeAmount < 0, ErrorMessages.get('invalid_fee'), 400);
 
     const existing = await this.sectionRepository.findById(id);
     Ensure.exists(existing, 'Section');
@@ -309,7 +325,8 @@ export class SectionsService {
     // Check academic year in tenant
     const year = await this.academicYearRepository.findById(academicYearId);
     if (!year) {
-      const rawYear = await this.academicYearRepository.findRawById(academicYearId);
+      const rawYear =
+        await this.academicYearRepository.findRawById(academicYearId);
       Ensure.custom(
         rawYear !== null,
         ErrorMessages.get('academic_year_mismatch'),
@@ -339,7 +356,11 @@ export class SectionsService {
     const section = await this.sectionRepository.findById(sectionId);
     if (!section) {
       const rawSection = await this.sectionRepository.findRawById(sectionId);
-      Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
+      Ensure.custom(
+        rawSection !== null,
+        ErrorMessages.get('section_mismatch'),
+        400,
+      );
       Ensure.exists(null, 'Section');
     }
 
@@ -361,7 +382,11 @@ export class SectionsService {
     const section = await this.sectionRepository.findById(sectionId);
     if (!section) {
       const rawSection = await this.sectionRepository.findRawById(sectionId);
-      Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
+      Ensure.custom(
+        rawSection !== null,
+        ErrorMessages.get('section_mismatch'),
+        400,
+      );
       Ensure.exists(null, 'Section');
     }
 
@@ -375,8 +400,14 @@ export class SectionsService {
     // 2. Validate subject belongs to current tenant
     const subject = await this.subjectRepository.findById(dto.subjectId);
     if (!subject) {
-      const rawSubject = await this.subjectRepository.findRawById(dto.subjectId);
-      Ensure.custom(rawSubject !== null, ErrorMessages.get('subject_mismatch'), 400);
+      const rawSubject = await this.subjectRepository.findRawById(
+        dto.subjectId,
+      );
+      Ensure.custom(
+        rawSubject !== null,
+        ErrorMessages.get('subject_mismatch'),
+        400,
+      );
       Ensure.exists(null, 'Subject');
     }
 
@@ -384,8 +415,14 @@ export class SectionsService {
     if (dto.teacherId) {
       const teacher = await this.teacherRepository.findById(dto.teacherId);
       if (!teacher) {
-        const rawTeacher = await this.teacherRepository.findRawById(dto.teacherId);
-        Ensure.custom(rawTeacher !== null, ErrorMessages.get('teacher_mismatch'), 400);
+        const rawTeacher = await this.teacherRepository.findRawById(
+          dto.teacherId,
+        );
+        Ensure.custom(
+          rawTeacher !== null,
+          ErrorMessages.get('teacher_mismatch'),
+          400,
+        );
         Ensure.exists(null, 'Teacher');
       }
 
@@ -405,11 +442,12 @@ export class SectionsService {
       );
 
       // Validate teacher is qualified for this academic branch and subject
-      const assignment = await this.teacherAssignmentRepository.findByTeacherBranchSubject(
-        dto.teacherId,
-        section!.academicBranchId,
-        dto.subjectId,
-      );
+      const assignment =
+        await this.teacherAssignmentRepository.findByTeacherBranchSubject(
+          dto.teacherId,
+          section!.academicBranchId,
+          dto.subjectId,
+        );
       Ensure.custom(
         !assignment,
         ErrorMessages.get('teacher_not_qualified'),
@@ -419,11 +457,23 @@ export class SectionsService {
 
     // 4. Validate weekly periods
     const weeklyPeriods = dto.weeklyPeriods ?? 1;
-    Ensure.custom(weeklyPeriods < 1, ErrorMessages.get('invalid_type_number', { field: 'weeklyPeriods' }), 400);
+    Ensure.custom(
+      weeklyPeriods < 1,
+      ErrorMessages.get('invalid_type_number', { field: 'weeklyPeriods' }),
+      400,
+    );
 
     // 5. Prevent duplicate assignment
-    const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, dto.subjectId);
-    Ensure.custom(Boolean(existing), ErrorMessages.get('section_subject_already_exists'), 409);
+    const existing =
+      await this.sectionSubjectRepository.findBySectionAndSubject(
+        sectionId,
+        dto.subjectId,
+      );
+    Ensure.custom(
+      Boolean(existing),
+      ErrorMessages.get('section_subject_already_exists'),
+      409,
+    );
 
     return this.sectionSubjectRepository.assignSubject(
       sectionId,
@@ -445,7 +495,11 @@ export class SectionsService {
     const section = await this.sectionRepository.findById(sectionId);
     if (!section) {
       const rawSection = await this.sectionRepository.findRawById(sectionId);
-      Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
+      Ensure.custom(
+        rawSection !== null,
+        ErrorMessages.get('section_mismatch'),
+        400,
+      );
       Ensure.exists(null, 'Section');
     }
 
@@ -457,15 +511,25 @@ export class SectionsService {
     );
 
     // 2. Validate assignment exists
-    const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, subjectId);
+    const existing =
+      await this.sectionSubjectRepository.findBySectionAndSubject(
+        sectionId,
+        subjectId,
+      );
     Ensure.exists(existing, 'Section subject assignment');
 
     // 3. Validate teacher if changed
     if (dto.teacherId !== undefined && dto.teacherId !== null) {
       const teacher = await this.teacherRepository.findById(dto.teacherId);
       if (!teacher) {
-        const rawTeacher = await this.teacherRepository.findRawById(dto.teacherId);
-        Ensure.custom(rawTeacher !== null, ErrorMessages.get('teacher_mismatch'), 400);
+        const rawTeacher = await this.teacherRepository.findRawById(
+          dto.teacherId,
+        );
+        Ensure.custom(
+          rawTeacher !== null,
+          ErrorMessages.get('teacher_mismatch'),
+          400,
+        );
         Ensure.exists(null, 'Teacher');
       }
 
@@ -484,11 +548,12 @@ export class SectionsService {
         400,
       );
 
-      const assignment = await this.teacherAssignmentRepository.findByTeacherBranchSubject(
-        dto.teacherId,
-        section!.academicBranchId,
-        subjectId,
-      );
+      const assignment =
+        await this.teacherAssignmentRepository.findByTeacherBranchSubject(
+          dto.teacherId,
+          section!.academicBranchId,
+          subjectId,
+        );
       Ensure.custom(
         !assignment,
         ErrorMessages.get('teacher_not_qualified'),
@@ -498,14 +563,23 @@ export class SectionsService {
 
     // 4. Validate weekly periods
     if (dto.weeklyPeriods !== undefined) {
-      Ensure.custom(dto.weeklyPeriods < 1, ErrorMessages.get('invalid_type_number', { field: 'weeklyPeriods' }), 400);
+      Ensure.custom(
+        dto.weeklyPeriods < 1,
+        ErrorMessages.get('invalid_type_number', { field: 'weeklyPeriods' }),
+        400,
+      );
     }
 
-    const updateData: { weeklyPeriods?: number; teacherId?: number | null } = {};
-    if (dto.weeklyPeriods !== undefined) updateData.weeklyPeriods = dto.weeklyPeriods;
+    const updateData: { weeklyPeriods?: number; teacherId?: number | null } =
+      {};
+    if (dto.weeklyPeriods !== undefined)
+      updateData.weeklyPeriods = dto.weeklyPeriods;
     if (dto.teacherId !== undefined) updateData.teacherId = dto.teacherId;
 
-    return this.sectionSubjectRepository.updateAssignment(existing!.id, updateData);
+    return this.sectionSubjectRepository.updateAssignment(
+      existing!.id,
+      updateData,
+    );
   }
 
   /**
@@ -516,7 +590,11 @@ export class SectionsService {
     const section = await this.sectionRepository.findById(sectionId);
     if (!section) {
       const rawSection = await this.sectionRepository.findRawById(sectionId);
-      Ensure.custom(rawSection !== null, ErrorMessages.get('section_mismatch'), 400);
+      Ensure.custom(
+        rawSection !== null,
+        ErrorMessages.get('section_mismatch'),
+        400,
+      );
       Ensure.exists(null, 'Section');
     }
 
@@ -528,8 +606,16 @@ export class SectionsService {
     );
 
     // 2. Validate assignment exists
-    const existing = await this.sectionSubjectRepository.findBySectionAndSubject(sectionId, subjectId);
-    Ensure.custom(!existing, ErrorMessages.get('section_subject_not_found'), 404);
+    const existing =
+      await this.sectionSubjectRepository.findBySectionAndSubject(
+        sectionId,
+        subjectId,
+      );
+    Ensure.custom(
+      !existing,
+      ErrorMessages.get('section_subject_not_found'),
+      404,
+    );
 
     await this.sectionSubjectRepository.removeSubject(sectionId, subjectId);
     return { success: true };

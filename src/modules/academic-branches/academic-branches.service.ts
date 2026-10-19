@@ -43,7 +43,9 @@ export class AcademicBranchesService {
    * Provision standard Arabic default branches for a specific institute.
    * Safe against duplicate creation (idempotent).
    */
-  async provisionDefaultBranches(instituteId: number): Promise<AcademicBranch[]> {
+  async provisionDefaultBranches(
+    instituteId: number,
+  ): Promise<AcademicBranch[]> {
     return this.transactionHelper.executeInTransaction(async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = (this.branchRepository as any).client;
@@ -100,7 +102,10 @@ export class AcademicBranchesService {
   /**
    * Update an Academic Branch for the current institute.
    */
-  async update(id: number, dto: UpdateAcademicBranchDto): Promise<AcademicBranch> {
+  async update(
+    id: number,
+    dto: UpdateAcademicBranchDto,
+  ): Promise<AcademicBranch> {
     const existing = await this.branchRepository.findById(id);
     Ensure.exists(existing, 'Academic branch');
 
@@ -120,8 +125,12 @@ export class AcademicBranchesService {
 
     const updateData: Record<string, unknown> = {};
     if (dto.name !== undefined) updateData['name'] = dto.name.trim();
-    if (dto.code !== undefined) updateData['code'] = dto.code ? dto.code.trim() : null;
-    if (dto.description !== undefined) updateData['description'] = dto.description ? dto.description.trim() : null;
+    if (dto.code !== undefined)
+      updateData['code'] = dto.code ? dto.code.trim() : null;
+    if (dto.description !== undefined)
+      updateData['description'] = dto.description
+        ? dto.description.trim()
+        : null;
 
     return this.branchRepository.update(id, updateData);
   }
@@ -146,7 +155,9 @@ export class AcademicBranchesService {
   /**
    * Find all Academic Branches for the current institute (paginated with optional search).
    */
-  async findAll(query: AcademicBranchQueryDto): Promise<PaginatedResult<AcademicBranch>> {
+  async findAll(
+    query: AcademicBranchQueryDto,
+  ): Promise<PaginatedResult<AcademicBranch>> {
     return this.branchRepository.findAllPaginated(query, query.search);
   }
 

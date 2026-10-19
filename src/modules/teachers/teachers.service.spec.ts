@@ -70,7 +70,9 @@ describe('TeachersService', () => {
     };
 
     mockTransactionHelper = {
-      executeInTransaction: (jest.fn() as any).mockImplementation((fn: any) => fn()),
+      executeInTransaction: (jest.fn() as any).mockImplementation((fn: any) =>
+        fn(),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -78,7 +80,10 @@ describe('TeachersService', () => {
         TeachersService,
         { provide: TeacherRepository, useValue: mockTeacherRepo },
         { provide: TeacherAssignmentRepository, useValue: mockAssignmentRepo },
-        { provide: TeacherAvailabilityRepository, useValue: mockAvailabilityRepo },
+        {
+          provide: TeacherAvailabilityRepository,
+          useValue: mockAvailabilityRepo,
+        },
         { provide: UserSystemRepository, useValue: mockUserSystemRepo },
         { provide: AcademicBranchRepository, useValue: mockAcademicBranchRepo },
         { provide: SubjectRepository, useValue: mockSubjectRepo },
@@ -92,7 +97,10 @@ describe('TeachersService', () => {
 
   describe('create', () => {
     it('should throw 409 if phone already exists in system', async () => {
-      mockUserSystemRepo.findByPhone.mockResolvedValue({ id: 99, phone: '+966512345678' });
+      mockUserSystemRepo.findByPhone.mockResolvedValue({
+        id: 99,
+        phone: '+966512345678',
+      });
 
       await expect(
         service.create({
@@ -133,9 +141,19 @@ describe('TeachersService', () => {
 
     it('should create user and teacher successfully', async () => {
       mockUserSystemRepo.findByPhone.mockResolvedValue(null);
-      mockTeacherRepo.client.user.create.mockResolvedValue({ id: 10, fullName: 'Ahmed Teacher' });
-      mockTeacherRepo.client.teacher.create.mockResolvedValue({ id: 1, userId: 10 });
-      mockTeacherRepo.findByIdWithDetails.mockResolvedValue({ id: 1, userId: 10, user: { fullName: 'Ahmed Teacher' } });
+      mockTeacherRepo.client.user.create.mockResolvedValue({
+        id: 10,
+        fullName: 'Ahmed Teacher',
+      });
+      mockTeacherRepo.client.teacher.create.mockResolvedValue({
+        id: 1,
+        userId: 10,
+      });
+      mockTeacherRepo.findByIdWithDetails.mockResolvedValue({
+        id: 1,
+        userId: 10,
+        user: { fullName: 'Ahmed Teacher' },
+      });
 
       const result = await service.create({
         fullName: 'Ahmed Teacher',
@@ -155,9 +173,19 @@ describe('TeachersService', () => {
 
     it('should assign context branchId from RequestContext when dto.branchIds is omitted', async () => {
       mockUserSystemRepo.findByPhone.mockResolvedValue(null);
-      mockTeacherRepo.client.user.create.mockResolvedValue({ id: 10, fullName: 'Branch Teacher' });
-      mockTeacherRepo.client.teacher.create.mockResolvedValue({ id: 1, userId: 10 });
-      mockTeacherRepo.findByIdWithDetails.mockResolvedValue({ id: 1, userId: 10, user: { fullName: 'Branch Teacher' } });
+      mockTeacherRepo.client.user.create.mockResolvedValue({
+        id: 10,
+        fullName: 'Branch Teacher',
+      });
+      mockTeacherRepo.client.teacher.create.mockResolvedValue({
+        id: 1,
+        userId: 10,
+      });
+      mockTeacherRepo.findByIdWithDetails.mockResolvedValue({
+        id: 1,
+        userId: 10,
+        user: { fullName: 'Branch Teacher' },
+      });
       mockBranchRepo.findById.mockResolvedValue({ id: 77 } as any);
 
       await RequestContext.run(
@@ -174,7 +202,9 @@ describe('TeachersService', () => {
             phone: '+966512345679',
           });
           expect(mockBranchRepo.findById).toHaveBeenCalledWith(77);
-          expect(mockTeacherRepo.client.branchTeacher.create).toHaveBeenCalledWith(
+          expect(
+            mockTeacherRepo.client.branchTeacher.create,
+          ).toHaveBeenCalledWith(
             expect.objectContaining({
               data: expect.objectContaining({ branchId: 77 }),
             }),
@@ -189,7 +219,9 @@ describe('TeachersService', () => {
       mockTeacherRepo.findById.mockResolvedValue({ id: 1 });
       mockAcademicBranchRepo.findById.mockResolvedValue({ id: 2 });
       mockSubjectRepo.findById.mockResolvedValue({ id: 3 });
-      mockAssignmentRepo.findByTeacherBranchSubject.mockResolvedValue({ id: 10 });
+      mockAssignmentRepo.findByTeacherBranchSubject.mockResolvedValue({
+        id: 10,
+      });
 
       await expect(
         service.assignQualification(1, { academicBranchId: 2, subjectId: 3 }),
@@ -201,9 +233,17 @@ describe('TeachersService', () => {
       mockAcademicBranchRepo.findById.mockResolvedValue({ id: 2 });
       mockSubjectRepo.findById.mockResolvedValue({ id: 3 });
       mockAssignmentRepo.findByTeacherBranchSubject.mockResolvedValue(null);
-      mockAssignmentRepo.create.mockResolvedValue({ id: 11, teacherId: 1, academicBranchId: 2, subjectId: 3 });
+      mockAssignmentRepo.create.mockResolvedValue({
+        id: 11,
+        teacherId: 1,
+        academicBranchId: 2,
+        subjectId: 3,
+      });
 
-      const res = await service.assignQualification(1, { academicBranchId: 2, subjectId: 3 });
+      const res = await service.assignQualification(1, {
+        academicBranchId: 2,
+        subjectId: 3,
+      });
       expect(res.id).toBe(11);
     });
   });

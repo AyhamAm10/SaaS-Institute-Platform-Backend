@@ -88,12 +88,16 @@ export class TimetablesService {
       );
     }
 
-    const fullTimetable = await this.timetableRepository.findWithEntries(timetable.id);
+    const fullTimetable = await this.timetableRepository.findWithEntries(
+      timetable.id,
+    );
     const entries = fullTimetable?.entries || [];
 
     // All institute entries for cross-section collision checks
-    const allInstituteEntries = await this.entryRepository.findInstituteEntriesForYear(targetYearId);
-    const sectionSubjects = await this.sectionSubjectRepository.findSubjectsBySection(section.id);
+    const allInstituteEntries =
+      await this.entryRepository.findInstituteEntriesForYear(targetYearId);
+    const sectionSubjects =
+      await this.sectionSubjectRepository.findSubjectsBySection(section.id);
 
     // Retrieve teacher assignments & availabilities for assigned teachers
     const teacherIds: number[] = Array.from(
@@ -113,7 +117,9 @@ export class TimetablesService {
       teacherAssignments.push(...assigns);
     }
 
-    const roomAvailabilities = await this.roomAvailabilityRepository.findMany({});
+    const roomAvailabilities = await this.roomAvailabilityRepository.findMany(
+      {},
+    );
     const scheduleConfig = await this.configService.getConfig();
 
     const conflicts = this.conflictService.detectConflicts({
@@ -224,24 +230,34 @@ export class TimetablesService {
         );
       }
 
-      const existingFull = await this.timetableRepository.findWithEntries(timetable.id);
+      const existingFull = await this.timetableRepository.findWithEntries(
+        timetable.id,
+      );
       const existingEntries = existingFull?.entries || [];
 
       // Section subjects with quota and teacher
-      const sectionSubjects = await this.sectionSubjectRepository.findSubjectsBySection(secId);
+      const sectionSubjects =
+        await this.sectionSubjectRepository.findSubjectsBySection(secId);
 
       // Load all teachers, assignments, availabilities, rooms
       const teachers = await this.teacherRepository.findMany({});
-      const teacherAssignments = await this.teacherAssignmentRepository.findMany({});
-      const teacherAvailabilities = await this.teacherAvailabilityRepository.findMany({});
+      const teacherAssignments =
+        await this.teacherAssignmentRepository.findMany({});
+      const teacherAvailabilities =
+        await this.teacherAvailabilityRepository.findMany({});
       const rooms = await this.roomRepository.findMany({
         where: { branchId: section.branchId },
       });
-      const roomAvailabilities = await this.roomAvailabilityRepository.findMany({});
+      const roomAvailabilities = await this.roomAvailabilityRepository.findMany(
+        {},
+      );
 
       // Load all entries in institute for other sections to prevent collisions
-      const allInstituteEntries = await this.entryRepository.findInstituteEntriesForYear(targetYearId);
-      const otherSectionEntries = allInstituteEntries.filter((e: any) => e.timetable?.sectionId !== secId);
+      const allInstituteEntries =
+        await this.entryRepository.findInstituteEntriesForYear(targetYearId);
+      const otherSectionEntries = allInstituteEntries.filter(
+        (e: any) => e.timetable?.sectionId !== secId,
+      );
 
       // Run solver
       const solveResult = await this.schedulerService.solve({
@@ -257,7 +273,11 @@ export class TimetablesService {
         teachers: teachers.map((t: any) => ({ id: t.id })),
         teacherAssignments,
         teacherAvailabilities,
-        rooms: rooms.map((r: any) => ({ id: r.id, name: r.name, capacity: r.capacity })),
+        rooms: rooms.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          capacity: r.capacity,
+        })),
         roomAvailabilities,
         scheduleConfig,
         existingEntries: [
@@ -323,7 +343,11 @@ export class TimetablesService {
   /**
    * Save or update an individual timetable entry manually.
    */
-  async saveEntry(timetableId: number, dto: SaveTimetableEntryDto, entryId?: number) {
+  async saveEntry(
+    timetableId: number,
+    dto: SaveTimetableEntryDto,
+    entryId?: number,
+  ) {
     const timetable = await this.timetableRepository.findById(timetableId);
     Ensure.exists(timetable, 'Timetable');
 
@@ -441,7 +465,10 @@ export class TimetablesService {
       400,
     );
 
-    const result = await this.getTimetable(timetable.academicYearId, timetable.sectionId);
+    const result = await this.getTimetable(
+      timetable.academicYearId,
+      timetable.sectionId,
+    );
     return result.conflicts;
   }
 }

@@ -77,7 +77,10 @@ describe('StudentsService', () => {
     await RequestContext.run(
       { userId: 1, instituteId: 1, role: 'INSTITUTE_ADMIN', language: 'en' },
       async () => {
-        familyRepo.findFamilyById.mockResolvedValue({ id: 1, familyName: 'العمر' });
+        familyRepo.findFamilyById.mockResolvedValue({
+          id: 1,
+          familyName: 'العمر',
+        });
         studentRepo.create.mockResolvedValue(mockStudent);
         studentRepo.findStudentById.mockResolvedValue(mockStudent);
 
@@ -107,8 +110,16 @@ describe('StudentsService', () => {
           branchId: 1,
           academicYearId: 5,
         });
-        studentRepo.create.mockResolvedValue({ ...mockStudent, id: 2, familyId: 2 });
-        studentRepo.findStudentById.mockResolvedValue({ ...mockStudent, id: 2, familyId: 2 });
+        studentRepo.create.mockResolvedValue({
+          ...mockStudent,
+          id: 2,
+          familyId: 2,
+        });
+        studentRepo.findStudentById.mockResolvedValue({
+          ...mockStudent,
+          id: 2,
+          familyId: 2,
+        });
 
         const result = await service.create({
           fullName: 'سامي الخالد',

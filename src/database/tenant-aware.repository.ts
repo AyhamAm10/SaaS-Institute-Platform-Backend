@@ -31,7 +31,9 @@ export abstract class TenantAwareRepository<T> extends BaseRepository<T> {
   }
 
   /** Inject instituteId into any where clause. */
-  protected scopeWhere(where?: Record<string, unknown>): Record<string, unknown> {
+  protected scopeWhere(
+    where?: Record<string, unknown>,
+  ): Record<string, unknown> {
     return { ...where, instituteId: this.getInstituteId() };
   }
 

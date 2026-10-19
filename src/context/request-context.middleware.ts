@@ -35,7 +35,10 @@ export class RequestContextMiddleware implements NestMiddleware {
     RequestContext.run(context, () => next());
   }
 
-  private extractNumericHeader(req: Request, headerName: string): number | undefined {
+  private extractNumericHeader(
+    req: Request,
+    headerName: string,
+  ): number | undefined {
     const raw = req.headers[headerName];
     if (!raw) return undefined;
     const value = (Array.isArray(raw) ? raw[0] : raw)?.trim();

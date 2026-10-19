@@ -29,7 +29,8 @@ export class SubjectsService {
     Ensure.required(normalizedCode, 'code');
 
     // Check code uniqueness within this institute
-    const existingWithCode = await this.subjectRepository.findByCode(normalizedCode);
+    const existingWithCode =
+      await this.subjectRepository.findByCode(normalizedCode);
     Ensure.custom(
       Boolean(existingWithCode),
       ErrorMessages.get('subject_code_duplicate'),
@@ -50,11 +51,7 @@ export class SubjectsService {
     const existing = await this.subjectRepository.findById(id);
     if (!existing) {
       const raw = await this.subjectRepository.findRawById(id);
-      Ensure.custom(
-        raw !== null,
-        ErrorMessages.get('subject_mismatch'),
-        400,
-      );
+      Ensure.custom(raw !== null, ErrorMessages.get('subject_mismatch'), 400);
       Ensure.exists(null, 'Subject');
     }
 
@@ -71,7 +68,8 @@ export class SubjectsService {
       Ensure.required(normalizedCode, 'code');
 
       if (normalizedCode !== existing!.code) {
-        const codeDuplicate = await this.subjectRepository.findByCode(normalizedCode);
+        const codeDuplicate =
+          await this.subjectRepository.findByCode(normalizedCode);
         Ensure.custom(
           Boolean(codeDuplicate),
           ErrorMessages.get('subject_code_duplicate'),
@@ -91,16 +89,13 @@ export class SubjectsService {
     const existing = await this.subjectRepository.findById(id);
     if (!existing) {
       const raw = await this.subjectRepository.findRawById(id);
-      Ensure.custom(
-        raw !== null,
-        ErrorMessages.get('subject_mismatch'),
-        400,
-      );
+      Ensure.custom(raw !== null, ErrorMessages.get('subject_mismatch'), 400);
       Ensure.exists(null, 'Subject');
     }
 
     // Check if subject is assigned to sections
-    const linkedSectionsCount = await this.subjectRepository.countSectionSubjects(id);
+    const linkedSectionsCount =
+      await this.subjectRepository.countSectionSubjects(id);
     Ensure.custom(
       linkedSectionsCount > 0,
       ErrorMessages.get('subject_has_sections'),
@@ -124,11 +119,7 @@ export class SubjectsService {
     const subject = await this.subjectRepository.findById(id);
     if (!subject) {
       const raw = await this.subjectRepository.findRawById(id);
-      Ensure.custom(
-        raw !== null,
-        ErrorMessages.get('subject_mismatch'),
-        400,
-      );
+      Ensure.custom(raw !== null, ErrorMessages.get('subject_mismatch'), 400);
       Ensure.exists(null, 'Subject');
     }
     return subject!;

@@ -1,7 +1,10 @@
 import { jest } from '@jest/globals';
 import { HttpException, NotFoundException } from '@nestjs/common';
 import { AcademicBranch } from '@prisma/client';
-import { AcademicBranchesService, DEFAULT_ACADEMIC_BRANCHES } from './academic-branches.service';
+import {
+  AcademicBranchesService,
+  DEFAULT_ACADEMIC_BRANCHES,
+} from './academic-branches.service';
 import { AcademicBranchRepository } from './academic-branch.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 
@@ -35,7 +38,9 @@ describe('AcademicBranchesService', () => {
     } as any;
 
     mockTxHelper = {
-      executeInTransaction: (jest.fn() as any).mockImplementation((cb: () => Promise<unknown>) => cb()),
+      executeInTransaction: (jest.fn() as any).mockImplementation(
+        (cb: () => Promise<unknown>) => cb(),
+      ),
     };
 
     service = new AcademicBranchesService(
@@ -58,7 +63,8 @@ describe('AcademicBranchesService', () => {
 
       (mockBranchRepo as any).client = mockClient;
 
-      const branches = await service.provisionDefaultBranches(currentInstituteId);
+      const branches =
+        await service.provisionDefaultBranches(currentInstituteId);
 
       expect(branches).toHaveLength(3);
       expect(mockClient.academicBranch.create).toHaveBeenCalledTimes(3);
@@ -92,9 +98,9 @@ describe('AcademicBranchesService', () => {
     it('rejects duplicate branch name in the same institute with 409', async () => {
       mockBranchRepo.findByName!.mockResolvedValue(sampleBranch);
 
-      await expect(
-        service.create({ name: 'الصف التاسع' }),
-      ).rejects.toThrow(HttpException);
+      await expect(service.create({ name: 'الصف التاسع' })).rejects.toThrow(
+        HttpException,
+      );
       expect(mockBranchRepo.create).not.toHaveBeenCalled();
     });
   });
@@ -119,7 +125,9 @@ describe('AcademicBranchesService', () => {
     it('throws NotFoundException if branch does not belong to tenant', async () => {
       mockBranchRepo.findById!.mockResolvedValue(null);
 
-      await expect(service.update(999, { name: 'Other' })).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, { name: 'Other' })).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockBranchRepo.update).not.toHaveBeenCalled();
     });
   });

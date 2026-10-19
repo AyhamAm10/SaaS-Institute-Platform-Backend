@@ -36,7 +36,9 @@ export class SubjectRepository extends TenantAwareRepository<Subject> {
    * Strictly used for detecting cross-tenant access/mismatches.
    */
   async findRawById(id: number): Promise<Subject | null> {
-    return this.delegate.findUnique({ where: { id } }) as Promise<Subject | null>;
+    return this.delegate.findUnique({
+      where: { id },
+    }) as Promise<Subject | null>;
   }
 
   /**

@@ -29,7 +29,11 @@ export class FilterBuilder<
   }
 
   /** Case-insensitive partial match (Prisma `contains`). */
-  contains(field: string, value: string | undefined, caseInsensitive = true): this {
+  contains(
+    field: string,
+    value: string | undefined,
+    caseInsensitive = true,
+  ): this {
     if (value !== undefined && value !== null) {
       this.conditions[field] = {
         contains: value,
@@ -69,7 +73,10 @@ export class FilterBuilder<
   /** Case-insensitive prefix match. */
   startsWith(field: string, value: string | undefined): this {
     if (value !== undefined && value !== null) {
-      this.conditions[field] = { startsWith: value, mode: 'insensitive' as const };
+      this.conditions[field] = {
+        startsWith: value,
+        mode: 'insensitive' as const,
+      };
     }
     return this;
   }
@@ -77,7 +84,10 @@ export class FilterBuilder<
   /** Case-insensitive suffix match. */
   endsWith(field: string, value: string | undefined): this {
     if (value !== undefined && value !== null) {
-      this.conditions[field] = { endsWith: value, mode: 'insensitive' as const };
+      this.conditions[field] = {
+        endsWith: value,
+        mode: 'insensitive' as const,
+      };
     }
     return this;
   }

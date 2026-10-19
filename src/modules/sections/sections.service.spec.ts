@@ -124,7 +124,9 @@ describe('SectionsService', () => {
     } as any;
 
     mockTxHelper = {
-      executeInTransaction: (jest.fn() as any).mockImplementation((cb: () => Promise<unknown>) => cb()),
+      executeInTransaction: (jest.fn() as any).mockImplementation(
+        (cb: () => Promise<unknown>) => cb(),
+      ),
     };
 
     service = new SectionsService(
@@ -153,7 +155,9 @@ describe('SectionsService', () => {
     it('creates a section successfully when all relations and constraints are valid', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
       mockAcademicYearRepo.findById!.mockResolvedValue(sampleYear as any);
-      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(
+        sampleAcademicBranch as any,
+      );
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
       mockSectionRepo.create!.mockResolvedValue(sampleSection);
 
@@ -173,13 +177,17 @@ describe('SectionsService', () => {
     it('rejects creation with a negative fee amount', async () => {
       const invalidFeeDto = { ...validDto, feeAmount: -100 };
 
-      await expect(service.create(invalidFeeDto)).rejects.toThrow(HttpException);
+      await expect(service.create(invalidFeeDto)).rejects.toThrow(
+        HttpException,
+      );
       expect(mockSectionRepo.create).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when the academic year does not exist in the system', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
-      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(
+        sampleAcademicBranch as any,
+      );
       mockAcademicYearRepo.findById!.mockResolvedValue(null);
       mockAcademicYearRepo.findRawById!.mockResolvedValue(null);
 
@@ -189,7 +197,9 @@ describe('SectionsService', () => {
 
     it('rejects cross-tenant academic year with academic_year_mismatch (400)', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
-      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(
+        sampleAcademicBranch as any,
+      );
       // Not found in tenant
       mockAcademicYearRepo.findById!.mockResolvedValue(null);
       // But found globally belonging to another tenant (instituteId 99)
@@ -222,9 +232,13 @@ describe('SectionsService', () => {
     });
 
     it('uses default branch when branchId is omitted in create', async () => {
-      mockBranchRepo.getOrCreateDefaultBranch!.mockResolvedValue(sampleBranch as any);
+      mockBranchRepo.getOrCreateDefaultBranch!.mockResolvedValue(
+        sampleBranch as any,
+      );
       mockAcademicYearRepo.findById!.mockResolvedValue(sampleYear as any);
-      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(
+        sampleAcademicBranch as any,
+      );
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
       mockSectionRepo.create!.mockResolvedValue(sampleSection);
 
@@ -240,15 +254,21 @@ describe('SectionsService', () => {
 
     it('uses current active academic year when academicYearId is omitted in create', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
-      (mockAcademicYearRepo as any).getOrCreateCurrentYear.mockResolvedValue(sampleYear as any);
-      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      (mockAcademicYearRepo as any).getOrCreateCurrentYear.mockResolvedValue(
+        sampleYear as any,
+      );
+      mockAcademicBranchRepo.findById!.mockResolvedValue(
+        sampleAcademicBranch as any,
+      );
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
       mockSectionRepo.create!.mockResolvedValue(sampleSection);
 
       const { academicYearId, ...dtoWithoutYear } = validDto;
       const result = await service.create(dtoWithoutYear as any);
 
-      expect((mockAcademicYearRepo as any).getOrCreateCurrentYear).toHaveBeenCalled();
+      expect(
+        (mockAcademicYearRepo as any).getOrCreateCurrentYear,
+      ).toHaveBeenCalled();
       expect(mockSectionRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ academicYearId: sampleYear.id }),
       );
@@ -260,7 +280,9 @@ describe('SectionsService', () => {
       const headerYear = { ...sampleYear, id: 99 };
       mockBranchRepo.findById!.mockResolvedValue(headerBranch as any);
       mockAcademicYearRepo.findById!.mockResolvedValue(headerYear as any);
-      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(
+        sampleAcademicBranch as any,
+      );
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
       mockSectionRepo.create!.mockResolvedValue({
         ...sampleSection,
@@ -322,7 +344,9 @@ describe('SectionsService', () => {
     it('rejects duplicate section name within the same branch and academic year (409)', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch as any);
       mockAcademicYearRepo.findById!.mockResolvedValue(sampleYear as any);
-      mockAcademicBranchRepo.findById!.mockResolvedValue(sampleAcademicBranch as any);
+      mockAcademicBranchRepo.findById!.mockResolvedValue(
+        sampleAcademicBranch as any,
+      );
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(sampleSection);
 
       await expect(service.create(validDto)).rejects.toThrow(HttpException);
@@ -333,25 +357,34 @@ describe('SectionsService', () => {
   describe('update', () => {
     it('updates a section successfully', async () => {
       mockSectionRepo.findById!.mockResolvedValue(sampleSection);
-      mockSectionRepo.update!.mockResolvedValue({ ...sampleSection, name: 'Section 1B' });
+      mockSectionRepo.update!.mockResolvedValue({
+        ...sampleSection,
+        name: 'Section 1B',
+      });
 
       const result = await service.update(1, { name: 'Section 1B' });
 
       expect(result.name).toBe('Section 1B');
-      expect(mockSectionRepo.update).toHaveBeenCalledWith(1, { name: 'Section 1B' });
+      expect(mockSectionRepo.update).toHaveBeenCalledWith(1, {
+        name: 'Section 1B',
+      });
     });
 
     it('throws NotFoundException when attempting to update a section from another tenant', async () => {
       mockSectionRepo.findById!.mockResolvedValue(null);
 
-      await expect(service.update(999, { name: 'Hack' })).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, { name: 'Hack' })).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockSectionRepo.update).not.toHaveBeenCalled();
     });
 
     it('rejects updating with a negative fee', async () => {
       mockSectionRepo.findById!.mockResolvedValue(sampleSection);
 
-      await expect(service.update(1, { feeAmount: -50 })).rejects.toThrow(HttpException);
+      await expect(service.update(1, { feeAmount: -50 })).rejects.toThrow(
+        HttpException,
+      );
       expect(mockSectionRepo.update).not.toHaveBeenCalled();
     });
 
@@ -363,7 +396,9 @@ describe('SectionsService', () => {
         instituteId: 99,
       } as any);
 
-      await expect(service.update(1, { academicYearId: 999 })).rejects.toThrow(HttpException);
+      await expect(service.update(1, { academicYearId: 999 })).rejects.toThrow(
+        HttpException,
+      );
       expect(mockSectionRepo.update).not.toHaveBeenCalled();
     });
   });
@@ -385,14 +420,18 @@ describe('SectionsService', () => {
     });
 
     it('rejects negative fee in updateFee', async () => {
-      await expect(service.updateFee(1, { feeAmount: -10 })).rejects.toThrow(HttpException);
+      await expect(service.updateFee(1, { feeAmount: -10 })).rejects.toThrow(
+        HttpException,
+      );
       expect(mockSectionRepo.update).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException if section does not belong to current tenant', async () => {
       mockSectionRepo.findById!.mockResolvedValue(null);
 
-      await expect(service.updateFee(999, { feeAmount: 1000 })).rejects.toThrow(NotFoundException);
+      await expect(service.updateFee(999, { feeAmount: 1000 })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -400,9 +439,25 @@ describe('SectionsService', () => {
     it('returns section details with relations and counts', async () => {
       const details = {
         ...sampleSection,
-        branch: { id: 5, name: 'Main Branch', code: 'MAIN', address: 'Campus 1' },
-        academicYear: { id: 2, name: '2026-2027', startDate: new Date(), endDate: new Date(), isCurrent: true },
-        _count: { studentEnrollments: 25, sectionSubjects: 6, sectionTeachers: 4, timetables: 1 },
+        branch: {
+          id: 5,
+          name: 'Main Branch',
+          code: 'MAIN',
+          address: 'Campus 1',
+        },
+        academicYear: {
+          id: 2,
+          name: '2026-2027',
+          startDate: new Date(),
+          endDate: new Date(),
+          isCurrent: true,
+        },
+        _count: {
+          studentEnrollments: 25,
+          sectionSubjects: 6,
+          sectionTeachers: 4,
+          timetables: 1,
+        },
       };
 
       mockSectionRepo.findByIdWithDetails!.mockResolvedValue(details as any);
@@ -466,19 +521,25 @@ describe('SectionsService', () => {
     describe('getSectionSubjects', () => {
       it('returns subjects assigned to section', async () => {
         mockSectionRepo.findById!.mockResolvedValue(sampleSection);
-        mockSectionSubjectRepo.findSubjectsBySection!.mockResolvedValue([sampleSectionSubject as any]);
+        mockSectionSubjectRepo.findSubjectsBySection!.mockResolvedValue([
+          sampleSectionSubject as any,
+        ]);
 
         const result = await service.getSectionSubjects(1);
 
         expect(result).toEqual([sampleSectionSubject]);
-        expect(mockSectionSubjectRepo.findSubjectsBySection).toHaveBeenCalledWith(1);
+        expect(
+          mockSectionSubjectRepo.findSubjectsBySection,
+        ).toHaveBeenCalledWith(1);
       });
 
       it('throws NotFoundException if section does not exist', async () => {
         mockSectionRepo.findById!.mockResolvedValue(null);
         mockSectionRepo.findRawById!.mockResolvedValue(null);
 
-        await expect(service.getSectionSubjects(999)).rejects.toThrow(NotFoundException);
+        await expect(service.getSectionSubjects(999)).rejects.toThrow(
+          NotFoundException,
+        );
       });
     });
 
@@ -487,19 +548,28 @@ describe('SectionsService', () => {
         mockSectionRepo.findById!.mockResolvedValue(sampleSection);
         mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
         mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(null);
-        mockSectionSubjectRepo.assignSubject!.mockResolvedValue(sampleSectionSubject as any);
+        mockSectionSubjectRepo.assignSubject!.mockResolvedValue(
+          sampleSectionSubject as any,
+        );
 
         const result = await service.assignSubject(1, { subjectId: 30 });
 
         expect(result).toEqual(sampleSectionSubject);
-        expect(mockSectionSubjectRepo.assignSubject).toHaveBeenCalledWith(1, 30, 1, null);
+        expect(mockSectionSubjectRepo.assignSubject).toHaveBeenCalledWith(
+          1,
+          30,
+          1,
+          null,
+        );
       });
 
       it('throws 404 when section not found', async () => {
         mockSectionRepo.findById!.mockResolvedValue(null);
         mockSectionRepo.findRawById!.mockResolvedValue(null);
 
-        await expect(service.assignSubject(999, { subjectId: 30 })).rejects.toThrow(NotFoundException);
+        await expect(
+          service.assignSubject(999, { subjectId: 30 }),
+        ).rejects.toThrow(NotFoundException);
       });
 
       it('throws 404 when subject not found or belongs to another institute', async () => {
@@ -507,15 +577,21 @@ describe('SectionsService', () => {
         mockSubjectRepo.findById!.mockResolvedValue(null);
         mockSubjectRepo.findRawById!.mockResolvedValue(null);
 
-        await expect(service.assignSubject(1, { subjectId: 999 })).rejects.toThrow(NotFoundException);
+        await expect(
+          service.assignSubject(1, { subjectId: 999 }),
+        ).rejects.toThrow(NotFoundException);
       });
 
       it('throws 400 when subject is already assigned to section', async () => {
         mockSectionRepo.findById!.mockResolvedValue(sampleSection);
         mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
-        mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(sampleSectionSubject as any);
+        mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(
+          sampleSectionSubject as any,
+        );
 
-        await expect(service.assignSubject(1, { subjectId: 30 })).rejects.toThrow(HttpException);
+        await expect(
+          service.assignSubject(1, { subjectId: 30 }),
+        ).rejects.toThrow(HttpException);
         expect(mockSectionSubjectRepo.assignSubject).not.toHaveBeenCalled();
       });
     });
@@ -524,13 +600,20 @@ describe('SectionsService', () => {
       it('removes subject from section successfully', async () => {
         mockSectionRepo.findById!.mockResolvedValue(sampleSection);
         mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
-        mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(sampleSectionSubject as any);
-        mockSectionSubjectRepo.removeSubject!.mockResolvedValue(sampleSectionSubject as any);
+        mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(
+          sampleSectionSubject as any,
+        );
+        mockSectionSubjectRepo.removeSubject!.mockResolvedValue(
+          sampleSectionSubject as any,
+        );
 
         const result = await service.removeSubject(1, 30);
 
         expect(result).toEqual({ success: true });
-        expect(mockSectionSubjectRepo.removeSubject).toHaveBeenCalledWith(1, 30);
+        expect(mockSectionSubjectRepo.removeSubject).toHaveBeenCalledWith(
+          1,
+          30,
+        );
       });
 
       it('throws 404 when section subject relation does not exist', async () => {
@@ -538,7 +621,9 @@ describe('SectionsService', () => {
         mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
         mockSectionSubjectRepo.findBySectionAndSubject!.mockResolvedValue(null);
 
-        await expect(service.removeSubject(1, 30)).rejects.toThrow(HttpException);
+        await expect(service.removeSubject(1, 30)).rejects.toThrow(
+          HttpException,
+        );
         expect(mockSectionSubjectRepo.removeSubject).not.toHaveBeenCalled();
       });
     });

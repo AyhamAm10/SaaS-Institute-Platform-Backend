@@ -42,7 +42,9 @@ describe('RoomsService', () => {
     };
 
     mockTransactionHelper = {
-      executeInTransaction: (jest.fn() as any).mockImplementation((fn: any) => fn()),
+      executeInTransaction: (jest.fn() as any).mockImplementation((fn: any) =>
+        fn(),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -62,9 +64,7 @@ describe('RoomsService', () => {
     it('should throw 409 if room name already exists', async () => {
       mockRoomRepo.findByName.mockResolvedValue({ id: 5, name: 'Room 101' });
 
-      await expect(
-        service.create({ name: 'Room 101' }),
-      ).rejects.toThrow();
+      await expect(service.create({ name: 'Room 101' })).rejects.toThrow();
     });
 
     it('should throw 400 if availability window has invalid time range', async () => {
@@ -73,7 +73,9 @@ describe('RoomsService', () => {
       await expect(
         service.create({
           name: 'Room 101',
-          availabilities: [{ dayOfWeek: 1, startTime: '15:00', endTime: '10:00' }],
+          availabilities: [
+            { dayOfWeek: 1, startTime: '15:00', endTime: '10:00' },
+          ],
         }),
       ).rejects.toThrow();
     });
@@ -81,12 +83,17 @@ describe('RoomsService', () => {
     it('should create room and availabilities successfully', async () => {
       mockRoomRepo.findByName.mockResolvedValue(null);
       mockRoomRepo.create.mockResolvedValue({ id: 10, name: 'Room 101' });
-      mockRoomRepo.findByIdWithDetails.mockResolvedValue({ id: 10, name: 'Room 101' });
+      mockRoomRepo.findByIdWithDetails.mockResolvedValue({
+        id: 10,
+        name: 'Room 101',
+      });
 
       const result = await service.create({
         name: 'Room 101',
         capacity: 25,
-        availabilities: [{ dayOfWeek: 0, startTime: '08:00', endTime: '14:00' }],
+        availabilities: [
+          { dayOfWeek: 0, startTime: '08:00', endTime: '14:00' },
+        ],
       });
 
       expect(result).toBeDefined();

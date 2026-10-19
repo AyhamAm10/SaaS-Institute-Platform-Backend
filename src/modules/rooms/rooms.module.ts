@@ -8,15 +8,7 @@ import { BranchesModule } from '../branches/branches.module';
 @Module({
   imports: [BranchesModule],
   controllers: [RoomsController],
-  providers: [
-    RoomsService,
-    RoomRepository,
-    RoomAvailabilityRepository,
-  ],
-  exports: [
-    RoomsService,
-    RoomRepository,
-    RoomAvailabilityRepository,
-  ],
+  providers: [RoomsService, RoomRepository, RoomAvailabilityRepository],
+  exports: [RoomsService, RoomRepository, RoomAvailabilityRepository],
 })
 export class RoomsModule {}

@@ -1,5 +1,9 @@
 import { jest } from '@jest/globals';
-import { ConflictException, HttpException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AcademicYearsService } from './academic-years.service';
 import { AcademicYearRepository } from './academic-year.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
@@ -36,7 +40,9 @@ describe('AcademicYearsService', () => {
     } as any;
 
     mockTxHelper = {
-      executeInTransaction: (jest.fn() as any).mockImplementation((cb: () => Promise<unknown>) => cb()),
+      executeInTransaction: (jest.fn() as any).mockImplementation(
+        (cb: () => Promise<unknown>) => cb(),
+      ),
     };
 
     service = new AcademicYearsService(
@@ -114,18 +120,25 @@ describe('AcademicYearsService', () => {
       mockRepo.findById!.mockResolvedValue(sampleYear);
       mockRepo.findByName!.mockResolvedValue(null);
       mockRepo.findOverlapping!.mockResolvedValue(null);
-      mockRepo.update!.mockResolvedValue({ ...sampleYear, name: '2026-2027 Updated' });
+      mockRepo.update!.mockResolvedValue({
+        ...sampleYear,
+        name: '2026-2027 Updated',
+      });
 
       const result = await service.update(1, { name: '2026-2027 Updated' });
 
       expect(result.name).toBe('2026-2027 Updated');
-      expect(mockRepo.update).toHaveBeenCalledWith(1, { name: '2026-2027 Updated' });
+      expect(mockRepo.update).toHaveBeenCalledWith(1, {
+        name: '2026-2027 Updated',
+      });
     });
 
     it('throws NotFoundException if academic year not found or belongs to another tenant', async () => {
       mockRepo.findById!.mockResolvedValue(null);
 
-      await expect(service.update(999, { name: 'New' })).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, { name: 'New' })).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockRepo.update).not.toHaveBeenCalled();
     });
 
@@ -185,7 +198,9 @@ describe('AcademicYearsService', () => {
     it('throws NotFoundException if academic year does not exist in tenant', async () => {
       mockRepo.findById!.mockResolvedValue(null);
 
-      await expect(service.findSections(999)).rejects.toThrow(NotFoundException);
+      await expect(service.findSections(999)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

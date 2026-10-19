@@ -1,7 +1,10 @@
 import { PrismaService } from './prisma.service';
 import { TransactionContext } from './transaction.context';
 import { PaginationQueryDto } from '../common/pagination/pagination.dto';
-import { createPaginatedResult, PaginatedResult } from '../common/pagination/paginated-result';
+import {
+  createPaginatedResult,
+  PaginatedResult,
+} from '../common/pagination/paginated-result';
 
 /**
  * Type for any Prisma model delegate with standard CRUD operations.
@@ -110,6 +113,11 @@ export abstract class BaseRepository<T> {
       this.count(options?.where),
     ]);
 
-    return createPaginatedResult(data, total, pagination.page, pagination.limit);
+    return createPaginatedResult(
+      data,
+      total,
+      pagination.page,
+      pagination.limit,
+    );
   }
 }

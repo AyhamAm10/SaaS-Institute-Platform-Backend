@@ -41,14 +41,18 @@ export class SectionRepository extends ContextScopedRepository<Section> {
    * Used strictly for cross-tenant validation checks.
    */
   async findRawById(id: number): Promise<Section | null> {
-    return this.delegate.findUnique({ where: { id } }) as Promise<Section | null>;
+    return this.delegate.findUnique({
+      where: { id },
+    }) as Promise<Section | null>;
   }
 
   /**
    * Retrieve full details of a section with related branch, academic year,
    * and summary counts, scoped strictly to the current tenant.
    */
-  async findByIdWithDetails(id: number): Promise<Record<string, unknown> | null> {
+  async findByIdWithDetails(
+    id: number,
+  ): Promise<Record<string, unknown> | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.client as any).section.findFirst({
       where: this.scopeWhere({ id }),

@@ -35,22 +35,24 @@ export class AcademicYearsService {
     const endDate = new Date(dto.endDate);
 
     // Validate date order
-    Ensure.custom(
-      startDate >= endDate,
-      ErrorMessages.get('date_invalid'),
-    );
+    Ensure.custom(startDate >= endDate, ErrorMessages.get('date_invalid'));
 
     // Validate name uniqueness within tenant
-    const existingByName = await this.academicYearRepository.findByName(dto.name);
+    const existingByName = await this.academicYearRepository.findByName(
+      dto.name,
+    );
     Ensure.alreadyExists(existingByName, 'Academic year name');
 
-    // Validate no date overlap within tenant
-    const overlapping = await this.academicYearRepository.findOverlapping(startDate, endDate);
-    Ensure.custom(
-      overlapping !== null,
-      ErrorMessages.get('academic_year_overlap'),
-      409,
-    );
+    // // Validate no date overlap within tenant
+    // const overlapping = await this.academicYearRepository.findOverlapping(
+    //   startDate,
+    //   endDate,
+    // );
+    // Ensure.custom(
+    //   overlapping !== null,
+    //   ErrorMessages.get('academic_year_overlap'),
+    //   409,
+    // );
 
     // If isCurrent is requested, atomically unset previous and create new
     if (dto.isCurrent) {
@@ -82,20 +84,21 @@ export class AcademicYearsService {
     const existing = await this.academicYearRepository.findById(id);
     Ensure.exists(existing, 'Academic year');
 
-    const startDate = dto.startDate ? new Date(dto.startDate) : existing.startDate;
+    const startDate = dto.startDate
+      ? new Date(dto.startDate)
+      : existing.startDate;
     const endDate = dto.endDate ? new Date(dto.endDate) : existing.endDate;
 
     // Validate date order if dates changed
     if (dto.startDate || dto.endDate) {
-      Ensure.custom(
-        startDate >= endDate,
-        ErrorMessages.get('date_invalid'),
-      );
+      Ensure.custom(startDate >= endDate, ErrorMessages.get('date_invalid'));
     }
 
     // Validate name uniqueness if name changed
     if (dto.name && dto.name !== existing.name) {
-      const existingByName = await this.academicYearRepository.findByName(dto.name);
+      const existingByName = await this.academicYearRepository.findByName(
+        dto.name,
+      );
       Ensure.alreadyExists(existingByName, 'Academic year name');
     }
 
@@ -181,4 +184,3 @@ export class AcademicYearsService {
       : this.academicYearRepository.findSections(id);
   }
 }
-

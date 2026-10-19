@@ -104,7 +104,10 @@ describe('TimetablesService', () => {
         { provide: TimetableEntryRepository, useValue: mockEntryRepo },
         { provide: TimetableConflictService, useValue: mockConflictService },
         { provide: TimetableSchedulerService, useValue: mockSchedulerService },
-        { provide: InstituteScheduleConfigService, useValue: mockConfigService },
+        {
+          provide: InstituteScheduleConfigService,
+          useValue: mockConfigService,
+        },
         { provide: SectionRepository, useValue: mockSectionRepo },
         {
           provide: SectionSubjectRepository,
@@ -138,9 +141,15 @@ describe('TimetablesService', () => {
       name: 'Class A',
       academicBranchId: 10,
     });
-    mockAcademicYearRepo.findById.mockResolvedValue({ id: 100, name: '2026-2027' });
+    mockAcademicYearRepo.findById.mockResolvedValue({
+      id: 100,
+      name: '2026-2027',
+    });
     mockTimetableRepo.findBySectionAndYear.mockResolvedValue(null);
-    mockTimetableRepo.upsertTimetable.mockResolvedValue({ id: 50, name: 'جدول Class A' });
+    mockTimetableRepo.upsertTimetable.mockResolvedValue({
+      id: 50,
+      name: 'جدول Class A',
+    });
     mockTimetableRepo.findWithEntries.mockResolvedValue({
       id: 50,
       name: 'جدول Class A',

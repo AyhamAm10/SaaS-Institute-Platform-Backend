@@ -72,13 +72,22 @@ describe('SubjectsService', () => {
         data: [sampleSubject],
         meta: { total: 1, page: 1, limit: 10, totalPages: 1 },
       };
-      mockSubjectRepo.findAllPaginated!.mockResolvedValue(paginatedResult as any);
+      mockSubjectRepo.findAllPaginated!.mockResolvedValue(
+        paginatedResult as any,
+      );
 
-      const query = Object.assign(new SubjectQueryDto(), { page: 1, limit: 10, search: 'Math' });
+      const query = Object.assign(new SubjectQueryDto(), {
+        page: 1,
+        limit: 10,
+        search: 'Math',
+      });
       const result = await service.findAll(query);
 
       expect(result).toEqual(paginatedResult);
-      expect(mockSubjectRepo.findAllPaginated).toHaveBeenCalledWith(query, 'Math');
+      expect(mockSubjectRepo.findAllPaginated).toHaveBeenCalledWith(
+        query,
+        'Math',
+      );
     });
   });
 
@@ -119,7 +128,11 @@ describe('SubjectsService', () => {
     it('updates subject successfully', async () => {
       mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
       mockSubjectRepo.findByCode!.mockResolvedValue(null);
-      const updated = { ...sampleSubject, name: 'Advanced Mathematics', code: 'MATH201' };
+      const updated = {
+        ...sampleSubject,
+        name: 'Advanced Mathematics',
+        code: 'MATH201',
+      };
       mockSubjectRepo.update!.mockResolvedValue(updated);
 
       const result = await service.update(1, updateDto);

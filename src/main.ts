@@ -3,6 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/errors/http-exception.filter';
+import { SuperAdminInitService } from './modules/users/super-admin-init.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,9 +19,9 @@ async function bootstrap() {
   // Global validation pipe — validates DTOs at the API boundary
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,           // Strip unknown properties
+      whitelist: true, // Strip unknown properties
       forbidNonWhitelisted: true, // Throw on unknown properties
-      transform: true,           // Auto-transform payloads to DTO instances
+      transform: true, // Auto-transform payloads to DTO instances
       transformOptions: {
         enableImplicitConversion: false,
       },
@@ -39,6 +40,10 @@ async function bootstrap() {
   const port = process.env['PORT'] ?? 3000;
   await app.listen(port);
   logger.log(`🚀 Application running on: http://localhost:${port}/${prefix}`);
+
+  // Ensure Super Admin user exists after server startup and database connection
+  const superAdminInitService = app.get(SuperAdminInitService);
+  await superAdminInitService.initSuperAdmin();
 }
 
 bootstrap();

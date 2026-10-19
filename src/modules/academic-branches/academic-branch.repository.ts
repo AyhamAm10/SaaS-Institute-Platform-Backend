@@ -29,7 +29,9 @@ export class AcademicBranchRepository extends TenantAwareRepository<AcademicBran
    * Used strictly for cross-tenant validation checks.
    */
   async findRawById(id: number): Promise<AcademicBranch | null> {
-    return this.delegate.findUnique({ where: { id } }) as Promise<AcademicBranch | null>;
+    return this.delegate.findUnique({
+      where: { id },
+    }) as Promise<AcademicBranch | null>;
   }
 
   /**

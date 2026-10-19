@@ -34,7 +34,9 @@ export class FamilyRepository extends TenantAwareRepository<Family> {
     });
   }
 
-  async findFamilyById(id: number): Promise<(Family & { _count?: { students: number } }) | null> {
+  async findFamilyById(
+    id: number,
+  ): Promise<(Family & { _count?: { students: number } }) | null> {
     const instituteId = this.getInstituteId();
     return (this.client as any).family.findFirst({
       where: { id, instituteId },

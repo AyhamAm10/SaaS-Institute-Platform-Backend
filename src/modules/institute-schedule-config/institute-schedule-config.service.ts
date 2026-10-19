@@ -54,7 +54,8 @@ export class InstituteScheduleConfigService {
     const endMins = parseTimeToMinutes(dayEndTime);
 
     const sortedBreaks = [...breaks].sort(
-      (a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
+      (a, b) =>
+        parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
     );
 
     const slots: ScheduleSlot[] = [];
@@ -86,7 +87,9 @@ export class InstituteScheduleConfigService {
       const nextBreak = sortedBreaks.find(
         (b) => parseTimeToMinutes(b.startTime) > currentMins,
       );
-      const nextCutoff = nextBreak ? parseTimeToMinutes(nextBreak.startTime) : endMins;
+      const nextCutoff = nextBreak
+        ? parseTimeToMinutes(nextBreak.startTime)
+        : endMins;
 
       // Can we fit a full period before next break or day end?
       if (currentMins + periodDurationMinutes <= nextCutoff) {
@@ -125,7 +128,12 @@ export class InstituteScheduleConfigService {
       });
     }
 
-    const breaks = (config.breaks as Array<{ name: string; startTime: string; endTime: string }>) || [];
+    const breaks =
+      (config.breaks as Array<{
+        name: string;
+        startTime: string;
+        endTime: string;
+      }>) || [];
     const slots = this.calculateTimeSlots(
       config.dayStartTime,
       config.dayEndTime,
@@ -150,7 +158,9 @@ export class InstituteScheduleConfigService {
   /**
    * Update institute schedule configuration with deep validation.
    */
-  async updateConfig(dto: UpdateScheduleConfigDto): Promise<ScheduleConfigResponseDto> {
+  async updateConfig(
+    dto: UpdateScheduleConfigDto,
+  ): Promise<ScheduleConfigResponseDto> {
     const startMins = parseTimeToMinutes(dto.dayStartTime);
     const endMins = parseTimeToMinutes(dto.dayEndTime);
 
@@ -165,7 +175,8 @@ export class InstituteScheduleConfigService {
 
     // 2. Validate breaks
     const sortedBreaks = [...breaks].sort(
-      (a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
+      (a, b) =>
+        parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
     );
 
     for (let i = 0; i < sortedBreaks.length; i++) {

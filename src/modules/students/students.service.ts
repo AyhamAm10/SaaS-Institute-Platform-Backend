@@ -35,8 +35,13 @@ export class StudentsService {
     Ensure.required(dto.gender, 'gender');
 
     // Family is mandatory: either existing familyId or newFamily payload
-    const hasFamily = Boolean(dto.familyId) || Boolean(dto.newFamily?.familyName?.trim());
-    Ensure.custom(!hasFamily, 'Either familyId or newFamily must be provided', 400);
+    const hasFamily =
+      Boolean(dto.familyId) || Boolean(dto.newFamily?.familyName?.trim());
+    Ensure.custom(
+      !hasFamily,
+      'Either familyId or newFamily must be provided',
+      400,
+    );
 
     // Validate custom fields requirements
     const configuredFields = await this.fieldRepository.findAllForTenant(false);
@@ -65,7 +70,8 @@ export class StudentsService {
         });
         familyId = family.id;
       } else if (familyId) {
-        const existingFamily = await this.familyRepository.findFamilyById(familyId);
+        const existingFamily =
+          await this.familyRepository.findFamilyById(familyId);
         Ensure.exists(existingFamily, 'Family');
       }
 

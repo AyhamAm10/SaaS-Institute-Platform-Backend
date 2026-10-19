@@ -60,7 +60,8 @@ export class RoomsService {
     // Check overlaps per day
     for (const day in windowsByDay) {
       const dayWindows = [...windowsByDay[day]!].sort(
-        (a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
+        (a, b) =>
+          parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
       );
 
       for (let i = 1; i < dayWindows.length; i++) {
@@ -85,17 +86,26 @@ export class RoomsService {
     if (targetBranchId) {
       const branch = await this.branchRepository.findById(targetBranchId);
       if (!branch) {
-        const rawBranch = await this.branchRepository.findRawById(targetBranchId);
-        Ensure.custom(rawBranch !== null, ErrorMessages.get('branch_mismatch'), 400);
+        const rawBranch =
+          await this.branchRepository.findRawById(targetBranchId);
+        Ensure.custom(
+          rawBranch !== null,
+          ErrorMessages.get('branch_mismatch'),
+          400,
+        );
         Ensure.exists(null, 'Branch');
       }
       branchId = targetBranchId;
     } else {
-      const defaultBranch = await this.branchRepository.getOrCreateDefaultBranch();
+      const defaultBranch =
+        await this.branchRepository.getOrCreateDefaultBranch();
       branchId = defaultBranch.id;
     }
 
-    const existing = await this.roomRepository.findByName(trimmedName, branchId);
+    const existing = await this.roomRepository.findByName(
+      trimmedName,
+      branchId,
+    );
     Ensure.custom(
       Boolean(existing),
       ErrorMessages.get('room_name_duplicate'),
@@ -117,7 +127,10 @@ export class RoomsService {
       });
 
       if (dto.availabilities && dto.availabilities.length > 0) {
-        await this.availabilityRepository.replaceAvailabilities(room.id, dto.availabilities);
+        await this.availabilityRepository.replaceAvailabilities(
+          room.id,
+          dto.availabilities,
+        );
       }
 
       return this.roomRepository.findByIdWithDetails(room.id);
@@ -140,7 +153,11 @@ export class RoomsService {
       const branch = await this.branchRepository.findById(dto.branchId);
       if (!branch) {
         const rawBranch = await this.branchRepository.findRawById(dto.branchId);
-        Ensure.custom(rawBranch !== null, ErrorMessages.get('branch_mismatch'), 400);
+        Ensure.custom(
+          rawBranch !== null,
+          ErrorMessages.get('branch_mismatch'),
+          400,
+        );
         Ensure.exists(null, 'Branch');
       }
     }
@@ -149,7 +166,10 @@ export class RoomsService {
       const trimmedName = dto.name.trim();
       Ensure.required(trimmedName, 'name');
       if (trimmedName !== room.name || targetBranchId !== room.branchId) {
-        const duplicate = await this.roomRepository.findByName(trimmedName, targetBranchId);
+        const duplicate = await this.roomRepository.findByName(
+          trimmedName,
+          targetBranchId,
+        );
         Ensure.custom(
           Boolean(duplicate && duplicate.id !== id),
           ErrorMessages.get('room_name_duplicate'),
@@ -161,9 +181,11 @@ export class RoomsService {
     const updateData: Record<string, unknown> = {};
     if (dto.branchId !== undefined) updateData['branchId'] = dto.branchId;
     if (dto.name !== undefined) updateData['name'] = dto.name.trim();
-    if (dto.code !== undefined) updateData['code'] = dto.code ? dto.code.trim() : null;
+    if (dto.code !== undefined)
+      updateData['code'] = dto.code ? dto.code.trim() : null;
     if (dto.capacity !== undefined) updateData['capacity'] = dto.capacity;
-    if (dto.type !== undefined) updateData['type'] = dto.type ? dto.type.trim() : null;
+    if (dto.type !== undefined)
+      updateData['type'] = dto.type ? dto.type.trim() : null;
     if (dto.isActive !== undefined) updateData['isActive'] = dto.isActive;
 
     await this.roomRepository.update(id, updateData);
@@ -196,11 +218,7 @@ export class RoomsService {
     );
 
     const count = await this.roomRepository.countTimetableEntries(id);
-    Ensure.custom(
-      count > 0,
-      ErrorMessages.get('room_has_timetables'),
-      400,
-    );
+    Ensure.custom(count > 0, ErrorMessages.get('room_has_timetables'), 400);
 
     await this.roomRepository.delete(id);
   }

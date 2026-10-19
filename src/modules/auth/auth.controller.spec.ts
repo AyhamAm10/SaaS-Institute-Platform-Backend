@@ -1,7 +1,10 @@
 import { jest } from '@jest/globals';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { AuthCookiesService, REFRESH_TOKEN_COOKIE } from './auth-cookies.service';
+import {
+  AuthCookiesService,
+  REFRESH_TOKEN_COOKIE,
+} from './auth-cookies.service';
 import { ClientType } from '../../common/types/client-type.enum';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { Response, Request } from 'express';
@@ -65,7 +68,11 @@ describe('AuthController — Client Token Delivery Strategy', () => {
     const loginDto = { phone: '+966500000001', password: 'Password123!' };
 
     it('Mobile: returns accessToken, refreshToken, and user in JSON body without setting cookies', async () => {
-      const result = await controller.login(loginDto, ClientType.MOBILE, mockResponse);
+      const result = await controller.login(
+        loginDto,
+        ClientType.MOBILE,
+        mockResponse,
+      );
 
       expect(authService.login).toHaveBeenCalledWith(loginDto);
       expect(authCookiesService.setAuthCookies).not.toHaveBeenCalled();
@@ -77,7 +84,11 @@ describe('AuthController — Client Token Delivery Strategy', () => {
     });
 
     it('Web: sets HttpOnly cookies and returns only user in JSON body (no tokens)', async () => {
-      const result = await controller.login(loginDto, ClientType.WEB, mockResponse);
+      const result = await controller.login(
+        loginDto,
+        ClientType.WEB,
+        mockResponse,
+      );
 
       expect(authService.login).toHaveBeenCalledWith(loginDto);
       expect(authCookiesService.setAuthCookies).toHaveBeenCalledWith(
@@ -115,7 +126,12 @@ describe('AuthController — Client Token Delivery Strategy', () => {
       const refreshDto = {};
 
       await expect(
-        controller.refresh(refreshDto, ClientType.MOBILE, mockRequest, mockResponse),
+        controller.refresh(
+          refreshDto,
+          ClientType.MOBILE,
+          mockRequest,
+          mockResponse,
+        ),
       ).rejects.toThrow(BadRequestException);
 
       expect(authService.refresh).not.toHaveBeenCalled();
@@ -179,7 +195,11 @@ describe('AuthController — Client Token Delivery Strategy', () => {
     const user = { id: 1, instituteId: 10, role: 'INSTITUTE_ADMIN' };
 
     it('Mobile: revokes token in DB without clearing cookies', async () => {
-      const result = await controller.logout(user, ClientType.MOBILE, mockResponse);
+      const result = await controller.logout(
+        user,
+        ClientType.MOBILE,
+        mockResponse,
+      );
 
       expect(authService.logout).toHaveBeenCalledWith(1);
       expect(authCookiesService.clearAuthCookies).not.toHaveBeenCalled();
@@ -187,10 +207,16 @@ describe('AuthController — Client Token Delivery Strategy', () => {
     });
 
     it('Web: revokes token in DB and clears HttpOnly cookies', async () => {
-      const result = await controller.logout(user, ClientType.WEB, mockResponse);
+      const result = await controller.logout(
+        user,
+        ClientType.WEB,
+        mockResponse,
+      );
 
       expect(authService.logout).toHaveBeenCalledWith(1);
-      expect(authCookiesService.clearAuthCookies).toHaveBeenCalledWith(mockResponse);
+      expect(authCookiesService.clearAuthCookies).toHaveBeenCalledWith(
+        mockResponse,
+      );
       expect(result).toEqual({ message: 'Logged out successfully' });
     });
   });

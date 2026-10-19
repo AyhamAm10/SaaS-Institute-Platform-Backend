@@ -61,7 +61,11 @@ describe('TenantAwareRepository vs SystemRepository', () => {
     });
 
     it('automatically injects instituteId on create', async () => {
-      mockPrisma.mockModel.create.mockResolvedValue({ id: 1, instituteId: 99, name: 'Physics' });
+      mockPrisma.mockModel.create.mockResolvedValue({
+        id: 1,
+        instituteId: 99,
+        name: 'Physics',
+      });
 
       await RequestContext.run(
         { userId: 1, instituteId: 99, role: 'ADMIN', language: 'en' },
@@ -82,17 +86,25 @@ describe('TenantAwareRepository vs SystemRepository', () => {
       await RequestContext.run(
         { userId: 1, instituteId: 10, role: 'ADMIN', language: 'en' },
         async () => {
-          await expect(tenantRepo.update(5, { name: 'Hacked' })).rejects.toThrow(
-            'mockModel with id 5 not found in current tenant',
-          );
+          await expect(
+            tenantRepo.update(5, { name: 'Hacked' }),
+          ).rejects.toThrow('mockModel with id 5 not found in current tenant');
           expect(mockPrisma.mockModel.update).not.toHaveBeenCalled();
         },
       );
     });
 
     it('allows update when record belongs to current institute', async () => {
-      mockPrisma.mockModel.findFirst.mockResolvedValue({ id: 5, instituteId: 10, name: 'Old' });
-      mockPrisma.mockModel.update.mockResolvedValue({ id: 5, instituteId: 10, name: 'New' });
+      mockPrisma.mockModel.findFirst.mockResolvedValue({
+        id: 5,
+        instituteId: 10,
+        name: 'Old',
+      });
+      mockPrisma.mockModel.update.mockResolvedValue({
+        id: 5,
+        instituteId: 10,
+        name: 'New',
+      });
 
       await RequestContext.run(
         { userId: 1, instituteId: 10, role: 'ADMIN', language: 'en' },

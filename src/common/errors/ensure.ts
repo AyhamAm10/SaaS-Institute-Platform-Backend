@@ -63,9 +63,7 @@ export class Ensure {
   /** Throw 403 if condition is true. */
   static forbidden(condition: boolean, message?: string): void {
     if (condition) {
-      throw new ForbiddenException(
-        message ?? ErrorMessages.get('forbidden'),
-      );
+      throw new ForbiddenException(message ?? ErrorMessages.get('forbidden'));
     }
   }
 
@@ -79,7 +77,10 @@ export class Ensure {
   }
 
   /** Throw 400 if value is not an array. */
-  static isArray(value: unknown, fieldName: string): asserts value is unknown[] {
+  static isArray(
+    value: unknown,
+    fieldName: string,
+  ): asserts value is unknown[] {
     if (!Array.isArray(value)) {
       throw new BadRequestException(
         ErrorMessages.get('invalid_type_array', { field: fieldName }),
