@@ -36,7 +36,6 @@ export class BranchRepository extends TenantAwareRepository<Branch> {
     }
     return this.create({
       name: 'الفرع الرئيسي',
-      code: 'MAIN',
       phone: '',
       address: '',
       isActive: true,

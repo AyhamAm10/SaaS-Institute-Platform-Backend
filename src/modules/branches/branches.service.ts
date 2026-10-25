@@ -36,7 +36,6 @@ export class BranchesService {
 
   async create(dto: CreateBranchDto): Promise<Branch> {
     const name = dto.name.trim();
-    const code = dto.code.trim();
 
     const existingByName = await this.branchRepository.findOne({ name });
     Ensure.custom(
@@ -45,16 +44,8 @@ export class BranchesService {
       409,
     );
 
-    const existingByCode = await this.branchRepository.findOne({ code });
-    Ensure.custom(
-      existingByCode !== null,
-      ErrorMessages.get('branch_code_duplicate'),
-      409,
-    );
-
     return this.branchRepository.create({
       name,
-      code,
       phone: dto.phone?.trim() ?? '',
       address: dto.address?.trim() ?? '',
       isActive: true,
@@ -76,20 +67,8 @@ export class BranchesService {
       );
     }
 
-    if (dto.code && dto.code.trim() !== existing.code) {
-      const existingByCode = await this.branchRepository.findOne({
-        code: dto.code.trim(),
-      });
-      Ensure.custom(
-        existingByCode !== null,
-        ErrorMessages.get('branch_code_duplicate'),
-        409,
-      );
-    }
-
     return this.branchRepository.update(id, {
       ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-      ...(dto.code !== undefined ? { code: dto.code.trim() } : {}),
       ...(dto.phone !== undefined ? { phone: dto.phone.trim() } : {}),
       ...(dto.address !== undefined ? { address: dto.address.trim() } : {}),
     });

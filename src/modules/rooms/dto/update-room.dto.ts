@@ -11,9 +11,6 @@ export class UpdateRoomDto {
   @IsString()
   name?: string;
 
-  @IsOptional()
-  @IsString()
-  code?: string;
 
   @IsOptional()
   @IsInt()

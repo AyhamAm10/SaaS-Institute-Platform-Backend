@@ -11,7 +11,6 @@ describe('BranchesService', () => {
     id: 1,
     instituteId: 10,
     name: 'الفرع الرئيسي',
-    code: 'MAIN',
     phone: '0112345678',
     address: 'شارع الملك فهد',
     isActive: true,
@@ -68,12 +67,10 @@ describe('BranchesService', () => {
         ...mockBranch,
         id: 2,
         name: 'فرع الميدان',
-        code: 'MIDAN',
       });
 
       const result = await service.create({
         name: 'فرع الميدان',
-        code: 'MIDAN',
         phone: '0119876543',
         address: 'حي الميدان',
       });
@@ -82,7 +79,6 @@ describe('BranchesService', () => {
       expect(branchRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'فرع الميدان',
-          code: 'MIDAN',
           isActive: true,
         }),
       );
@@ -94,20 +90,6 @@ describe('BranchesService', () => {
       await expect(
         service.create({
           name: 'الفرع الرئيسي',
-          code: 'MAIN2',
-        }),
-      ).rejects.toThrow(HttpException);
-    });
-
-    it('throws 409 if branch code already exists', async () => {
-      (branchRepository.findOne as any)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mockBranch);
-
-      await expect(
-        service.create({
-          name: 'فرع جديد',
-          code: 'MAIN',
         }),
       ).rejects.toThrow(HttpException);
     });

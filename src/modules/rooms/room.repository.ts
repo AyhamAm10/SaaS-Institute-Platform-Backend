@@ -38,7 +38,7 @@ export class RoomRepository extends ContextScopedRepository<Room> {
     return (this.client as any).room.findFirst({
       where: this.scopeWhere({ id }),
       include: {
-        branch: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true } },
         availabilities: {
           orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
         },
@@ -70,17 +70,13 @@ export class RoomRepository extends ContextScopedRepository<Room> {
     }
 
     if (query.search && query.search.trim()) {
-      const s = query.search.trim();
-      where.OR = [
-        { name: { contains: s, mode: 'insensitive' } },
-        { code: { contains: s, mode: 'insensitive' } },
-      ];
+      where.name = { contains: query.search.trim(), mode: 'insensitive' };
     }
 
     return this.findManyPaginated(query, {
       where,
       include: {
-        branch: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true } },
         availabilities: {
           orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
         },

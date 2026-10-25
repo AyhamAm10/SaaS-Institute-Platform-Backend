@@ -8,9 +8,4 @@ export class CreateSubjectDto {
   @IsString()
   @MaxLength(100)
   name: string;
-
-  @IsNotEmpty()
-  @IsString()
-  @MaxLength(50)
-  code: string;
 }

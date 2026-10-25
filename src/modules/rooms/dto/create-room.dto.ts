@@ -15,9 +15,6 @@ export class CreateRoomDto {
   @IsNotEmpty()
   name!: string;
 
-  @IsOptional()
-  @IsString()
-  code?: string;
 
   @IsOptional()
   @IsInt()

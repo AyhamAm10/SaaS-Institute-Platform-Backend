@@ -66,7 +66,6 @@ export class StudentRepository extends ContextScopedRepository<Student> {
             select: {
               id: true,
               name: true,
-              code: true,
             },
           },
           studentEnrollments: {

@@ -78,7 +78,6 @@ async function main() {
     data: {
       instituteId: institute1.id,
       name: 'Main Branch',
-      code: 'MAIN',
       phone: '+966511111112',
       address: 'Riyadh Main Campus',
       isActive: true,
@@ -96,9 +95,9 @@ async function main() {
   });
 
   const defaultBranches = [
-    { name: 'الصف التاسع', code: 'G9', description: 'المرحلة الإعدادية — الصف التاسع الأساسي' },
-    { name: 'الثانوي العام — الفرع العلمي', code: 'SEC_SCI', description: 'المرحلة الثانوية — الفرع العلمي' },
-    { name: 'الثانوي العام — الفرع الأدبي', code: 'SEC_LIT', description: 'المرحلة الثانوية — الفرع الأدبي' },
+    { name: 'الصف التاسع', description: 'المرحلة الإعدادية — الصف التاسع الأساسي' },
+    { name: 'الثانوي العام — الفرع العلمي', description: 'المرحلة الثانوية — الفرع العلمي' },
+    { name: 'الثانوي العام — الفرع الأدبي', description: 'المرحلة الثانوية — الفرع الأدبي' },
   ];
 
   for (const b of defaultBranches) {
@@ -142,7 +141,6 @@ async function main() {
     data: {
       instituteId: institute2.id,
       name: 'Main Branch',
-      code: 'MAIN',
       phone: '+966522222223',
       address: 'Jeddah Main Campus',
       isActive: true,

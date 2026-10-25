@@ -23,23 +23,20 @@ export class SubjectsService {
    */
   async create(dto: CreateSubjectDto): Promise<Subject> {
     const trimmedName = dto.name.trim();
-    const normalizedCode = dto.code.trim().toUpperCase();
 
     Ensure.required(trimmedName, 'name');
-    Ensure.required(normalizedCode, 'code');
 
-    // Check code uniqueness within this institute
-    const existingWithCode =
-      await this.subjectRepository.findByCode(normalizedCode);
+    // Check name uniqueness within this institute
+    const existingWithName =
+      await this.subjectRepository.findByName(trimmedName);
     Ensure.custom(
-      Boolean(existingWithCode),
-      ErrorMessages.get('subject_code_duplicate'),
+      Boolean(existingWithName),
+      ErrorMessages.get('subject_name_duplicate'),
       409,
     );
 
     return this.subjectRepository.create({
       name: trimmedName,
-      code: normalizedCode,
     });
   }
 
@@ -60,22 +57,16 @@ export class SubjectsService {
     if (dto.name !== undefined) {
       const trimmedName = dto.name.trim();
       Ensure.required(trimmedName, 'name');
-      updateData['name'] = trimmedName;
-    }
 
-    if (dto.code !== undefined) {
-      const normalizedCode = dto.code.trim().toUpperCase();
-      Ensure.required(normalizedCode, 'code');
-
-      if (normalizedCode !== existing!.code) {
-        const codeDuplicate =
-          await this.subjectRepository.findByCode(normalizedCode);
+      if (trimmedName !== existing!.name) {
+        const nameDuplicate =
+          await this.subjectRepository.findByName(trimmedName);
         Ensure.custom(
-          Boolean(codeDuplicate),
-          ErrorMessages.get('subject_code_duplicate'),
+          Boolean(nameDuplicate),
+          ErrorMessages.get('subject_name_duplicate'),
           409,
         );
-        updateData['code'] = normalizedCode;
+        updateData['name'] = trimmedName;
       }
     }
 

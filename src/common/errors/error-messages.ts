@@ -50,6 +50,8 @@ const messages: Record<string, Record<string, string>> = {
     academic_branch_has_sections:
       'Cannot delete academic branch because it is linked to existing sections',
     subject_not_found: 'Subject not found',
+    subject_name_duplicate:
+      'Subject with this name already exists in this institute',
     subject_code_duplicate:
       'Subject with this code already exists in this institute',
     subject_mismatch: 'Subject does not belong to this institute',
@@ -121,6 +123,7 @@ const messages: Record<string, Record<string, string>> = {
     academic_branch_has_sections:
       'لا يمكن حذف الفرع الأكاديمي لوجود شُعب دراسية مرتبطة به',
     subject_not_found: 'المادة الدراسية غير موجودة',
+    subject_name_duplicate: 'يوجد مادة دراسية بنفس الاسم في هذا المعهد',
     subject_code_duplicate: 'يوجد مادة دراسية بنفس الرمز في هذا المعهد',
     subject_mismatch: 'المادة الدراسية لا تتبع لهذا المعهد',
     subject_has_sections: 'لا يمكن حذف المادة الدراسية لتعيينها لشُعب دراسية',

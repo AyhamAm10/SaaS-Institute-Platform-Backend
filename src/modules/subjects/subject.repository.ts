@@ -18,13 +18,6 @@ export class SubjectRepository extends TenantAwareRepository<Subject> {
   }
 
   /**
-   * Find a subject by code within the current tenant.
-   */
-  async findByCode(code: string): Promise<Subject | null> {
-    return this.findOne({ code });
-  }
-
-  /**
    * Find a subject by name within the current tenant.
    */
   async findByName(name: string): Promise<Subject | null> {
@@ -55,7 +48,7 @@ export class SubjectRepository extends TenantAwareRepository<Subject> {
   }
 
   /**
-   * Paginated list of subjects with optional search on name or code.
+   * Paginated list of subjects with optional search on name.
    */
   async findAllPaginated(
     pagination: PaginationQueryDto,
@@ -63,10 +56,7 @@ export class SubjectRepository extends TenantAwareRepository<Subject> {
   ): Promise<PaginatedResult<Subject>> {
     const where: Record<string, unknown> = {};
     if (search !== undefined && search.trim() !== '') {
-      where['OR'] = [
-        { name: { contains: search.trim(), mode: 'insensitive' } },
-        { code: { contains: search.trim(), mode: 'insensitive' } },
-      ];
+      where['name'] = { contains: search.trim(), mode: 'insensitive' };
     }
 
     return this.findManyPaginated(pagination, {

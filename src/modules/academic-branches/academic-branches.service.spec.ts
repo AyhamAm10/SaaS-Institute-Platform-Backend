@@ -19,7 +19,6 @@ describe('AcademicBranchesService', () => {
     id: 1,
     instituteId: currentInstituteId,
     name: 'الصف التاسع',
-    code: 'G9',
     description: 'المرحلة الإعدادية',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -84,13 +83,11 @@ describe('AcademicBranchesService', () => {
 
       const result = await service.create({
         name: 'الصف التاسع',
-        code: 'G9',
       });
 
       expect(result).toEqual(sampleBranch);
       expect(mockBranchRepo.create).toHaveBeenCalledWith({
         name: 'الصف التاسع',
-        code: 'G9',
         description: null,
       });
     });
@@ -106,7 +103,7 @@ describe('AcademicBranchesService', () => {
   });
 
   describe('update', () => {
-    it('updates branch name and code', async () => {
+    it('updates branch name', async () => {
       mockBranchRepo.findById!.mockResolvedValue(sampleBranch);
       mockBranchRepo.findByName!.mockResolvedValue(null);
       mockBranchRepo.update!.mockResolvedValue({

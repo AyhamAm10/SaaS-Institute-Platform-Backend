@@ -15,17 +15,14 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
 export const DEFAULT_ACADEMIC_BRANCHES = [
   {
     name: 'الصف التاسع',
-    code: 'G9',
     description: 'المرحلة الإعدادية — الصف التاسع الأساسي',
   },
   {
     name: 'الثانوي العام — الفرع العلمي',
-    code: 'SEC_SCI',
     description: 'المرحلة الثانوية — الفرع العلمي',
   },
   {
     name: 'الثانوي العام — الفرع الأدبي',
-    code: 'SEC_LIT',
     description: 'المرحلة الثانوية — الفرع الأدبي',
   },
 ];
@@ -64,7 +61,6 @@ export class AcademicBranchesService {
             data: {
               instituteId,
               name: def.name,
-              code: def.code,
               description: def.description,
             },
           });
@@ -94,7 +90,6 @@ export class AcademicBranchesService {
 
     return this.branchRepository.create({
       name: trimmedName,
-      code: dto.code?.trim() || null,
       description: dto.description?.trim() || null,
     });
   }
@@ -125,8 +120,6 @@ export class AcademicBranchesService {
 
     const updateData: Record<string, unknown> = {};
     if (dto.name !== undefined) updateData['name'] = dto.name.trim();
-    if (dto.code !== undefined)
-      updateData['code'] = dto.code ? dto.code.trim() : null;
     if (dto.description !== undefined)
       updateData['description'] = dto.description
         ? dto.description.trim()

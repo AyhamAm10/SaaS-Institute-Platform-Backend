@@ -120,7 +120,6 @@ export class RoomsService {
       const room = await this.roomRepository.create({
         name: trimmedName,
         branchId,
-        code: dto.code?.trim() || null,
         capacity: dto.capacity || 30,
         type: dto.type?.trim() || 'CLASSROOM',
         isActive: true,
@@ -181,8 +180,6 @@ export class RoomsService {
     const updateData: Record<string, unknown> = {};
     if (dto.branchId !== undefined) updateData['branchId'] = dto.branchId;
     if (dto.name !== undefined) updateData['name'] = dto.name.trim();
-    if (dto.code !== undefined)
-      updateData['code'] = dto.code ? dto.code.trim() : null;
     if (dto.capacity !== undefined) updateData['capacity'] = dto.capacity;
     if (dto.type !== undefined)
       updateData['type'] = dto.type ? dto.type.trim() : null;

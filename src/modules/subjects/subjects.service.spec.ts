@@ -17,7 +17,6 @@ describe('SubjectsService', () => {
     id: 1,
     instituteId: currentInstituteId,
     name: 'Mathematics',
-    code: 'MATH101',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -29,7 +28,6 @@ describe('SubjectsService', () => {
       delete: jest.fn(),
       findById: jest.fn(),
       findRawById: jest.fn(),
-      findByCode: jest.fn(),
       findByName: jest.fn(),
       findAllPaginated: jest.fn(),
       countSectionSubjects: jest.fn(),
@@ -41,25 +39,23 @@ describe('SubjectsService', () => {
   describe('create', () => {
     const dto: CreateSubjectDto = {
       name: 'Mathematics',
-      code: 'MATH101',
     };
 
     it('creates a subject successfully', async () => {
-      mockSubjectRepo.findByCode!.mockResolvedValue(null);
+      mockSubjectRepo.findByName!.mockResolvedValue(null);
       mockSubjectRepo.create!.mockResolvedValue(sampleSubject);
 
       const result = await service.create(dto);
 
       expect(result).toEqual(sampleSubject);
-      expect(mockSubjectRepo.findByCode).toHaveBeenCalledWith('MATH101');
+      expect(mockSubjectRepo.findByName).toHaveBeenCalledWith('Mathematics');
       expect(mockSubjectRepo.create).toHaveBeenCalledWith({
         name: 'Mathematics',
-        code: 'MATH101',
       });
     });
 
-    it('throws error when subject code already exists in institute', async () => {
-      mockSubjectRepo.findByCode!.mockResolvedValue(sampleSubject);
+    it('throws error when subject name already exists in institute', async () => {
+      mockSubjectRepo.findByName!.mockResolvedValue(sampleSubject);
 
       await expect(service.create(dto)).rejects.toThrow(HttpException);
       expect(mockSubjectRepo.create).not.toHaveBeenCalled();
@@ -122,16 +118,14 @@ describe('SubjectsService', () => {
   describe('update', () => {
     const updateDto: UpdateSubjectDto = {
       name: 'Advanced Mathematics',
-      code: 'MATH201',
     };
 
     it('updates subject successfully', async () => {
       mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
-      mockSubjectRepo.findByCode!.mockResolvedValue(null);
+      mockSubjectRepo.findByName!.mockResolvedValue(null);
       const updated = {
         ...sampleSubject,
         name: 'Advanced Mathematics',
-        code: 'MATH201',
       };
       mockSubjectRepo.update!.mockResolvedValue(updated);
 
@@ -140,16 +134,15 @@ describe('SubjectsService', () => {
       expect(result).toEqual(updated);
       expect(mockSubjectRepo.update).toHaveBeenCalledWith(1, {
         name: 'Advanced Mathematics',
-        code: 'MATH201',
       });
     });
 
-    it('throws error when updating to a duplicate code', async () => {
+    it('throws error when updating to a duplicate name', async () => {
       mockSubjectRepo.findById!.mockResolvedValue(sampleSubject);
-      mockSubjectRepo.findByCode!.mockResolvedValue({
+      mockSubjectRepo.findByName!.mockResolvedValue({
         ...sampleSubject,
         id: 2,
-        code: 'MATH201',
+        name: 'Advanced Mathematics',
       });
 
       await expect(service.update(1, updateDto)).rejects.toThrow(HttpException);

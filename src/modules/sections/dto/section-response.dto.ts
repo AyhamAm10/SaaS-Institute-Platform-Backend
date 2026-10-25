@@ -4,7 +4,6 @@
 export interface SectionBranchSummary {
   id: number;
   name: string;
-  code: string;
   address: string;
 }
 

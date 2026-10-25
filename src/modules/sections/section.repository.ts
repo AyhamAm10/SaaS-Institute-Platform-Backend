@@ -61,7 +61,6 @@ export class SectionRepository extends ContextScopedRepository<Section> {
           select: {
             id: true,
             name: true,
-            code: true,
             address: true,
           },
         },
@@ -78,7 +77,6 @@ export class SectionRepository extends ContextScopedRepository<Section> {
           select: {
             id: true,
             name: true,
-            code: true,
           },
         },
         _count: {
@@ -131,13 +129,13 @@ export class SectionRepository extends ContextScopedRepository<Section> {
       where,
       include: {
         branch: {
-          select: { id: true, name: true, code: true },
+          select: { id: true, name: true },
         },
         academicYear: {
           select: { id: true, name: true, isCurrent: true },
         },
         academicBranch: {
-          select: { id: true, name: true, code: true },
+          select: { id: true, name: true },
         },
         _count: {
           select: {

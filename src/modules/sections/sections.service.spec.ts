@@ -30,7 +30,6 @@ describe('SectionsService', () => {
     id: 7,
     instituteId: currentInstituteId,
     name: 'الصف التاسع',
-    code: 'G9',
     description: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -53,7 +52,6 @@ describe('SectionsService', () => {
     id: 5,
     instituteId: currentInstituteId,
     name: 'Main Branch',
-    code: 'MAIN',
     phone: '123',
     address: 'Campus 1',
     isActive: true,
@@ -442,7 +440,6 @@ describe('SectionsService', () => {
         branch: {
           id: 5,
           name: 'Main Branch',
-          code: 'MAIN',
           address: 'Campus 1',
         },
         academicYear: {
@@ -504,7 +501,6 @@ describe('SectionsService', () => {
       id: 30,
       instituteId: currentInstituteId,
       name: 'Physics',
-      code: 'PHYS101',
       createdAt: new Date(),
       updatedAt: new Date(),
     };

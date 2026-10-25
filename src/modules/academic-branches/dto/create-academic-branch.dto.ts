@@ -9,9 +9,6 @@ export class CreateAcademicBranchDto {
   @IsString()
   name: string;
 
-  @IsOptional()
-  @IsString()
-  code?: string;
 
   @IsOptional()
   @IsString()

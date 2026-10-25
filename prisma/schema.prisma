@@ -95,7 +95,6 @@ model Branch {
   id          Int      @id @default(autoincrement())
   instituteId Int      @map("institute_id")
   name        String
-  code        String
   phone       String
   address     String
   isActive    Boolean  @map("is_active")
@@ -108,7 +107,7 @@ model Branch {
   rooms          Room[]
   students       Student[]
 
-  @@unique([instituteId, code])
+  @@unique([instituteId, name])
   @@unique([instituteId, id])
   @@map("branches")
 }
@@ -159,7 +158,6 @@ model AcademicBranch {
   id          Int      @id @default(autoincrement())
   instituteId Int      @map("institute_id")
   name        String
-  code        String?
   description String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -388,7 +386,6 @@ model Subject {
   id          Int      @id @default(autoincrement())
   instituteId Int      @map("institute_id")
   name        String
-  code        String
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -400,7 +397,7 @@ model Subject {
   lessons            Lesson[]
 
   @@unique([instituteId, id])
-  @@unique([instituteId, code])
+  @@unique([instituteId, name])
   @@map("subjects")
 }
 
@@ -450,7 +447,6 @@ model Room {
   instituteId Int      @map("institute_id")
   branchId    Int      @map("branch_id")
   name        String
-  code        String?
   capacity    Int      @default(30)
   type        String?
   isActive    Boolean  @default(true) @map("is_active")

@@ -157,7 +157,7 @@ export class AcademicYearRepository extends TenantAwareRepository<AcademicYear> 
     return (this.client as any).section.findMany({
       where,
       include: {
-        branch: { select: { id: true, name: true, code: true } },
+        branch: { select: { id: true, name: true } },
         _count: {
           select: {
             studentEnrollments: true,
