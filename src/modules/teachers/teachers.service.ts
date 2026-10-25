@@ -138,7 +138,7 @@ export class TeachersService {
           instituteId,
           userId: user.id,
           specialization: dto.specialization?.trim() || null,
-          isActive: true,
+          isActive: dto.isActive ?? true,
         },
       });
 

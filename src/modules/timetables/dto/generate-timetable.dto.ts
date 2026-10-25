@@ -28,5 +28,9 @@ export class GenerateTimetableDto {
 
   @IsOptional()
   @IsBoolean()
+  lockExisting?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   clearExisting?: boolean;
 }

@@ -190,15 +190,20 @@ export class TimetablesService {
     Ensure.exists(year, 'Academic year');
 
     // Single section or multi section
-    const targetSectionIds = dto.sectionId
+    let targetSectionIds = dto.sectionId
       ? [dto.sectionId]
       : dto.sectionIds && dto.sectionIds.length > 0
         ? dto.sectionIds
         : [];
 
+    if (targetSectionIds.length === 0) {
+      const yearSections = await this.sectionRepository.findByAcademicYear(targetYearId);
+      targetSectionIds = yearSections.map((s) => s.id);
+    }
+
     Ensure.custom(
       targetSectionIds.length === 0,
-      'Section ID or Section IDs list is required for timetable generation',
+      'لا توجد شُعب دراسية مسجلة في هذا العام الدراسي لتوليد جدول لها',
       400,
     );
 
@@ -292,7 +297,7 @@ export class TimetablesService {
             periodNumber: e.periodNumber,
             startTime: e.startTime,
             endTime: e.endTime,
-            isLocked: e.isLocked,
+            isLocked: dto.lockExisting ? true : Boolean(e.isLocked),
           })),
           ...otherSectionEntries.map((e: any) => ({
             id: e.id,
@@ -320,6 +325,18 @@ export class TimetablesService {
 
       // Persist in transaction
       await this.transactionHelper.executeInTransaction(async () => {
+        if (dto.lockExisting) {
+          const client = (this.entryRepository as any).client;
+          await client.timetableEntry.updateMany({
+            where: {
+              instituteId: this.timetableRepository.getInstituteId(),
+              timetableId: timetable.id,
+            },
+            data: {
+              isLocked: true,
+            },
+          });
+        }
         await this.entryRepository.replaceUnlockedEntries(
           timetable.id,
           sectionGeneratedEntries.filter((e) => !e.isLocked),
@@ -331,13 +348,40 @@ export class TimetablesService {
         sectionId: secId,
         sectionName: section.name,
         success: solveResult.success,
+        totalGenerated: sectionGeneratedEntries.length,
+        totalConflicts: solveResult.conflicts.length,
         conflicts: solveResult.conflicts,
+        unassignedRequirements: solveResult.unassignedRequirements,
         unassigned: solveResult.unassignedRequirements,
         timetable: updated,
       });
     }
 
-    return targetSectionIds.length === 1 ? results[0] : { sections: results };
+    if (targetSectionIds.length === 1) {
+      return results[0];
+    }
+
+    const totalGenerated = results.reduce(
+      (acc, r) => acc + (r.totalGenerated || 0),
+      0,
+    );
+    const totalConflicts = results.reduce(
+      (acc, r) => acc + (r.totalConflicts || 0),
+      0,
+    );
+    const allConflicts = results.flatMap((r) => r.conflicts || []);
+    const allUnassigned = results.flatMap(
+      (r) => r.unassignedRequirements || [],
+    );
+
+    return {
+      success: results.every((r) => r.success),
+      totalGenerated,
+      totalConflicts,
+      conflicts: allConflicts,
+      unassignedRequirements: allUnassigned,
+      sections: results,
+    };
   }
 
   /**

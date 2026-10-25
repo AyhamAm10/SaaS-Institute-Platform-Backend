@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TimetablesController } from './timetables.controller';
+import { AcademicYearTimetablesController } from './academic-year-timetables.controller';
 import { TimetablesService } from './timetables.service';
 import { TimetableRepository } from './timetable.repository';
 import { TimetableEntryRepository } from './timetable-entry.repository';
@@ -19,7 +20,7 @@ import { AcademicYearsModule } from '../academic-years/academic-years.module';
     RoomsModule,
     AcademicYearsModule,
   ],
-  controllers: [TimetablesController],
+  controllers: [TimetablesController, AcademicYearTimetablesController],
   providers: [
     TimetablesService,
     TimetableRepository,
