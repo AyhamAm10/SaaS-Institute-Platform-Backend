@@ -4,10 +4,13 @@ import { ContextScopedRepository } from '../../database/context-scoped.repositor
 import { PrismaService } from '../../database/prisma.service';
 import { StudentQueryDto } from './dto/student-query.dto';
 import { PaginatedResult } from '../../common/pagination/paginated-result';
+import { StudentDeletionReport } from './dto/student-deletion-report.dto';
 
 @Injectable()
 export class StudentRepository extends ContextScopedRepository<Student> {
   protected override readonly branchKey = 'branchId';
+  protected override readonly softDelete = true;
+  protected override readonly audited = true;
 
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'student');
@@ -130,5 +133,34 @@ export class StudentRepository extends ContextScopedRepository<Student> {
         },
       },
     });
+  }
+
+  /** Counts of records attached to a student (used before soft delete). */
+  async getDeletionReport(studentId: number): Promise<StudentDeletionReport> {
+    const instituteId = this.getInstituteId();
+    const where = { instituteId, studentId };
+    const [
+      enrollments,
+      examResults,
+      lessonAttendance,
+      subscriptions,
+      payments,
+    ] = await Promise.all([
+      (this.client as any).studentEnrollment.count({ where }),
+      (this.client as any).examResult.count({ where }),
+      (this.client as any).lessonAttendance.count({ where }),
+      (this.client as any).studentSubscription.count({ where }),
+      (this.client as any).payment.count({
+        where: { instituteId, installment: { subscription: { studentId } } },
+      }),
+    ]);
+    return {
+      studentId,
+      enrollments,
+      examResults,
+      lessonAttendance,
+      subscriptions,
+      payments,
+    };
   }
 }

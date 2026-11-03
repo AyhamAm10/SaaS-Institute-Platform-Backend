@@ -52,6 +52,9 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
         if (phone === institute2User.phone) return institute2User;
         return null;
       }),
+      findLoginCandidates: jest.fn(async (phone: string) =>
+        [institute1User, institute2User].filter((u) => u.phone === phone),
+      ),
       findById: jest.fn(async (id: number) => {
         if (id === 1) return institute1User;
         if (id === 2) return institute2User;

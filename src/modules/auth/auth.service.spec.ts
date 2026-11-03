@@ -3,7 +3,11 @@ import { AuthService } from './auth.service';
 import { UserSystemRepository } from '../users/user-system.repository';
 import { JwtTokenService } from './jwt-token.service';
 import bcrypt from 'bcryptjs';
-import { UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -26,7 +30,7 @@ describe('AuthService', () => {
     mockUser.passwordHash = await bcrypt.hash('Password123!', 10);
 
     userSystemRepo = {
-      findByPhone: jest.fn(),
+      findLoginCandidates: jest.fn(),
       findById: jest.fn(),
       findByIdWithInstitute: jest.fn(),
     } as any;
@@ -56,7 +60,7 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('successfully logs in with valid credentials and does not expose passwordHash', async () => {
-      userSystemRepo.findByPhone.mockResolvedValue(mockUser as any);
+      userSystemRepo.findLoginCandidates.mockResolvedValue([mockUser] as any);
 
       const result = await authService.login({
         phone: '+966500000001',
@@ -78,7 +82,7 @@ describe('AuthService', () => {
     });
 
     it('throws NotFoundException when user phone does not exist', async () => {
-      userSystemRepo.findByPhone.mockResolvedValue(null);
+      userSystemRepo.findLoginCandidates.mockResolvedValue([] as any);
 
       await expect(
         authService.login({ phone: '+966500000000', password: 'Password123!' }),
@@ -86,7 +90,7 @@ describe('AuthService', () => {
     });
 
     it('throws UnauthorizedException when password is wrong', async () => {
-      userSystemRepo.findByPhone.mockResolvedValue(mockUser as any);
+      userSystemRepo.findLoginCandidates.mockResolvedValue([mockUser] as any);
 
       await expect(
         authService.login({
@@ -94,6 +98,55 @@ describe('AuthService', () => {
           password: 'WrongPassword',
         }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('login with phones shared across institutes', () => {
+    it('logs into the only institute whose password matches', async () => {
+      const other = {
+        ...mockUser,
+        id: 2,
+        instituteId: 20,
+        passwordHash: 'other-hash',
+      };
+      userSystemRepo.findLoginCandidates.mockResolvedValue([
+        other,
+        mockUser,
+      ] as any);
+
+      const result = await authService.login({
+        phone: '+966500000001',
+        password: 'Password123!',
+      });
+
+      expect(result.user.instituteId).toBe(10);
+    });
+
+    it('requires the institute code when the password matches several institutes', async () => {
+      const twin = { ...mockUser, id: 2, instituteId: 20 };
+      userSystemRepo.findLoginCandidates.mockResolvedValue([
+        mockUser,
+        twin,
+      ] as any);
+
+      await expect(
+        authService.login({ phone: '+966500000001', password: 'Password123!' }),
+      ).rejects.toThrow(HttpException);
+    });
+
+    it('passes the normalized institute code to the lookup', async () => {
+      userSystemRepo.findLoginCandidates.mockResolvedValue([mockUser] as any);
+
+      await authService.login({
+        phone: '+966500000001',
+        password: 'Password123!',
+        instituteCode: ' ins0002 ',
+      });
+
+      expect(userSystemRepo.findLoginCandidates).toHaveBeenCalledWith(
+        '+966500000001',
+        'INS0002',
+      );
     });
   });
 

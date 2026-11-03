@@ -13,6 +13,10 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
  */
 @Injectable()
 export class SubjectRepository extends TenantAwareRepository<Subject> {
+  protected override readonly softDelete = true;
+  protected override readonly softDeleteReleaseFields = ['name'];
+  protected override readonly audited = true;
+
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'subject');
   }
@@ -30,7 +34,7 @@ export class SubjectRepository extends TenantAwareRepository<Subject> {
    */
   async findRawById(id: number): Promise<Subject | null> {
     return this.delegate.findUnique({
-      where: { id },
+      where: this.notDeleted({ id }),
     }) as Promise<Subject | null>;
   }
 

@@ -13,6 +13,9 @@ import { PrismaService } from '../../database/prisma.service';
  */
 @Injectable()
 export class UserRepository extends TenantAwareRepository<User> {
+  protected override readonly softDelete = true;
+  protected override readonly softDeleteReleaseFields = ['phone'];
+
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'user');
   }
@@ -26,7 +29,7 @@ export class UserRepository extends TenantAwareRepository<User> {
   async findByIdWithInstitute(id: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.client as any).user.findFirst({
-      where: { id, instituteId: this.getInstituteId() },
+      where: this.notDeleted({ id, instituteId: this.getInstituteId() }),
       include: { institute: true },
     });
   }

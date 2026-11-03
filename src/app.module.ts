@@ -17,6 +17,8 @@ import { TimetablesModule } from './modules/timetables/timetables.module';
 import { FamiliesModule } from './modules/families/families.module';
 import { StudentFieldsModule } from './modules/student-fields/student-fields.module';
 import { StudentsModule } from './modules/students/students.module';
+import { InstituteFeaturesModule } from './modules/institute-features/institute-features.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { StudentsModule } from './modules/students/students.module';
     FamiliesModule,
     StudentFieldsModule,
     StudentsModule,
+    InstituteFeaturesModule,
+    StorageModule,
   ],
 })
 export class AppModule {}

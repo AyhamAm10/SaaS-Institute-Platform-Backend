@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FamiliesService } from './families.service';
+import { HttpException } from '@nestjs/common';
 import { FamilyRepository } from './family.repository';
 
 describe('FamiliesService', () => {
@@ -68,5 +69,42 @@ describe('FamiliesService', () => {
 
     const result = await service.findById(1);
     expect(result).toEqual(mockFamily);
+  });
+  it('updates trimmed family fields', async () => {
+    repository.findFamilyById.mockResolvedValue({
+      ...mockFamily,
+      _count: { students: 0 },
+    });
+    repository.update = jest.fn().mockResolvedValue(mockFamily as any);
+
+    await service.update(1, { familyName: ' الأحمد ', phone: '' });
+
+    expect(repository.update).toHaveBeenCalledWith(1, {
+      familyName: 'الأحمد',
+      phone: null,
+    });
+  });
+
+  it('blocks deleting a family that still has students', async () => {
+    repository.findFamilyById.mockResolvedValue({
+      ...mockFamily,
+      _count: { students: 2 },
+    });
+    repository.delete = jest.fn();
+
+    await expect(service.delete(1)).rejects.toThrow(HttpException);
+    expect(repository.delete).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes an empty family', async () => {
+    repository.findFamilyById.mockResolvedValue({
+      ...mockFamily,
+      _count: { students: 0 },
+    });
+    repository.delete = jest.fn().mockResolvedValue(mockFamily as any);
+
+    await service.delete(1);
+
+    expect(repository.delete).toHaveBeenCalledWith(1);
   });
 });

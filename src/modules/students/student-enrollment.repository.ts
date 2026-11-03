@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { StudentEnrollment } from '@prisma/client';
+import { EnrollmentStatus, StudentEnrollment } from '@prisma/client';
 import { ContextScopedRepository } from '../../database/context-scoped.repository';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -25,7 +25,7 @@ export class StudentEnrollmentRepository extends ContextScopedRepository<Student
     studentId: number;
     sectionId: number;
     academicYearId: number;
-    status?: string;
+    status?: EnrollmentStatus;
   }): Promise<StudentEnrollment> {
     const instituteId = this.getInstituteId();
     return (this.client as any).studentEnrollment.create({
@@ -35,7 +35,7 @@ export class StudentEnrollmentRepository extends ContextScopedRepository<Student
         sectionId: data.sectionId,
         academicYearId: data.academicYearId,
         enrolledAt: new Date(),
-        status: data.status || 'ACTIVE',
+        status: data.status ?? EnrollmentStatus.ACTIVE,
       },
       include: {
         section: true,

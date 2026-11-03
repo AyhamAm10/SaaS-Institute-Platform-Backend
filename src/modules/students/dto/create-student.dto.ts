@@ -1,6 +1,6 @@
 import {
   IsDateString,
-  IsIn,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsObject,
@@ -8,7 +8,8 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { Gender } from '@prisma/client';
 import { CreateFamilyDto } from '../../families/dto/create-family.dto';
 
 export class CreateStudentDto {
@@ -20,9 +21,12 @@ export class CreateStudentDto {
   @IsNotEmpty()
   birthDate: string;
 
-  @IsString()
-  @IsIn(['MALE', 'FEMALE', 'ذكر', 'أنثى'])
-  gender: string;
+  // Legacy Arabic values are still accepted and normalized to the enum.
+  @Transform(({ value }) =>
+    value === 'ذكر' ? Gender.MALE : value === 'أنثى' ? Gender.FEMALE : value,
+  )
+  @IsEnum(Gender)
+  gender: Gender;
 
   @IsInt()
   @IsOptional()

@@ -4,7 +4,7 @@ import { TeachersService } from './teachers.service';
 import { TeacherRepository } from './teacher.repository';
 import { TeacherAssignmentRepository } from './teacher-assignment.repository';
 import { TeacherAvailabilityRepository } from './teacher-availability.repository';
-import { UserSystemRepository } from '../users/user-system.repository';
+import { UserRepository } from '../users/user.repository';
 import { AcademicBranchRepository } from '../academic-branches/academic-branch.repository';
 import { SubjectRepository } from '../subjects/subject.repository';
 import { BranchRepository } from '../branches/branch.repository';
@@ -84,7 +84,7 @@ describe('TeachersService', () => {
           provide: TeacherAvailabilityRepository,
           useValue: mockAvailabilityRepo,
         },
-        { provide: UserSystemRepository, useValue: mockUserSystemRepo },
+        { provide: UserRepository, useValue: mockUserSystemRepo },
         { provide: AcademicBranchRepository, useValue: mockAcademicBranchRepo },
         { provide: SubjectRepository, useValue: mockSubjectRepo },
         { provide: BranchRepository, useValue: mockBranchRepo },

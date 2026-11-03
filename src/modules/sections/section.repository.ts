@@ -15,6 +15,9 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
 export class SectionRepository extends ContextScopedRepository<Section> {
   protected override readonly yearKey = 'academicYearId';
   protected override readonly branchKey = 'branchId';
+  protected override readonly softDelete = true;
+  protected override readonly softDeleteReleaseFields = ['name'];
+  protected override readonly audited = true;
 
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'section');
@@ -42,7 +45,7 @@ export class SectionRepository extends ContextScopedRepository<Section> {
    */
   async findRawById(id: number): Promise<Section | null> {
     return this.delegate.findUnique({
-      where: { id },
+      where: this.notDeleted({ id }),
     }) as Promise<Section | null>;
   }
 

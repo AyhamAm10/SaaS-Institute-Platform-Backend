@@ -18,6 +18,11 @@ export class InstituteRepository extends SystemRepository<Institute> {
    * Create an InstituteAdmin link between an institute and an admin user.
    * Respects active transaction context via `this.client`.
    */
+  /** Find an institute by its (global, unique) login code. */
+  async findByCode(code: string): Promise<Institute | null> {
+    return this.findOne({ code });
+  }
+
   async createAdminLink(instituteId: number, userId: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.client as any).instituteAdmin.create({

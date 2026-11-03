@@ -18,8 +18,16 @@ const messages: Record<string, Record<string, string>> = {
     already_exists: '{resource} already exists',
     required: '{field} is required',
     invalid_credentials: 'Invalid credentials',
+    institute_code_required:
+      'This account exists in more than one institute. Please enter the institute code',
+    institute_code_invalid:
+      'Institute code must be 3-20 latin letters, digits or dashes',
     unauthorized: 'Unauthorized',
     forbidden: 'Access denied',
+    feature_disabled: 'This feature is not enabled for your institute',
+    file_type_not_allowed: 'File type not allowed (JPG, PNG, WEBP or PDF only)',
+    file_too_large: 'File is too large (max 5 MB)',
+    file_not_found: 'File not found',
     invalid_type_number: '{field} must be a number',
     invalid_type_array: '{field} must be an array',
     token_expired: 'Token has expired',
@@ -90,6 +98,10 @@ const messages: Record<string, Record<string, string>> = {
       'Requested time slot is outside available working hours or during a break',
     section_branch_mismatch: 'Section does not belong to the active branch',
     room_branch_mismatch: 'Room does not belong to the active branch',
+    student_branch_mismatch: 'Student does not belong to the active branch',
+    student_enrolled_in_other_branch:
+      'Student has an active enrollment in a section of another branch',
+    family_has_students: 'Cannot delete a family that still has students',
     teacher_not_assigned_to_branch: 'Teacher is not assigned to this branch',
   },
   ar: {
@@ -97,8 +109,17 @@ const messages: Record<string, Record<string, string>> = {
     already_exists: '{resource} موجود بالفعل',
     required: '{field} مطلوب',
     invalid_credentials: 'بيانات الاعتماد غير صالحة',
+    institute_code_required:
+      'هذا الحساب موجود بأكثر من معهد. يرجى إدخال كود المعهد',
+    institute_code_invalid:
+      'كود المعهد يجب أن يكون من 3 إلى 20 حرفاً لاتينياً أو رقماً أو شرطة',
     unauthorized: 'غير مصرح',
     forbidden: 'تم رفض الوصول',
+    feature_disabled: 'هذه الميزة غير مفعلة لمعهدك',
+    file_type_not_allowed:
+      'نوع الملف غير مسموح (JPG أو PNG أو WEBP أو PDF فقط)',
+    file_too_large: 'حجم الملف كبير (الحد الأقصى 5 ميغابايت)',
+    file_not_found: 'الملف غير موجود',
     invalid_type_number: '{field} يجب أن يكون رقماً',
     invalid_type_array: '{field} يجب أن يكون مصفوفة',
     token_expired: 'انتهت صلاحية الرمز',
@@ -157,6 +178,10 @@ const messages: Record<string, Record<string, string>> = {
       'الحصة المطلوبة تقع خارج ساعات الدوام أو خلال فترة استراحة',
     section_branch_mismatch: 'الشعبة لا تتبع للفرع الحالي',
     room_branch_mismatch: 'القاعة لا تتبع للفرع الحالي',
+    student_branch_mismatch: 'الطالب لا يتبع للفرع الحالي',
+    student_enrolled_in_other_branch:
+      'الطالب مسجل حالياً في شعبة تابعة لفرع آخر',
+    family_has_students: 'لا يمكن حذف عائلة ما زال لديها طلاب',
     teacher_not_assigned_to_branch: 'المعلم غير مسجل في هذا الفرع',
   },
 };

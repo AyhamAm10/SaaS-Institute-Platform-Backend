@@ -8,6 +8,8 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
 @Injectable()
 export class TeacherRepository extends ContextScopedRepository<Teacher> {
   protected override readonly branchKey = 'branchTeachers.some.branchId';
+  protected override readonly softDelete = true;
+  protected override readonly audited = true;
 
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'teacher');
@@ -18,7 +20,7 @@ export class TeacherRepository extends ContextScopedRepository<Teacher> {
    */
   async findRawById(id: number): Promise<Teacher | null> {
     return (this.client as any).teacher.findUnique({
-      where: { id },
+      where: this.notDeleted({ id }),
     });
   }
 

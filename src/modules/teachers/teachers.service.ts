@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { TeacherRepository } from './teacher.repository';
 import { TeacherAssignmentRepository } from './teacher-assignment.repository';
 import { TeacherAvailabilityRepository } from './teacher-availability.repository';
-import { UserSystemRepository } from '../users/user-system.repository';
+import { UserRepository } from '../users/user.repository';
 import { AcademicBranchRepository } from '../academic-branches/academic-branch.repository';
 import { SubjectRepository } from '../subjects/subject.repository';
 import { BranchRepository } from '../branches/branch.repository';
@@ -32,8 +32,8 @@ export class TeachersService {
     private readonly assignmentRepository: TeacherAssignmentRepository,
     @Inject(TeacherAvailabilityRepository)
     private readonly availabilityRepository: TeacherAvailabilityRepository,
-    @Inject(UserSystemRepository)
-    private readonly userSystemRepository: UserSystemRepository,
+    @Inject(UserRepository)
+    private readonly userRepository: UserRepository,
     @Inject(AcademicBranchRepository)
     private readonly academicBranchRepository: AcademicBranchRepository,
     @Inject(SubjectRepository)
@@ -100,9 +100,8 @@ export class TeachersService {
     Ensure.required(trimmedName, 'fullName');
     Ensure.required(trimmedPhone, 'phone');
 
-    // 1. Validate phone uniqueness system-wide
-    const existingUser =
-      await this.userSystemRepository.findByPhone(trimmedPhone);
+    // 1. Validate phone uniqueness within the institute
+    const existingUser = await this.userRepository.findByPhone(trimmedPhone);
     Ensure.custom(
       Boolean(existingUser),
       ErrorMessages.get('teacher_phone_duplicate'),
@@ -224,8 +223,7 @@ export class TeachersService {
       const trimmedPhone = dto.phone.trim();
       Ensure.required(trimmedPhone, 'phone');
       if (trimmedPhone !== user.phone) {
-        const existing =
-          await this.userSystemRepository.findByPhone(trimmedPhone);
+        const existing = await this.userRepository.findByPhone(trimmedPhone);
         Ensure.custom(
           Boolean(existing && existing.id !== user.id),
           ErrorMessages.get('teacher_phone_duplicate'),

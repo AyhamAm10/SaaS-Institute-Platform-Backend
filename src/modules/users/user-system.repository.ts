@@ -3,6 +3,7 @@ import { User } from '@prisma/client';
 import { SystemRepository } from '../../database/system.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { UserRole } from '../../common/types/user-role.enum';
+import { PLATFORM_INSTITUTE_CODE } from '../../common/types/institute-code';
 
 /**
  * System-level user repository — NO tenant scoping.
@@ -20,10 +21,35 @@ export class UserSystemRepository extends SystemRepository<User> {
     super(prisma, 'user');
   }
 
-  /** Find a user by phone across all institutes. Used for login. */
+  /**
+   * Find the first user with this phone across all institutes.
+   * Phone is unique per institute only — use {@link findLoginCandidates} for login.
+   */
   async findByPhone(phone: string): Promise<User | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (this.client as any).user.findUnique({ where: { phone } });
+    return (this.client as any).user.findFirst({
+      where: { phone, deletedAt: null },
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  /**
+   * Users matching a login phone. With an institute code the lookup is
+   * restricted to that institute; without it every institute is searched.
+   */
+  async findLoginCandidates(
+    phone: string,
+    instituteCode?: string,
+  ): Promise<User[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (this.client as any).user.findMany({
+      where: {
+        phone,
+        deletedAt: null,
+        ...(instituteCode && { institute: { code: instituteCode } }),
+      },
+      orderBy: { id: 'asc' },
+    });
   }
 
   /** Find super admin user by phone and role. */
@@ -41,7 +67,7 @@ export class UserSystemRepository extends SystemRepository<User> {
   async findByIdWithInstitute(id: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.client as any).user.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { institute: true },
     });
   }
@@ -80,6 +106,7 @@ export class UserSystemRepository extends SystemRepository<User> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const inst = await (this.client as any).institute.create({
       data: {
+        code: PLATFORM_INSTITUTE_CODE,
         name: 'منصة المعاهد التعليمية',
         logoUrl: '',
         primaryColor: '#1a73e8',

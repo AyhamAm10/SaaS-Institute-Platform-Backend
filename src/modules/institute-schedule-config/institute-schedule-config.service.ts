@@ -10,7 +10,7 @@ import {
 } from './dto/schedule-config-response.dto';
 
 export const DEFAULT_SCHEDULE_CONFIG = {
-  workingDays: [0, 1, 2, 3, 4], // Sunday to Thursday
+  workingDays: [6, 0, 1, 2, 3, 4], // Saturday to Thursday (week starts on Saturday)
   dayStartTime: '08:00',
   dayEndTime: '14:00',
   periodDurationMinutes: 45,

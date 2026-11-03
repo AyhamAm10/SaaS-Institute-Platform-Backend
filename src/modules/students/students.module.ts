@@ -6,9 +6,15 @@ import { StudentEnrollmentRepository } from './student-enrollment.repository';
 import { FamiliesModule } from '../families/families.module';
 import { StudentFieldsModule } from '../student-fields/student-fields.module';
 import { SectionsModule } from '../sections/sections.module';
+import { BranchesModule } from '../branches/branches.module';
 
 @Module({
-  imports: [FamiliesModule, StudentFieldsModule, SectionsModule],
+  imports: [
+    FamiliesModule,
+    StudentFieldsModule,
+    SectionsModule,
+    BranchesModule,
+  ],
   controllers: [StudentsController],
   providers: [StudentsService, StudentRepository, StudentEnrollmentRepository],
   exports: [StudentsService, StudentRepository, StudentEnrollmentRepository],

@@ -7,11 +7,13 @@ import { AcademicBranchesService } from '../academic-branches/academic-branches.
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
 import { CreateInstituteDto } from './dto/create-institute.dto';
+import { UpdateInstituteDto } from './dto/update-institute.dto';
 import { InstituteWithAdminResponse } from './dto/institute-response.dto';
 import { SafeUser } from '../auth/dto/auth-response.dto';
 import { UserRole } from '../../common/types/user-role.enum';
 import { PaginationQueryDto } from '../../common/pagination/pagination.dto';
 import { PaginatedResult } from '../../common/pagination/paginated-result';
+import { randomInt } from 'node:crypto';
 
 /**
  * Service managing Institute lifecycle and Super Admin tenant provisioning.
@@ -33,7 +35,8 @@ export class InstitutesService {
    * Create an institute along with its initial administrator account atomically.
    *
    * Flow:
-   *   1. Validate that the admin phone is not already in use across the system.
+   *   1. Resolve the institute login code (given or generated) and ensure it is unique.
+   *      Admin phone needs no global check — phones are unique per institute.
    *   2. Hash the administrator password with bcrypt (12 salt rounds).
    *   3. In an interactive database transaction:
    *      a. Create the Institute entity.
@@ -45,11 +48,16 @@ export class InstitutesService {
   async createInstitute(
     dto: CreateInstituteDto,
   ): Promise<InstituteWithAdminResponse> {
-    // 1. Verify phone uniqueness across all tenants
-    const existingUser = await this.userSystemRepository.findByPhone(
-      dto.adminPhone,
-    );
-    Ensure.alreadyExists(existingUser, 'Admin phone number');
+    // 1. Resolve institute login code
+    let code = dto.code;
+    if (code) {
+      Ensure.alreadyExists(
+        await this.instituteRepository.findByCode(code),
+        'Institute code',
+      );
+    } else {
+      code = await this.generateInstituteCode();
+    }
 
     // 2. Hash password
     const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
@@ -57,6 +65,7 @@ export class InstitutesService {
     // 3. Atomically create Institute, Admin User, InstituteAdmin link, and default Academic Branches
     return this.transactionHelper.executeInTransaction(async () => {
       const institute = await this.instituteRepository.create({
+        code,
         name: dto.name,
         logoUrl: dto.logoUrl ?? '',
         primaryColor: dto.primaryColor ?? '#1a73e8',
@@ -142,6 +151,40 @@ export class InstitutesService {
     return institute;
   }
 
+  /**
+   * Update institute details (name, login code, branding, contact).
+   */
+  async update(id: number, dto: UpdateInstituteDto): Promise<Institute> {
+    const existing = await this.findById(id);
+
+    if (dto.code !== undefined && dto.code !== existing.code) {
+      Ensure.alreadyExists(
+        await this.instituteRepository.findByCode(dto.code),
+        'Institute code',
+      );
+    }
+
+    const data: Record<string, unknown> = {};
+    for (const key of [
+      'name',
+      'code',
+      'logoUrl',
+      'primaryColor',
+      'secondaryColor',
+      'phone',
+      'address',
+    ] as const) {
+      const value = dto[key];
+      if (value !== undefined) data[key] = value.trim();
+    }
+    if (data['name'] !== undefined) Ensure.required(data['name'], 'name');
+
+    if (Object.keys(data).length > 0) {
+      await this.instituteRepository.update(id, data);
+    }
+    return this.findById(id);
+  }
+
   private toSafeUser(user: User): SafeUser {
     return {
       id: user.id,
@@ -152,5 +195,17 @@ export class InstitutesService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  /** Random unused code like "INS4K7Q2" (unambiguous characters only). */
+  private async generateInstituteCode(): Promise<string> {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    for (;;) {
+      let suffix = '';
+      for (let i = 0; i < 5; i++)
+        suffix += alphabet[randomInt(alphabet.length)];
+      const code = `INS${suffix}`;
+      if (!(await this.instituteRepository.findByCode(code))) return code;
+    }
   }
 }

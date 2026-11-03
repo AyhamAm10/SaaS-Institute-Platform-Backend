@@ -8,6 +8,7 @@ import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { normalizeInstituteCode } from '../../common/types/institute-code';
 import {
   AuthResponse,
   TokenResponse,
@@ -43,26 +44,39 @@ export class AuthService {
    * Authenticate a user with phone + password.
    *
    * Flow:
-   *   1. Find user by phone (cross-tenant lookup)
-   *   2. Verify password with bcrypt
+   *   1. Find users by phone (cross-tenant lookup, or inside the institute
+   *      given by instituteCode). Phone is unique per institute only.
+   *   2. Verify password with bcrypt; if it matches accounts in several
+   *      institutes the client must send instituteCode
    *   3. Generate access + refresh tokens
    *   4. Persist refresh token hash in database
    *   5. Return tokens + sanitized user
    */
   async login(dto: LoginDto): Promise<AuthResponse> {
-    // 1. Find user
-    const user = await this.userSystemRepository.findByPhone(dto.phone);
-    Ensure.exists(user, 'User');
+    // 1. Find candidate users
+    const candidates = await this.userSystemRepository.findLoginCandidates(
+      dto.phone,
+      dto.instituteCode ? normalizeInstituteCode(dto.instituteCode) : undefined,
+    );
+    Ensure.exists(candidates[0], 'User');
 
     // 2. Verify password
-    const isPasswordValid = await bcrypt.compare(
-      dto.password,
-      user.passwordHash,
-    );
+    const matches: User[] = [];
+    for (const candidate of candidates) {
+      if (await bcrypt.compare(dto.password, candidate.passwordHash)) {
+        matches.push(candidate);
+      }
+    }
     Ensure.unauthorized(
-      !isPasswordValid,
+      matches.length === 0,
       ErrorMessages.get('invalid_credentials'),
     );
+    Ensure.custom(
+      matches.length > 1,
+      ErrorMessages.get('institute_code_required'),
+      400,
+    );
+    const user = matches[0];
 
     // 3. Generate tokens
     const tokens = this.generateTokenPair(user);

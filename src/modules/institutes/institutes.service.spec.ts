@@ -22,6 +22,7 @@ describe('InstitutesService', () => {
       findById: jest.fn() as any,
       findByIdWithAdmins: jest.fn() as any,
       findManyPaginated: jest.fn() as any,
+      findByCode: (jest.fn() as any).mockResolvedValue(null),
     };
 
     mockUserSystemRepo = {
@@ -61,21 +62,16 @@ describe('InstitutesService', () => {
   };
 
   describe('createInstitute', () => {
-    it('throws ConflictException if admin phone is already registered', async () => {
-      mockUserSystemRepo.findByPhone.mockResolvedValue({
-        id: 1,
-        phone: validDto.adminPhone,
-      });
+    it('throws ConflictException if the institute code is already taken', async () => {
+      mockInstituteRepo.findByCode.mockResolvedValue({ id: 1, code: 'TAKEN' });
 
-      await expect(service.createInstitute(validDto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.createInstitute({ ...validDto, code: 'TAKEN' }),
+      ).rejects.toThrow(ConflictException);
       expect(mockInstituteRepo.create).not.toHaveBeenCalled();
     });
 
     it('atomically creates institute, admin user, and admin link', async () => {
-      mockUserSystemRepo.findByPhone.mockResolvedValue(null);
-
       const createdInstitute = {
         id: 10,
         name: validDto.name,
@@ -111,6 +107,7 @@ describe('InstitutesService', () => {
 
       expect(mockTransactionHelper.executeInTransaction).toHaveBeenCalled();
       expect(mockInstituteRepo.create).toHaveBeenCalledWith({
+        code: expect.stringMatching(/^INS[A-Z0-9]{5}$/),
         name: validDto.name,
         logoUrl: validDto.logoUrl,
         primaryColor: validDto.primaryColor,

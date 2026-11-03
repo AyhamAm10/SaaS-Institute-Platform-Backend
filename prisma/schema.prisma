@@ -12,6 +12,8 @@ datasource db {
 
 model Institute {
   id             Int      @id @default(autoincrement())
+  /// Public login code (users enter it when the same phone exists in several institutes)
+  code           String   @unique
   name           String
   logoUrl        String   @map("logo_url")
   primaryColor   String   @map("primary_color")
@@ -21,56 +23,66 @@ model Institute {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  users                User[]
-  branches             Branch[]
-  instituteAdmins      InstituteAdmin[]
-  academicYears        AcademicYear[]
-  academicBranches     AcademicBranch[]
-  teachers             Teacher[]
-  branchTeachers       BranchTeacher[]
-  teacherAssignments   TeacherAssignment[]
+  users                 User[]
+  branches              Branch[]
+  instituteAdmins       InstituteAdmin[]
+  academicYears         AcademicYear[]
+  academicBranches      AcademicBranch[]
+  teachers              Teacher[]
+  branchTeachers        BranchTeacher[]
+  teacherAssignments    TeacherAssignment[]
   teacherAvailabilities TeacherAvailability[]
-  rooms                Room[]
-  roomAvailabilities   RoomAvailability[]
-  scheduleConfig       InstituteScheduleConfig?
-  families             Family[]
-  familyUsers          FamilyUser[]
-  students             Student[]
-  studentFields        StudentField[]
-  sections             Section[]
-  studentEnrollments   StudentEnrollment[]
-  subjects             Subject[]
-  sectionSubjects      SectionSubject[]
-  sectionTeachers      SectionTeacher[]
-  timetables           Timetable[]
-  timetableEntries     TimetableEntry[]
-  lessons              Lesson[]
-  exams                Exam[]
-  examResults          ExamResult[]
-  lessonAttendance     LessonAttendance[]
-  studentSubscriptions StudentSubscription[]
-  installments         Installment[]
-  payments             Payment[]
+  rooms                 Room[]
+  roomAvailabilities    RoomAvailability[]
+  scheduleConfig        InstituteScheduleConfig?
+  families              Family[]
+  familyUsers           FamilyUser[]
+  students              Student[]
+  studentFields         StudentField[]
+  sections              Section[]
+  studentEnrollments    StudentEnrollment[]
+  subjects              Subject[]
+  sectionSubjects       SectionSubject[]
+  sectionTeachers       SectionTeacher[]
+  timetables            Timetable[]
+  timetableEntries      TimetableEntry[]
+  lessons               Lesson[]
+  exams                 Exam[]
+  examResults           ExamResult[]
+  lessonAttendance      LessonAttendance[]
+  studentSubscriptions  StudentSubscription[]
+  installments          Installment[]
+  payments              Payment[]
+  examTypes             ExamType[]
+  enrollmentSubjects    EnrollmentSubject[]
+  receiptSequences      ReceiptSequence[]
+  auditLogs             AuditLog[]
+  features              InstituteFeature[]
 
   @@map("institutes")
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  instituteId  Int      @map("institute_id")
-  fullName     String   @map("full_name")
-  phone        String   @unique
-  passwordHash String   @map("password_hash")
+  id           Int       @id @default(autoincrement())
+  instituteId  Int       @map("institute_id")
+  fullName     String    @map("full_name")
+  phone        String
+  passwordHash String    @map("password_hash")
   role         String
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
 
   institute      Institute       @relation(fields: [instituteId], references: [id])
   instituteAdmin InstituteAdmin?
   teacher        Teacher?
   familyUsers    FamilyUser[]
   refreshTokens  RefreshToken[]
+  student        Student?
 
+  /// Phone is unique per institute (same parent may belong to several institutes)
+  @@unique([instituteId, phone])
+  @@index([phone])
   @@map("users")
 }
 
@@ -101,11 +113,13 @@ model Branch {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  institute      Institute       @relation(fields: [instituteId], references: [id])
-  branchTeachers BranchTeacher[]
-  sections       Section[]
-  rooms          Room[]
-  students       Student[]
+  institute        Institute         @relation(fields: [instituteId], references: [id])
+  branchTeachers   BranchTeacher[]
+  sections         Section[]
+  rooms            Room[]
+  students         Student[]
+  payments         Payment[]
+  receiptSequences ReceiptSequence[]
 
   @@unique([instituteId, name])
   @@unique([instituteId, id])
@@ -148,6 +162,8 @@ model AcademicYear {
   studentEnrollments   StudentEnrollment[]
   timetables           Timetable[]
   studentSubscriptions StudentSubscription[]
+  payments             Payment[]
+  receiptSequences     ReceiptSequence[]
 
   @@unique([instituteId, id])
   @@unique([instituteId, name])
@@ -172,13 +188,16 @@ model AcademicBranch {
 }
 
 model Teacher {
-  id             Int      @id @default(autoincrement())
-  instituteId    Int      @map("institute_id")
-  userId         Int      @unique @map("user_id")
+  id             Int       @id @default(autoincrement())
+  instituteId    Int       @map("institute_id")
+  userId         Int       @unique @map("user_id")
   specialization String?
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+  createdById    Int?      @map("created_by_id")
+  updatedById    Int?      @map("updated_by_id")
 
   institute        Institute             @relation(fields: [instituteId], references: [id])
   user             User                  @relation(fields: [userId], references: [id])
@@ -196,12 +215,12 @@ model Teacher {
 }
 
 model TeacherAssignment {
-  id               Int            @id @default(autoincrement())
-  instituteId      Int            @map("institute_id")
-  teacherId        Int            @map("teacher_id")
-  academicBranchId Int            @map("academic_branch_id")
-  subjectId        Int            @map("subject_id")
-  createdAt        DateTime       @default(now()) @map("created_at")
+  id               Int      @id @default(autoincrement())
+  instituteId      Int      @map("institute_id")
+  teacherId        Int      @map("teacher_id")
+  academicBranchId Int      @map("academic_branch_id")
+  subjectId        Int      @map("subject_id")
+  createdAt        DateTime @default(now()) @map("created_at")
 
   institute      Institute      @relation(fields: [instituteId], references: [id])
   teacher        Teacher        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
@@ -214,17 +233,17 @@ model TeacherAssignment {
 }
 
 model TeacherAvailability {
-  id          Int       @id @default(autoincrement())
-  instituteId Int       @map("institute_id")
-  teacherId   Int       @map("teacher_id")
-  dayOfWeek   Int       @map("day_of_week")
-  startTime   String    @map("start_time")
-  endTime     String    @map("end_time")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id          Int      @id @default(autoincrement())
+  instituteId Int      @map("institute_id")
+  teacherId   Int      @map("teacher_id")
+  dayOfWeek   Int      @map("day_of_week")
+  startTime   String   @map("start_time")
+  endTime     String   @map("end_time")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  institute   Institute @relation(fields: [instituteId], references: [id])
-  teacher     Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  institute Institute @relation(fields: [instituteId], references: [id])
+  teacher   Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@unique([instituteId, id])
   @@index([instituteId, teacherId])
@@ -247,14 +266,17 @@ model BranchTeacher {
 }
 
 model Family {
-  id          Int      @id @default(autoincrement())
-  instituteId Int      @map("institute_id")
-  familyName  String   @map("family_name")
-  fatherName  String?  @map("father_name")
-  motherName  String?  @map("mother_name")
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  familyName  String    @map("family_name")
+  fatherName  String?   @map("father_name")
+  motherName  String?   @map("mother_name")
   phone       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  createdById Int?      @map("created_by_id")
+  updatedById Int?      @map("updated_by_id")
 
   institute   Institute    @relation(fields: [instituteId], references: [id])
   familyUsers FamilyUser[]
@@ -265,12 +287,12 @@ model Family {
 }
 
 model FamilyUser {
-  id           Int      @id @default(autoincrement())
-  instituteId  Int      @map("institute_id")
-  familyId     Int      @map("family_id")
-  userId       Int      @map("user_id")
-  relationship String
-  createdAt    DateTime @default(now()) @map("created_at")
+  id           Int                  @id @default(autoincrement())
+  instituteId  Int                  @map("institute_id")
+  familyId     Int                  @map("family_id")
+  userId       Int                  @map("user_id")
+  relationship GuardianRelationship
+  createdAt    DateTime             @default(now()) @map("created_at")
 
   institute Institute @relation(fields: [instituteId], references: [id])
   family    Family    @relation(fields: [familyId], references: [id])
@@ -281,20 +303,25 @@ model FamilyUser {
 }
 
 model Student {
-  id           Int      @id @default(autoincrement())
-  instituteId  Int      @map("institute_id")
-  branchId     Int?     @map("branch_id")
-  familyId     Int      @map("family_id")
-  fullName     String   @map("full_name")
-  birthDate    DateTime @map("birth_date") @db.Date
-  gender       String
-  customFields Json?    @default("{}") @map("custom_fields")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           Int       @id @default(autoincrement())
+  instituteId  Int       @map("institute_id")
+  branchId     Int       @map("branch_id")
+  familyId     Int       @map("family_id")
+  userId       Int?      @unique @map("user_id")
+  fullName     String    @map("full_name")
+  birthDate    DateTime  @map("birth_date") @db.Date
+  gender       Gender
+  customFields Json?     @default("{}") @map("custom_fields")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+  createdById  Int?      @map("created_by_id")
+  updatedById  Int?      @map("updated_by_id")
 
   institute            Institute             @relation(fields: [instituteId], references: [id])
-  branch               Branch?               @relation(fields: [branchId], references: [id])
+  branch               Branch                @relation(fields: [branchId], references: [id])
   family               Family                @relation(fields: [familyId], references: [id])
+  user                 User?                 @relation(fields: [userId], references: [id])
   studentEnrollments   StudentEnrollment[]
   examResults          ExamResult[]
   lessonAttendance     LessonAttendance[]
@@ -318,7 +345,7 @@ model StudentField {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  institute       Institute @relation(fields: [instituteId], references: [id])
+  institute Institute @relation(fields: [instituteId], references: [id])
 
   @@unique([instituteId, id])
   @@unique([instituteId, name])
@@ -330,16 +357,19 @@ model StudentField {
 // ---------------------------------------------------------------------------
 
 model Section {
-  id               Int      @id @default(autoincrement())
-  instituteId      Int      @map("institute_id")
-  branchId         Int      @map("branch_id")
-  academicYearId   Int      @map("academic_year_id")
-  academicBranchId Int      @map("academic_branch_id")
+  id               Int       @id @default(autoincrement())
+  instituteId      Int       @map("institute_id")
+  branchId         Int       @map("branch_id")
+  academicYearId   Int       @map("academic_year_id")
+  academicBranchId Int       @map("academic_branch_id")
   name             String
   grade            String?
-  feeAmount        Decimal  @map("fee_amount") @db.Decimal(10, 2)
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  feeAmount        Decimal   @map("fee_amount") @db.Decimal(18, 2)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+  createdById      Int?      @map("created_by_id")
+  updatedById      Int?      @map("updated_by_id")
 
   institute            Institute             @relation(fields: [instituteId], references: [id])
   branch               Branch                @relation(fields: [branchId], references: [id])
@@ -351,6 +381,7 @@ model Section {
   timetables           Timetable[]
   lessons              Lesson[]
   studentSubscriptions StudentSubscription[]
+  exams                Exam[]
 
   @@unique([instituteId, id])
   @@unique([instituteId, branchId, academicYearId, name])
@@ -358,24 +389,49 @@ model Section {
 }
 
 model StudentEnrollment {
-  id             Int      @id @default(autoincrement())
-  instituteId    Int      @map("institute_id")
-  studentId      Int      @map("student_id")
-  academicYearId Int      @map("academic_year_id")
-  sectionId      Int      @map("section_id")
-  enrolledAt     DateTime @map("enrolled_at")
-  status         String
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id             Int              @id @default(autoincrement())
+  instituteId    Int              @map("institute_id")
+  studentId      Int              @map("student_id")
+  academicYearId Int              @map("academic_year_id")
+  sectionId      Int              @map("section_id")
+  enrolledAt     DateTime         @map("enrolled_at")
+  status         EnrollmentStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  createdById    Int?             @map("created_by_id")
+  updatedById    Int?             @map("updated_by_id")
 
-  institute    Institute    @relation(fields: [instituteId], references: [id])
-  student      Student      @relation(fields: [studentId], references: [id])
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
-  section      Section      @relation(fields: [sectionId], references: [id])
+  institute    Institute           @relation(fields: [instituteId], references: [id])
+  student      Student             @relation(fields: [studentId], references: [id])
+  academicYear AcademicYear        @relation(fields: [academicYearId], references: [id])
+  section      Section             @relation(fields: [sectionId], references: [id])
+  subjects     EnrollmentSubject[]
 
   @@unique([instituteId, id])
   @@unique([instituteId, studentId, academicYearId])
   @@map("student_enrollments")
+}
+
+/// Subjects a student takes inside the enrolled section.
+/// No rows for an enrollment means the student takes ALL section subjects.
+model EnrollmentSubject {
+  id           Int                     @id @default(autoincrement())
+  instituteId  Int                     @map("institute_id")
+  enrollmentId Int                     @map("enrollment_id")
+  subjectId    Int                     @map("subject_id")
+  status       EnrollmentSubjectStatus @default(ACTIVE)
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
+  createdById  Int?                    @map("created_by_id")
+  updatedById  Int?                    @map("updated_by_id")
+
+  institute  Institute         @relation(fields: [instituteId], references: [id])
+  enrollment StudentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  subject    Subject           @relation(fields: [subjectId], references: [id])
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, enrollmentId, subjectId])
+  @@map("enrollment_subjects")
 }
 
 // ---------------------------------------------------------------------------
@@ -383,11 +439,14 @@ model StudentEnrollment {
 // ---------------------------------------------------------------------------
 
 model Subject {
-  id          Int      @id @default(autoincrement())
-  instituteId Int      @map("institute_id")
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
   name        String
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  createdById Int?      @map("created_by_id")
+  updatedById Int?      @map("updated_by_id")
 
   institute          Institute           @relation(fields: [instituteId], references: [id])
   sectionSubjects    SectionSubject[]
@@ -395,6 +454,8 @@ model Subject {
   teacherAssignments TeacherAssignment[]
   timetableEntries   TimetableEntry[]
   lessons            Lesson[]
+  exams              Exam[]
+  enrollmentSubjects EnrollmentSubject[]
 
   @@unique([instituteId, id])
   @@unique([instituteId, name])
@@ -409,7 +470,7 @@ model SectionSubject {
   teacherId     Int?     @map("teacher_id")
   weeklyPeriods Int      @default(1) @map("weekly_periods")
   createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @default(now()) @map("updated_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   institute Institute @relation(fields: [instituteId], references: [id])
   section   Section   @relation(fields: [sectionId], references: [id])
@@ -443,15 +504,18 @@ model SectionTeacher {
 // ---------------------------------------------------------------------------
 
 model Room {
-  id          Int      @id @default(autoincrement())
-  instituteId Int      @map("institute_id")
-  branchId    Int      @map("branch_id")
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  branchId    Int       @map("branch_id")
   name        String
-  capacity    Int      @default(30)
+  capacity    Int       @default(30)
   type        String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  createdById Int?      @map("created_by_id")
+  updatedById Int?      @map("updated_by_id")
 
   institute        Institute          @relation(fields: [instituteId], references: [id])
   branch           Branch             @relation(fields: [branchId], references: [id])
@@ -464,17 +528,17 @@ model Room {
 }
 
 model RoomAvailability {
-  id          Int       @id @default(autoincrement())
-  instituteId Int       @map("institute_id")
-  roomId      Int       @map("room_id")
-  dayOfWeek   Int       @map("day_of_week")
-  startTime   String    @map("start_time")
-  endTime     String    @map("end_time")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id          Int      @id @default(autoincrement())
+  instituteId Int      @map("institute_id")
+  roomId      Int      @map("room_id")
+  dayOfWeek   Int      @map("day_of_week")
+  startTime   String   @map("start_time")
+  endTime     String   @map("end_time")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  institute   Institute @relation(fields: [instituteId], references: [id])
-  room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  institute Institute @relation(fields: [instituteId], references: [id])
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@unique([instituteId, id])
   @@index([instituteId, roomId])
@@ -496,7 +560,7 @@ model InstituteScheduleConfig {
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
-  institute             Institute @relation(fields: [instituteId], references: [id])
+  institute Institute @relation(fields: [instituteId], references: [id])
 
   @@unique([instituteId, id])
   @@map("institute_schedule_configs")
@@ -559,27 +623,28 @@ model TimetableEntry {
 // ---------------------------------------------------------------------------
 
 model Lesson {
-  id               Int       @id @default(autoincrement())
-  instituteId      Int       @map("institute_id")
-  sectionId        Int       @map("section_id")
-  timetableEntryId Int?      @map("timetable_entry_id")
-  subjectId        Int       @map("subject_id")
-  teacherId        Int?      @map("teacher_id")
-  lessonType       String    @map("lesson_type")
-  startsAt         DateTime  @map("starts_at")
-  endsAt           DateTime  @map("ends_at")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  id               Int        @id @default(autoincrement())
+  instituteId      Int        @map("institute_id")
+  sectionId        Int        @map("section_id")
+  timetableEntryId Int?       @map("timetable_entry_id")
+  subjectId        Int        @map("subject_id")
+  teacherId        Int?       @map("teacher_id")
+  lessonType       LessonType @default(REGULAR) @map("lesson_type")
+  startsAt         DateTime   @map("starts_at")
+  endsAt           DateTime   @map("ends_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  institute      Institute        @relation(fields: [instituteId], references: [id])
-  section        Section          @relation(fields: [sectionId], references: [id])
-  timetableEntry TimetableEntry?  @relation(fields: [timetableEntryId], references: [id])
-  subject        Subject          @relation(fields: [subjectId], references: [id])
-  teacher        Teacher?         @relation(fields: [teacherId], references: [id])
+  institute      Institute          @relation(fields: [instituteId], references: [id])
+  section        Section            @relation(fields: [sectionId], references: [id])
+  timetableEntry TimetableEntry?    @relation(fields: [timetableEntryId], references: [id])
+  subject        Subject            @relation(fields: [subjectId], references: [id])
+  teacher        Teacher?           @relation(fields: [teacherId], references: [id])
   exam           Exam?
   attendance     LessonAttendance[]
 
   @@unique([instituteId, id])
+  @@index([instituteId, sectionId, startsAt])
   @@map("lessons")
 }
 
@@ -587,53 +652,87 @@ model Lesson {
 // Exams
 // ---------------------------------------------------------------------------
 
+model ExamType {
+  id          Int      @id @default(autoincrement())
+  instituteId Int      @map("institute_id")
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+  exams     Exam[]
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, name])
+  @@map("exam_types")
+}
+
+/// An exam is defined by section + subject (+ optional type). Linking it to a
+/// concrete lesson is optional.
 model Exam {
   id          Int      @id @default(autoincrement())
   instituteId Int      @map("institute_id")
-  lessonId    Int      @unique @map("lesson_id")
+  sectionId   Int      @map("section_id")
+  subjectId   Int      @map("subject_id")
+  examTypeId  Int?     @map("exam_type_id")
+  lessonId    Int?     @unique @map("lesson_id")
   title       String
+  examDate    DateTime @map("exam_date") @db.Date
   maxMark     Decimal  @map("max_mark") @db.Decimal(10, 2)
   passMark    Decimal  @map("pass_mark") @db.Decimal(10, 2)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById Int?     @map("created_by_id")
+  updatedById Int?     @map("updated_by_id")
 
   institute Institute    @relation(fields: [instituteId], references: [id])
-  lesson    Lesson       @relation(fields: [lessonId], references: [id])
+  section   Section      @relation(fields: [sectionId], references: [id])
+  subject   Subject      @relation(fields: [subjectId], references: [id])
+  examType  ExamType?    @relation(fields: [examTypeId], references: [id])
+  lesson    Lesson?      @relation(fields: [lessonId], references: [id])
   results   ExamResult[]
 
+  @@unique([instituteId, id])
+  @@index([instituteId, sectionId, subjectId])
   @@map("exams")
 }
 
 model ExamResult {
-  id          Int      @id @default(autoincrement())
-  instituteId Int      @map("institute_id")
-  examId      Int      @map("exam_id")
-  studentId   Int      @map("student_id")
-  mark        Decimal? @db.Decimal(10, 2)
-  status      String
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id          Int              @id @default(autoincrement())
+  instituteId Int              @map("institute_id")
+  examId      Int              @map("exam_id")
+  studentId   Int              @map("student_id")
+  mark        Decimal?         @db.Decimal(10, 2)
+  status      ExamResultStatus @default(PENDING)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  createdById Int?             @map("created_by_id")
+  updatedById Int?             @map("updated_by_id")
 
   institute Institute @relation(fields: [instituteId], references: [id])
   exam      Exam      @relation(fields: [examId], references: [id])
   student   Student   @relation(fields: [studentId], references: [id])
 
+  @@unique([instituteId, id])
+  @@unique([instituteId, examId, studentId])
   @@map("exam_results")
 }
 
 // ---------------------------------------------------------------------------
-// Attendance
+// Attendance (per lesson)
 // ---------------------------------------------------------------------------
 
 model LessonAttendance {
-  id          Int      @id @default(autoincrement())
-  instituteId Int      @map("institute_id")
-  lessonId    Int      @map("lesson_id")
-  studentId   Int      @map("student_id")
-  status      String
-  markedAt    DateTime @map("marked_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id          Int              @id @default(autoincrement())
+  instituteId Int              @map("institute_id")
+  lessonId    Int              @map("lesson_id")
+  studentId   Int              @map("student_id")
+  status      AttendanceStatus
+  markedAt    DateTime         @map("marked_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  createdById Int?             @map("created_by_id")
+  updatedById Int?             @map("updated_by_id")
 
   institute Institute @relation(fields: [instituteId], references: [id])
   lesson    Lesson    @relation(fields: [lessonId], references: [id])
@@ -644,26 +743,36 @@ model LessonAttendance {
 }
 
 // ---------------------------------------------------------------------------
-// Financial
+// Financial (student enrollment contracts — management system only)
 // ---------------------------------------------------------------------------
 
+/// Enrollment contract of a student in a section for an academic year.
+/// totalAmount = grossAmount - discountAmount.
 model StudentSubscription {
-  id                   Int      @id @default(autoincrement())
-  instituteId          Int      @map("institute_id")
-  studentId            Int      @map("student_id")
-  sectionId            Int      @map("section_id")
-  academicYearId       Int      @map("academic_year_id")
-  totalAmount          Decimal  @map("total_amount") @db.Decimal(10, 2)
-  numberOfInstallments Int      @map("number_of_installments")
-  startDate            DateTime @map("start_date") @db.Date
-  status               String
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  id                   Int                @id @default(autoincrement())
+  instituteId          Int                @map("institute_id")
+  studentId            Int                @map("student_id")
+  sectionId            Int                @map("section_id")
+  academicYearId       Int                @map("academic_year_id")
+  currency             Currency           @default(SYP)
+  exchangeRate         Decimal?           @map("exchange_rate") @db.Decimal(18, 4)
+  grossAmount          Decimal            @map("gross_amount") @db.Decimal(18, 2)
+  discountAmount       Decimal            @default(0) @map("discount_amount") @db.Decimal(18, 2)
+  discountReason       String?            @map("discount_reason")
+  totalAmount          Decimal            @map("total_amount") @db.Decimal(18, 2)
+  firstPaymentAmount   Decimal?           @map("first_payment_amount") @db.Decimal(18, 2)
+  numberOfInstallments Int                @map("number_of_installments")
+  startDate            DateTime           @map("start_date") @db.Date
+  status               SubscriptionStatus @default(ACTIVE)
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  createdById          Int?               @map("created_by_id")
+  updatedById          Int?               @map("updated_by_id")
 
-  institute    Institute    @relation(fields: [instituteId], references: [id])
-  student      Student      @relation(fields: [studentId], references: [id])
-  section      Section      @relation(fields: [sectionId], references: [id])
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  institute    Institute     @relation(fields: [instituteId], references: [id])
+  student      Student       @relation(fields: [studentId], references: [id])
+  section      Section       @relation(fields: [sectionId], references: [id])
+  academicYear AcademicYear  @relation(fields: [academicYearId], references: [id])
   installments Installment[]
 
   @@unique([instituteId, id])
@@ -671,37 +780,210 @@ model StudentSubscription {
 }
 
 model Installment {
-  id                Int      @id @default(autoincrement())
-  instituteId       Int      @map("institute_id")
-  subscriptionId    Int      @map("subscription_id")
-  installmentNumber Int      @map("installment_number")
-  amount            Decimal  @db.Decimal(10, 2)
-  dueDate           DateTime @map("due_date") @db.Date
-  status            String
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                Int               @id @default(autoincrement())
+  instituteId       Int               @map("institute_id")
+  subscriptionId    Int               @map("subscription_id")
+  installmentNumber Int               @map("installment_number")
+  amount            Decimal           @db.Decimal(18, 2)
+  paidAmount        Decimal           @default(0) @map("paid_amount") @db.Decimal(18, 2)
+  dueDate           DateTime          @map("due_date") @db.Date
+  status            InstallmentStatus @default(PENDING)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  createdById       Int?              @map("created_by_id")
+  updatedById       Int?              @map("updated_by_id")
 
   institute    Institute           @relation(fields: [instituteId], references: [id])
   subscription StudentSubscription @relation(fields: [subscriptionId], references: [id])
   payments     Payment[]
 
+  @@unique([instituteId, id])
   @@unique([instituteId, subscriptionId, installmentNumber])
   @@map("installments")
 }
 
+/// Payments are never deleted — they are cancelled (status CANCELLED).
+/// receiptNumber is sequential per (institute, branch, academic year).
 model Payment {
-  id            Int      @id @default(autoincrement())
-  instituteId   Int      @map("institute_id")
-  installmentId Int      @map("installment_id")
-  amount        Decimal  @db.Decimal(10, 2)
-  paidAt        DateTime @map("paid_at")
-  paymentMethod String   @map("payment_method")
-  note          String   @db.Text
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id             Int           @id @default(autoincrement())
+  instituteId    Int           @map("institute_id")
+  branchId       Int           @map("branch_id")
+  academicYearId Int           @map("academic_year_id")
+  installmentId  Int           @map("installment_id")
+  receiptNumber  Int           @map("receipt_number")
+  amount         Decimal       @db.Decimal(18, 2)
+  currency       Currency      @default(SYP)
+  exchangeRate   Decimal?      @map("exchange_rate") @db.Decimal(18, 4)
+  paidAt         DateTime      @map("paid_at")
+  paymentMethod  PaymentMethod @default(CASH) @map("payment_method")
+  status         PaymentStatus @default(ACTIVE)
+  cancelReason   String?       @map("cancel_reason")
+  note           String?       @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  createdById    Int?          @map("created_by_id")
+  updatedById    Int?          @map("updated_by_id")
 
-  institute   Institute   @relation(fields: [instituteId], references: [id])
-  installment Installment @relation(fields: [installmentId], references: [id])
+  institute    Institute    @relation(fields: [instituteId], references: [id])
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  installment  Installment  @relation(fields: [installmentId], references: [id])
 
+  @@unique([instituteId, id])
+  @@unique([instituteId, branchId, academicYearId, receiptNumber])
   @@map("payments")
+}
+
+/// Atomic counter backing Payment.receiptNumber.
+model ReceiptSequence {
+  id             Int      @id @default(autoincrement())
+  instituteId    Int      @map("institute_id")
+  branchId       Int      @map("branch_id")
+  academicYearId Int      @map("academic_year_id")
+  lastNumber     Int      @default(0) @map("last_number")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  institute    Institute    @relation(fields: [instituteId], references: [id])
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([instituteId, branchId, academicYearId])
+  @@map("receipt_sequences")
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Change log written automatically by TenantAwareRepository for audited models.
+/// userId / entityId are plain columns (no FK) so the log survives any record.
+model AuditLog {
+  id          Int         @id @default(autoincrement())
+  instituteId Int         @map("institute_id")
+  userId      Int?        @map("user_id")
+  entity      String
+  entityId    Int         @map("entity_id")
+  action      AuditAction
+  before      Json?
+  changes     Json?
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+
+  @@index([instituteId, entity, entityId])
+  @@index([instituteId, createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Feature flags (per institute)
+// ---------------------------------------------------------------------------
+
+/// Optional modules an institute can have switched on. No row = disabled.
+model InstituteFeature {
+  id          Int        @id @default(autoincrement())
+  instituteId Int        @map("institute_id")
+  key         FeatureKey
+  enabled     Boolean    @default(false)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, key])
+  @@map("institute_features")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum FeatureKey {
+  SMS
+  ONLINE_REGISTRATION
+  PARENTS_APP
+  STUDENTS_APP
+  ACCOUNTING
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum GuardianRelationship {
+  FATHER
+  MOTHER
+  GUARDIAN
+  OTHER
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  TRANSFERRED
+  WITHDRAWN
+  COMPLETED
+}
+
+enum EnrollmentSubjectStatus {
+  ACTIVE
+  DROPPED
+}
+
+enum LessonType {
+  REGULAR
+  MAKEUP
+  EXTRA
+  EXAM
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum ExamResultStatus {
+  PENDING
+  PASSED
+  FAILED
+  ABSENT
+}
+
+enum Currency {
+  SYP
+  USD
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum InstallmentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  OTHER
+}
+
+enum PaymentStatus {
+  ACTIVE
+  CANCELLED
 }

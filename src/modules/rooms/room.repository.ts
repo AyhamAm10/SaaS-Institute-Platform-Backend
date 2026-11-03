@@ -8,6 +8,9 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
 @Injectable()
 export class RoomRepository extends ContextScopedRepository<Room> {
   protected override readonly branchKey = 'branchId';
+  protected override readonly softDelete = true;
+  protected override readonly softDeleteReleaseFields = ['name'];
+  protected override readonly audited = true;
 
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'room');
@@ -23,7 +26,7 @@ export class RoomRepository extends ContextScopedRepository<Room> {
 
   async findRawById(id: number): Promise<Room | null> {
     return (this.client as any).room.findUnique({
-      where: { id },
+      where: this.notDeleted({ id }),
     });
   }
 

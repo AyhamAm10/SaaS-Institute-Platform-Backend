@@ -5,6 +5,9 @@ import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class FamilyRepository extends TenantAwareRepository<Family> {
+  protected override readonly softDelete = true;
+  protected override readonly audited = true;
+
   constructor(@Inject(PrismaService) prisma: PrismaService) {
     super(prisma, 'family');
   }
@@ -23,10 +26,10 @@ export class FamilyRepository extends TenantAwareRepository<Family> {
     }
 
     return (this.client as any).family.findMany({
-      where,
+      where: this.notDeleted(where as Record<string, unknown>),
       include: {
         _count: {
-          select: { students: true },
+          select: { students: { where: { deletedAt: null } } },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -39,13 +42,14 @@ export class FamilyRepository extends TenantAwareRepository<Family> {
   ): Promise<(Family & { _count?: { students: number } }) | null> {
     const instituteId = this.getInstituteId();
     return (this.client as any).family.findFirst({
-      where: { id, instituteId },
+      where: this.notDeleted({ id, instituteId }),
       include: {
         students: {
+          where: { deletedAt: null },
           select: { id: true, fullName: true, gender: true, birthDate: true },
         },
         _count: {
-          select: { students: true },
+          select: { students: { where: { deletedAt: null } } },
         },
       },
     });

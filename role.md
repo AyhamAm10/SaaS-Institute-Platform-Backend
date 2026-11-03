@@ -213,11 +213,17 @@ The platform operates as a relational multi-tenant SaaS with a strict **Two-Tier
 | **Branch & Year Scoped** *(Operational Cohort)* | `Section` | `instituteId`, `branchId`, `academicYearId` | Active student cohort. Compound uniqueness: `@@unique([instituteId, branchId, academicYearId, name])`. |
 | **Branch & Year Scoped** | `Timetable` | `instituteId`, `academicYearId`, `section.branchId` | Master weekly schedule for a specific section. Inherits branch from `section.branchId`. |
 | **Branch & Year Scoped** | `TimetableEntry` | `instituteId`, `timetableId`, `roomId`, `teacherId` | Timetable slot. Room MUST match section's branch; Teacher MUST be assigned to section's branch. |
+| **Branch-Scoped** | `Student` | `instituteId`, `branchId` (required) | `branchId` is mandatory: resolved from DTO → header → enrolled section → default branch. |
+| **Year Scoped** | `StudentEnrollment` / `EnrollmentSubject` | `instituteId`, `academicYearId` | One enrollment per student per year. `EnrollmentSubject` lists the subjects a student takes; **no rows = all section subjects**. |
+| **Section Scoped** | `Exam` / `ExamResult` | `instituteId`, `sectionId`, `subjectId` | Exam is defined by section + subject (+ optional `ExamType`); `lessonId` is optional. One result per (exam, student). |
+| **Branch & Year Scoped** | `Payment` / `ReceiptSequence` | `instituteId`, `branchId`, `academicYearId` | `receiptNumber` is sequential per (institute, branch, year). Payments are never deleted — they are cancelled (`status = CANCELLED`). |
+| **Institute-Wide** | `InstituteFeature` | `instituteId`, `key` | Optional modules per institute (SMS, online registration, apps, accounting). No row = disabled. |
+| **Institute-Wide** | `AuditLog` | `instituteId` | Written automatically for audited models (see §4.4). |
 
 ### 3.3 Core Multi-Tenancy Invariants:
 1. **Never Trust Client Tenant Input**: The client request body, query parameters, or route headers MUST NEVER be trusted to determine the authoritative `instituteId`. The `instituteId` MUST always be derived from the verified JWT access token in `RequestContext`.
 2. **Subdivisions are Not Tenants**: `Branch` records are subdivisions of an `Institute`, not independent tenants. All branch-level entities belong to the root `Institute`.
-3. **Single Tenant Membership**: Every user belongs to exactly one `Institute`.
+3. **Single Tenant Membership**: Every user record belongs to exactly one `Institute`. A phone number is unique **per institute** (`@@unique([instituteId, phone])`), so the same person may hold separate user records in several institutes. Phone uniqueness checks MUST use the tenant-scoped `UserRepository`, never a system-wide lookup.
 4. **Relational Scope**: All major database entities maintain a direct or compound foreign key to `Institute` (`instituteId`) and unique compound keys (`@@unique([instituteId, id])`).
 5. **No Cross-Tenant Leakage**: Unintended cross-institute data exposure is a critical security violation.
 
@@ -274,7 +280,7 @@ Tenant isolation and operational dimension scoping are enforced uniformly at the
   - Automatically injects direct non-nested `branchId` and `academicYearId` into `create(data)` if present in context and omitted in payload.
 * **`SystemRepository<T>`**:
   - Used ONLY for legitimate cross-tenant requirements:
-    1. User login (locating user by unique phone across the entire system prior to authentication).
+    1. User login (`findLoginCandidates(phone, instituteCode?)` — all users with that phone, optionally restricted to one institute code, prior to authentication).
     2. Token refresh and account validity verification.
     3. Super-admin platform operations.
   - MUST NOT be used in feature domain modules where `TenantAwareRepository` or `ContextScopedRepository` applies.
@@ -350,6 +356,24 @@ Physical resources and personnel cannot be scheduled across branch boundaries:
 #### Rule 4: Prisma Transaction Client Consistency
 Inside transactional workflows, repositories MUST access the transactional client via `this.client` or repository methods (`this.findOne`, `this.findMany`) and NEVER invoke `this.prisma` directly. Bypassing `this.client` breaks atomic ACID rollbacks.
 
+### 4.4 Soft Delete & Audit (repository flags)
+
+Configured by the child repository, in the same style as `branchKey` / `yearKey`:
+
+```ts
+export class SubjectRepository extends TenantAwareRepository<Subject> {
+  protected override readonly softDelete = true;                  // model has deletedAt
+  protected override readonly softDeleteReleaseFields = ['name']; // unique columns to free
+  protected override readonly audited = true;                     // model has createdById/updatedById
+}
+```
+
+* **`softDelete`**: `delete()` sets `deletedAt` instead of removing the row; `scopeWhere()`, `findById()` and every base read skip deleted rows. Custom queries that bypass `scopeWhere()` (e.g. `findRawById`) MUST wrap their `where` with `this.notDeleted(...)`. Relation includes of soft-deletable children SHOULD filter `deletedAt: null`.
+* **`softDeleteReleaseFields`**: string columns covered by a unique constraint are suffixed with `__deleted_<id>` on soft delete so the value can be reused by a new record.
+* **`audited`**: `create()` stamps `createdById`/`updatedById` from `RequestContext`; `update()` / `delete()` write an `AuditLog` row (`before` snapshot + `changes`) in the same transaction. Keys matching `/password/i` are never written to the log.
+* Soft-delete models today: `Student`, `Family`, `Teacher`, `Section`, `Subject`, `Room`, `User` (`phone` released). Audited: the same minus `User`. Financial and academic records (`StudentSubscription`, `Installment`, `Payment`, `ExamResult`, `LessonAttendance`, `Exam`, `StudentEnrollment`, `EnrollmentSubject`) already have the actor columns and MUST set `audited = true` when their repository is created.
+* Repositories without the flags keep the original hard-delete behaviour.
+
 ---
 
 ## 5. Prisma ORM Conventions
@@ -362,6 +386,14 @@ The project uses Prisma 7 with the `@prisma/adapter-pg` driver adapter.
 3. **Lifecycle Management**: `PrismaService` extends `PrismaClient` and implements `OnModuleInit` (`$connect()`) and `OnModuleDestroy` (`$disconnect()`).
 4. **Connection Pool**: Database connection configuration is supplied via `DATABASE_URL` through `ConfigService` in `PrismaService`.
 5. **Schema as Single Source of Truth**: The Prisma schema (`prisma/schema.prisma`) defines the authoritative data model, foreign keys, cascade rules, and indexes.
+6. **Migrations Only — never `db push`**: Every schema change ships as a migration in `prisma/migrations/`. Workflow:
+   1. Edit `schema.prisma`.
+   2. Generate SQL: `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script -o prisma/migrations/<timestamp>_<name>/migration.sql` (or `npm run prisma:migrate:create` in an interactive terminal).
+   3. Review the SQL. Replace Prisma's `DROP COLUMN` + `ADD COLUMN` for type changes with `ALTER COLUMN ... TYPE ... USING (...)` and add backfills so existing data is preserved.
+   4. Apply with `npm run prisma:deploy`, then `npm run prisma:generate`.
+7. **Enums for fixed value sets**: Statuses, types and methods (`Gender`, `EnrollmentStatus`, `PaymentMethod`, `AttendanceStatus`, `Currency`, …) are Prisma enums; DTOs validate them with `@IsEnum(...)`. Free `String` columns are not used for closed sets.
+8. **Money**: monetary amounts use `Decimal(18, 2)`; exchange rates `Decimal(18, 4)`. Supported currencies: `SYP`, `USD`.
+9. **Week start**: day-of-week values follow JS (0 = Sunday … 6 = Saturday); the institute week starts on **Saturday** (default working days `[6, 0, 1, 2, 3, 4]`).
 
 ---
 
@@ -438,9 +470,9 @@ sequenceDiagram
     participant JwtSvc as JwtTokenService
     participant Redis as RedisService
 
-    Client->>AuthCtrl: POST /api/auth/login { phone, password }
+    Client->>AuthCtrl: POST /api/auth/login { phone, password, instituteCode? }
     AuthCtrl->>AuthSvc: login(dto)
-    AuthSvc->>UserSysRepo: findByPhone(dto.phone)
+    AuthSvc->>UserSysRepo: findLoginCandidates(dto.phone, dto.instituteCode)
     UserSysRepo-->>AuthSvc: user entity
     AuthSvc->>AuthSvc: bcrypt.compare(password, user.passwordHash)
     AuthSvc->>JwtSvc: generateAccessToken({ sub, instituteId, role })
@@ -477,6 +509,14 @@ Role authorization is enforced at the controller and route level using the `@Rol
 * **Decorator (`@Roles`)**: Attached to a Controller class or route handler method (`@Roles(UserRole.SUPER_ADMIN)`).
 * **`RolesGuard`**: Applied globally via `APP_GUARD` in `AuthModule` immediately after `JwtAuthGuard`. Checks whether the caller's role (`request.user.role` or `RequestContext.getRole()`) is included in the endpoint's required roles. If unauthorized, throws `ForbiddenException` (403) via `Ensure.forbidden`.
 * **Public Exemption**: Routes decorated with `@Public()` automatically bypass both `JwtAuthGuard` and `RolesGuard`.
+
+### 8.4 Multi-Institute Login
+* `Institute.code` is a global, unique login code (`INSTITUTE_CODE_PATTERN`, stored upper-case; platform institute = `PLATFORM`). Generated as `INS` + 5 characters when not supplied on creation.
+* Login checks the password against every account with that phone (or only the one in `instituteCode`). Exactly one match → login; several matches → `400 institute_code_required`; none → `401 invalid_credentials`.
+
+### 8.5 Feature Flags
+* `@RequireFeature(FeatureKey.X)` on a controller or route restricts it to institutes that have the feature enabled; `FeatureGuard` (global, after `RolesGuard`) throws `403 feature_disabled` otherwise.
+* `GET /features` returns the caller institute's flags; super admin manages them via `GET/PUT /institutes/:instituteId/features`.
 
 ---
 
@@ -653,6 +693,13 @@ When creating a new domain feature (e.g., `students`, `sections`, `finances`):
 
 ---
 
+### 14.1 Platform Infrastructure Modules
+* **Storage** (`modules/storage`): `StorageService` is the only entry point for files. Keys are always `institutes/<instituteId>/<category>/<uuid>.<ext>` (built from `RequestContext`, never from client input). Drivers implement `StorageDriver` and are selected in `StorageModule` via the `STORAGE_DRIVER` token; only the `local` driver (`STORAGE_LOCAL_DIR`) exists today. Upload: `POST /files` (multipart `file` + `category`); download: `GET /files/:category/:fileName` (same institute only). Allowed: JPG, PNG, WEBP, PDF up to 5 MB.
+* **API docs**: Swagger UI at `/<API_PREFIX>/docs` outside production. DTO schemas come from the `@nestjs/swagger` CLI plugin (`nest-cli.json`) — no manual decorators required.
+* **Background jobs**: not available yet — the project has no Redis/queue infrastructure. Do not add ad-hoc in-process schedulers; introduce a queue module (BullMQ on Redis) first.
+
+---
+
 ## 15. Dependency Injection and IoC
 
 1. **NestJS DI Exclusively**: All services, repositories, helpers, and guards MUST be decorated with `@Injectable()` and managed by NestJS IoC container.
@@ -683,7 +730,7 @@ The Prisma schema (`prisma/schema.prisma`) represents the educational institute 
 * **Branches**: `Branch` belongs to `Institute` (`@@unique([instituteId, code])`, `@@unique([instituteId, id])`).
 * **Academic Hierarchy**: `AcademicYear` -> `Section` -> `StudentEnrollment` / `Timetable` / `StudentSubscription`.
 * **Pedagogical Links**: `Subject`, `Teacher`, `SectionTeacher`, `SectionSubject`, `Lesson`, `Exam`, `ExamResult`, `LessonAttendance`.
-* **Financial Model**: `StudentSubscription` -> `Installment` -> `Payment`.
+* **Financial Model** (management system only — no accounting ledger yet): `StudentSubscription` (enrollment contract: currency, exchange rate, gross/discount/total, first payment) -> `Installment` (amount, paidAmount, status) -> `Payment` (receipt number, currency, method, ACTIVE/CANCELLED).
 * **Compound Keys**: Tenant-aware tables MUST maintain compound uniqueness where applicable (e.g., `@@unique([instituteId, id])`) to reinforce multi-tenant data integrity.
 
 ---

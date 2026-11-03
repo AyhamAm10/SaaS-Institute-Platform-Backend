@@ -1,11 +1,13 @@
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
+import { HttpException, NotFoundException } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { StudentRepository } from './student.repository';
 import { StudentEnrollmentRepository } from './student-enrollment.repository';
 import { FamilyRepository } from '../families/family.repository';
 import { StudentFieldRepository } from '../student-fields/student-field.repository';
 import { SectionRepository } from '../sections/section.repository';
+import { BranchRepository } from '../branches/branch.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { RequestContext } from '../../context/request-context';
 
@@ -49,6 +51,10 @@ describe('StudentsService', () => {
     const mockSectionRepo = {
       findRawById: jest.fn(),
     };
+    const mockBranchRepo = {
+      findById: jest.fn().mockResolvedValue({ id: 1 } as any),
+      getOrCreateDefaultBranch: jest.fn().mockResolvedValue({ id: 1 } as any),
+    };
     const mockTxHelper = {
       executeInTransaction: jest.fn().mockImplementation((cb: any) => cb()),
     };
@@ -58,6 +64,7 @@ describe('StudentsService', () => {
         StudentsService,
         { provide: StudentRepository, useValue: mockStudentRepo },
         { provide: StudentEnrollmentRepository, useValue: mockEnrollmentRepo },
+        { provide: BranchRepository, useValue: mockBranchRepo },
         { provide: FamilyRepository, useValue: mockFamilyRepo },
         { provide: StudentFieldRepository, useValue: mockFieldRepo },
         { provide: SectionRepository, useValue: mockSectionRepo },
@@ -167,5 +174,72 @@ describe('StudentsService', () => {
         expect(result.total).toBe(1);
       },
     );
+  });
+  describe('update / delete', () => {
+    const ctx = {
+      userId: 1,
+      instituteId: 1,
+      role: 'INSTITUTE_ADMIN',
+      language: 'en',
+    };
+    const existing = {
+      ...mockStudent,
+      customFields: { blood_type: 'O+' },
+      studentEnrollments: [{ status: 'ACTIVE', section: { branchId: 1 } }],
+    };
+
+    it('merges custom fields and updates profile fields', async () => {
+      studentRepo.findStudentById.mockResolvedValue(existing);
+      studentRepo.update = jest.fn().mockResolvedValue(existing as any);
+
+      await RequestContext.run(ctx, () =>
+        service.update(1, { fullName: ' سامر ', customFields: { notes: 'x' } }),
+      );
+
+      expect(studentRepo.update).toHaveBeenCalledWith(1, {
+        fullName: 'سامر',
+        customFields: { blood_type: 'O+', notes: 'x' },
+      });
+    });
+
+    it('rejects moving a student away from the branch of an active enrollment', async () => {
+      studentRepo.findStudentById.mockResolvedValue(existing);
+      studentRepo.update = jest.fn();
+
+      await expect(
+        RequestContext.run(ctx, () => service.update(1, { branchId: 2 })),
+      ).rejects.toThrow(HttpException);
+      expect(studentRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects mutating a student of another active branch', async () => {
+      studentRepo.findStudentById.mockResolvedValue({
+        ...existing,
+        branchId: 3,
+      });
+      studentRepo.delete = jest.fn();
+
+      await expect(
+        RequestContext.run({ ...ctx, branchId: 1 }, () => service.delete(1)),
+      ).rejects.toThrow(HttpException);
+      expect(studentRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it('soft-deletes through the repository', async () => {
+      studentRepo.findStudentById.mockResolvedValue(existing);
+      studentRepo.delete = jest.fn().mockResolvedValue(existing as any);
+
+      await RequestContext.run(ctx, () => service.delete(1));
+
+      expect(studentRepo.delete).toHaveBeenCalledWith(1);
+    });
+
+    it('throws NotFound when the student does not exist', async () => {
+      studentRepo.findStudentById.mockResolvedValue(null);
+
+      await expect(
+        RequestContext.run(ctx, () => service.getDeletionReport(99)),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 });

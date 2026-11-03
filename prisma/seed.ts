@@ -37,6 +37,7 @@ async function main() {
   // ── Institute 1 ────────────────────────────────────────────────────────
   const institute1 = await prisma.institute.create({
     data: {
+      code: 'ALNOOR',
       name: 'Al-Noor Academy',
       logoUrl: 'https://example.com/alnoor-logo.png',
       primaryColor: '#1a73e8',
@@ -57,7 +58,9 @@ async function main() {
       role: 'SUPER_ADMIN',
     },
   });
-  console.log(`   └─ Super Admin: ${superAdmin.fullName} (phone: ${superAdmin.phone})`);
+  console.log(
+    `   └─ Super Admin: ${superAdmin.fullName} (phone: ${superAdmin.phone})`,
+  );
 
   const admin1 = await prisma.user.create({
     data: {
@@ -68,7 +71,9 @@ async function main() {
       role: 'INSTITUTE_ADMIN',
     },
   });
-  console.log(`   └─ Institute Admin 1: ${admin1.fullName} (phone: ${admin1.phone})`);
+  console.log(
+    `   └─ Institute Admin 1: ${admin1.fullName} (phone: ${admin1.phone})`,
+  );
 
   await prisma.instituteAdmin.create({
     data: { instituteId: institute1.id, userId: admin1.id },
@@ -95,9 +100,18 @@ async function main() {
   });
 
   const defaultBranches = [
-    { name: 'الصف التاسع', description: 'المرحلة الإعدادية — الصف التاسع الأساسي' },
-    { name: 'الثانوي العام — الفرع العلمي', description: 'المرحلة الثانوية — الفرع العلمي' },
-    { name: 'الثانوي العام — الفرع الأدبي', description: 'المرحلة الثانوية — الفرع الأدبي' },
+    {
+      name: 'الصف التاسع',
+      description: 'المرحلة الإعدادية — الصف التاسع الأساسي',
+    },
+    {
+      name: 'الثانوي العام — الفرع العلمي',
+      description: 'المرحلة الثانوية — الفرع العلمي',
+    },
+    {
+      name: 'الثانوي العام — الفرع الأدبي',
+      description: 'المرحلة الثانوية — الفرع الأدبي',
+    },
   ];
 
   for (const b of defaultBranches) {
@@ -112,6 +126,7 @@ async function main() {
   // ── Institute 2 ────────────────────────────────────────────────────────
   const institute2 = await prisma.institute.create({
     data: {
+      code: 'SUNRISE',
       name: 'Sunrise School',
       logoUrl: 'https://example.com/sunrise-logo.png',
       primaryColor: '#ff6d00',
@@ -131,7 +146,9 @@ async function main() {
       role: 'INSTITUTE_ADMIN',
     },
   });
-  console.log(`   └─ Institute Admin 2: ${admin2.fullName} (phone: ${admin2.phone})`);
+  console.log(
+    `   └─ Institute Admin 2: ${admin2.fullName} (phone: ${admin2.phone})`,
+  );
 
   await prisma.instituteAdmin.create({
     data: { instituteId: institute2.id, userId: admin2.id },

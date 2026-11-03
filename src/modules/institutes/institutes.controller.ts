@@ -2,14 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Inject,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { InstitutesService } from './institutes.service';
 import { CreateInstituteDto } from './dto/create-institute.dto';
+import { UpdateInstituteDto } from './dto/update-institute.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/types/user-role.enum';
 import { InstituteQueryDto } from './dto/institute-query.dto';
@@ -50,5 +54,17 @@ export class InstitutesController {
   @Get(':id')
   async findById(@Param('id', ParseIntPipe) id: number) {
     return this.institutesService.findById(id);
+  }
+
+  /**
+   * Update institute details (name, login code, branding, contact).
+   */
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateInstituteDto,
+  ) {
+    return this.institutesService.update(id, dto);
   }
 }

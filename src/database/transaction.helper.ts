@@ -31,12 +31,24 @@ export class TransactionHelper {
     fn: () => Promise<T>,
     options?: { maxWait?: number; timeout?: number },
   ): Promise<T> {
+    return TransactionHelper.run(this.prisma, fn, options);
+  }
+
+  /**
+   * Static form of {@link executeInTransaction} for infrastructure code that
+   * cannot receive TransactionHelper via DI (e.g. base repositories).
+   */
+  static async run<T>(
+    prisma: PrismaService,
+    fn: () => Promise<T>,
+    options?: { maxWait?: number; timeout?: number },
+  ): Promise<T> {
     // If already inside an interactive transaction, reuse the active context
     if (TransactionContext.get()) {
       return fn();
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       // Store the transaction client in AsyncLocalStorage so repositories
       // pick it up automatically via `this.client` in BaseRepository.
       return TransactionContext.run(tx as Record<string, unknown>, fn);
