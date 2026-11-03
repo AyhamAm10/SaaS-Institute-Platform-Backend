@@ -45,6 +45,14 @@ describe('JwtTokenService', () => {
     expect(() => service.verifyAccessToken(refreshToken)).toThrow();
   });
 
+  it('issues distinct refresh tokens for the same user in the same second', () => {
+    const first = service.generateRefreshToken({ sub: 1 });
+    const second = service.generateRefreshToken({ sub: 1 });
+
+    expect(first).not.toBe(second);
+    expect(service.hashToken(first)).not.toBe(service.hashToken(second));
+  });
+
   it('generates deterministic SHA-256 hashes for refresh tokens', () => {
     const token = 'sample-refresh-token';
     const hash1 = service.hashToken(token);

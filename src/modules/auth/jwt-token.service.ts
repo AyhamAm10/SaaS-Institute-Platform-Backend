@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt-token.types';
 
 /**
@@ -58,6 +58,9 @@ export class JwtTokenService {
       {
         secret: this.refreshSecret,
         expiresIn: this.refreshExpiresIn as any,
+        // Unique token id: two tokens issued for the same user within the same
+        // second would otherwise be identical and collide on refresh_tokens.token_hash.
+        jwtid: randomUUID(),
       },
     );
   }

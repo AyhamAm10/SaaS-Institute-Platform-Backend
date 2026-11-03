@@ -394,6 +394,7 @@ The project uses Prisma 7 with the `@prisma/adapter-pg` driver adapter.
 7. **Enums for fixed value sets**: Statuses, types and methods (`Gender`, `EnrollmentStatus`, `PaymentMethod`, `AttendanceStatus`, `Currency`, …) are Prisma enums; DTOs validate them with `@IsEnum(...)`. Free `String` columns are not used for closed sets.
 8. **Money**: monetary amounts use `Decimal(18, 2)`; exchange rates `Decimal(18, 4)`. Supported currencies: `SYP`, `USD`.
 9. **Week start**: day-of-week values follow JS (0 = Sunday … 6 = Saturday); the institute week starts on **Saturday** (default working days `[6, 0, 1, 2, 3, 4]`).
+10. **Institute time zone**: instants (`DateTime`) are stored in UTC; calendar dates (attendance day, due dates, exam dates) are `@db.Date` in the **institute's** local calendar (`Institute.timezone`, default `Asia/Damascus`). Domain code MUST get "today" / "now" from `InstituteClockService` (`today()`, `localParts()`), never from `new Date()` date math. Pure helpers live in `src/common/time/timezone.ts`.
 
 ---
 
@@ -458,7 +459,7 @@ The application supports multi-language error messaging through `ErrorMessages` 
 
 ## 8. Authentication and Session Management
 
-Authentication is built with dual JWT tokens (Access + Refresh) and Redis state management.
+Authentication is built with dual JWT tokens (Access + Refresh). Refresh tokens are persisted (hashed) in the PostgreSQL `refresh_tokens` table for durability and revocation.
 
 ```mermaid
 sequenceDiagram
@@ -468,7 +469,7 @@ sequenceDiagram
     participant AuthSvc as AuthService
     participant UserSysRepo as UserSystemRepository
     participant JwtSvc as JwtTokenService
-    participant Redis as RedisService
+    participant DB as refresh_tokens (PostgreSQL)
 
     Client->>AuthCtrl: POST /api/auth/login { phone, password, instituteCode? }
     AuthCtrl->>AuthSvc: login(dto)
@@ -478,7 +479,7 @@ sequenceDiagram
     AuthSvc->>JwtSvc: generateAccessToken({ sub, instituteId, role })
     AuthSvc->>JwtSvc: generateRefreshToken({ sub })
     AuthSvc->>JwtSvc: hashToken(refreshToken) [SHA-256]
-    AuthSvc->>Redis: set("refresh_token:<userId>", hash, 7d TTL)
+    AuthSvc->>DB: insert { userId, tokenHash, expiresAt (+7d) }
     AuthSvc-->>AuthCtrl: { accessToken, refreshToken, user: SafeUser }
     AuthCtrl-->>Client: 200 OK + tokens
 ```
@@ -498,9 +499,9 @@ sequenceDiagram
 ### 8.2 Security & Revocation Invariants:
 1. **Password Hashing**: Passwords MUST be hashed using `bcryptjs` with salt rounds = 12.
 2. **Password Secrecy**: `passwordHash` MUST NEVER be returned in any DTO, response object, or log statement.
-3. **Refresh Token Storage**: Refresh tokens are stored in Redis as SHA-256 hashes (`refresh_token:<userId>`) with a 7-day TTL. Raw tokens are never stored in plaintext.
-4. **Token Rotation**: Refreshing tokens issues a new access token AND a new refresh token, updating the Redis hash immediately.
-5. **Logout**: Calling `/api/auth/logout` deletes the `refresh_token:<userId>` entry from Redis, invalidating future refresh attempts.
+3. **Refresh Token Storage**: Refresh tokens are stored in the `refresh_tokens` table as SHA-256 hashes (`token_hash`, unique) with an `expires_at` (7 days). Raw tokens are never stored in plaintext. Every refresh token carries a random `jti`, so two tokens issued in the same second never collide.
+4. **Token Rotation**: Refreshing tokens issues a new access token AND a new refresh token; the old row is deleted and the new hash inserted.
+5. **Logout**: Calling `/api/auth/logout` deletes all `refresh_tokens` rows of the user, invalidating future refresh attempts on every device.
 6. **Stateless Access Verification**: The global `JwtAuthGuard` verifies the access token signature statelessly without database hits. User existence is re-verified during refresh.
 
 ### 8.3 Role-Based Access Control (RBAC)
@@ -664,7 +665,7 @@ src/
 │   ├── pagination/             # PaginationQueryDto, PaginatedResult
 │   └── types/                  # AuthenticatedUser, UserRole enum, common interfaces
 ├── context/                    # RequestContext (AsyncLocalStorage) & middleware
-├── database/                   # PrismaService, RedisService, Base/Tenant/System Repositories, Transactions
+├── database/                   # PrismaService, Base/Tenant/System Repositories, Transactions
 └── modules/                    # Feature domain modules
     ├── auth/                   # Authentication module
     │   ├── dto/                # LoginDto, RefreshTokenDto, AuthResponse DTOs

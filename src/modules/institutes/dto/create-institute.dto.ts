@@ -2,6 +2,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsTimeZone,
   Matches,
   MinLength,
 } from 'class-validator';
@@ -28,6 +29,11 @@ export class CreateInstituteDto {
   )
   @Matches(INSTITUTE_CODE_PATTERN)
   code?: string;
+
+  /** IANA time zone, e.g. Asia/Damascus (default). */
+  @IsOptional()
+  @IsTimeZone()
+  timezone?: string;
 
   @IsOptional()
   @IsString()

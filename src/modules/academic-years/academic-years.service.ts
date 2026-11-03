@@ -43,16 +43,16 @@ export class AcademicYearsService {
     );
     Ensure.alreadyExists(existingByName, 'Academic year name');
 
-    // // Validate no date overlap within tenant
-    // const overlapping = await this.academicYearRepository.findOverlapping(
-    //   startDate,
-    //   endDate,
-    // );
-    // Ensure.custom(
-    //   overlapping !== null,
-    //   ErrorMessages.get('academic_year_overlap'),
-    //   409,
-    // );
+    // Validate no date overlap within tenant (role.md §3.2)
+    const overlapping = await this.academicYearRepository.findOverlapping(
+      startDate,
+      endDate,
+    );
+    Ensure.custom(
+      overlapping !== null,
+      ErrorMessages.get('academic_year_overlap'),
+      409,
+    );
 
     // If isCurrent is requested, atomically unset previous and create new
     if (dto.isCurrent) {

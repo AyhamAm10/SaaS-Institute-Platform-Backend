@@ -67,6 +67,7 @@ export class InstitutesService {
       const institute = await this.instituteRepository.create({
         code,
         name: dto.name,
+        ...(dto.timezone && { timezone: dto.timezone }),
         logoUrl: dto.logoUrl ?? '',
         primaryColor: dto.primaryColor ?? '#1a73e8',
         secondaryColor: dto.secondaryColor ?? '#34a853',
@@ -173,6 +174,7 @@ export class InstitutesService {
       'secondaryColor',
       'phone',
       'address',
+      'timezone',
     ] as const) {
       const value = dto[key];
       if (value !== undefined) data[key] = value.trim();

@@ -20,6 +20,8 @@ model Institute {
   secondaryColor String   @map("secondary_color")
   phone          String
   address        String
+  /// IANA time zone used for "today", due dates and attendance (role.md §5.10)
+  timezone       String   @default("Asia/Damascus")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
