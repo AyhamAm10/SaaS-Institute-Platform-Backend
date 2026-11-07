@@ -6,8 +6,16 @@ import { InstallmentRepository } from './repositories/installment.repository';
 import { PaymentRepository } from './repositories/payment.repository';
 import { fromMinor, toMinor } from '../../common/money/money';
 import { getLocalParts, localMidnightUtc } from '../../common/time/timezone';
-import { collectionsByMonth, lastMonthKeys } from './fees.rules';
+import { agingBucket, AgingBucket, collectionsByMonth, lastMonthKeys } from './fees.rules';
 import { OverdueQueryDto } from './dto/overdue-query.dto';
+import { FeesReportDataService } from './fees-report-data.service';
+
+export interface OverdueAgingRow {
+  currency: Currency;
+  bucket: AgingBucket;
+  count: number;
+  amount: number;
+}
 
 export interface CurrencySummary {
   currency: Currency;
@@ -53,7 +61,53 @@ export class FeesReportsService {
     private readonly paymentRepository: PaymentRepository,
     @Inject(InstituteClockService)
     private readonly clock: InstituteClockService,
+    @Inject(FeesReportDataService)
+    private readonly reportData: FeesReportDataService,
   ) {}
+
+  /**
+   * Overdue aging breakdown by bucket ('1-30', '31-60', '61-90', '90+')
+   * per currency, amounts never mixed.
+   */
+  async getOverdueAging(branchId?: number): Promise<OverdueAgingRow[]> {
+    const today = await this.clock.today();
+    const installments = await this.reportData.getOverdueInstallments({
+      branchId,
+      take: 10_000,
+    });
+
+    const map = new Map<string, { currency: Currency; bucket: AgingBucket; count: number; minor: number }>();
+
+    for (const inst of installments) {
+      const cur = inst.subscription.currency;
+      const dueDateStr = inst.dueDate.toISOString().slice(0, 10);
+      const bucket = agingBucket(dueDateStr, today);
+      const overdueMinor = Math.max(0, toMinor(inst.amount, cur) - toMinor(inst.paidAmount, cur));
+      if (overdueMinor <= 0) continue;
+
+      const key = `${cur}:${bucket}`;
+      const entry = map.get(key) ?? { currency: cur, bucket, count: 0, minor: 0 };
+      entry.count += 1;
+      entry.minor += overdueMinor;
+      map.set(key, entry);
+    }
+
+    const bucketOrder: Record<AgingBucket, number> = {
+      '1-30': 0,
+      '31-60': 1,
+      '61-90': 2,
+      '90+': 3,
+    };
+
+    return Array.from(map.values())
+      .map((row) => ({
+        currency: row.currency,
+        bucket: row.bucket,
+        count: row.count,
+        amount: fromMinor(row.minor, row.currency),
+      }))
+      .sort((a, b) => a.currency.localeCompare(b.currency) || bucketOrder[a.bucket] - bucketOrder[b.bucket]);
+  }
 
   /** Unpaid installments due before today (institute time), oldest first. */
   async findOverdue(query: OverdueQueryDto) {

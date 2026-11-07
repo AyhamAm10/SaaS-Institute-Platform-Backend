@@ -78,3 +78,9 @@ export function shiftLocalDate(localDate: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/** Whole days from `a` to `b` (b − a). Calendar arithmetic on YYYY-MM-DD. */
+export function daysBetween(a: string, b: string): number {
+  const ms = Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`);
+  return Math.round(ms / 86_400_000);
+}

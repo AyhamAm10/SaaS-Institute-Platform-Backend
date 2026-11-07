@@ -623,6 +623,7 @@ Owned by `src/modules/fees/` (`ContractsService`, `PaymentsService`, `FeesReport
 6. **Cancellation**: payments are never deleted. `PATCH /payments/:id/cancel` requires a reason, reverses the allocations and keeps the receipt number. Everything is audited.
 7. **Overdue**: computed from the institute's today (`InstituteClock`), so reports are right even before the job runs. The `fees` queue job `mark-overdue-installments` persists `OVERDUE` (idempotent); it is fanned out per institute by the hourly `dispatch` job (`src/modules/jobs/`).
 8. **Workers** are declared with `autorun: false` and started on bootstrap unless `JOBS_ENABLED=false` (tests, API-only instances), so a missing Redis never blocks the API or the test runner.
+9. **Overdue Aging Summary** (`GET /fees/overdue/summary` / `GET /installments/overdue/summary`): returns overdue installments aggregated into aging buckets (`1-30`, `31-60`, `61-90`, `90+`) per currency using `FeesReportsService.getOverdueAging` and pure rules in `fees.rules.ts`.
 
 ### 10.4 Daily Attendance
 
@@ -667,6 +668,7 @@ Owned by `src/modules/exams/` (`ExamsService`, `ExamRepository` / `ExamResultRep
 3. **Composition only**: builders (`builders/*.reports.ts`, one class per category) call the owning domain services; the queries live in the domain repositories (`FeesReportDataService`, `AttendanceService.getRecordsBetween`, `ExamsService.getExamsWithResults`, `EnrollmentsService.getYearEnrollments`, `TimetablesService.getEntriesForReport`, `StaffActivityService`). Pure maths (periods, aging buckets, ranking, distributions, working days) lives in `reports.rules.ts` with tests.
 4. **Security**: `ReportsService` checks the report permission (403), required parameters (400 `report_param_required`) and the teacher scope of a `sectionId`; domain calls keep their own scope checks (exam sheets, student history). Reports follow the header branch / year (else the current year) and the institute-local dates. Synchronous reports are capped at `REPORT_ROW_LIMIT` (5000) rows; bigger exports wait for background jobs.
 5. **Verification**: verifiable documents (student statement, transcript, exam sheet) and receipts get a document number and an HMAC-signed token (`ReportVerificationService`, secret `REPORT_SIGNING_SECRET`, falls back to `JWT_ACCESS_SECRET`). The QR opens the public `/verify/:token` page, which shows the institute, the number and the signed summary lines; any change to the token makes it invalid. Tokens hold no sensitive data (a name and short lines only).
+6. **Direct Document Excel Rendering** (`POST /reports/render/excel`): accepts a full `ReportDocument` via `RenderReportExcelDto` and renders an RTL `.xlsx` binary stream directly via `ReportExcelService.renderExcelBuffer`. Protected by limits: title ≤ 200 chars, ≤ 20 blocks, table rows ≤ `REPORT_ROW_LIMIT` (5000), payload ≤ 2MB. Used by the dashboard selection bar and printable modules to export custom tabular selections without creating ad-hoc exporters.
 
 ---
 

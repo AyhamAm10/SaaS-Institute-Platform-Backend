@@ -1,15 +1,20 @@
 import {
+  Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Inject,
   Param,
   ParseIntPipe,
+  Post,
   Query,
   StreamableFile,
 } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { ReportVerificationService } from './report-verification.service';
 import { ReportQueryDto } from './dto/report-query.dto';
+import { RenderReportExcelDto } from './dto/render-report-excel.dto';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Permission } from '../../common/types/permissions';
@@ -61,6 +66,16 @@ export class ReportsController {
   @Get(':key/excel')
   async excel(@Param('key') key: string, @Query() query: ReportQueryDto) {
     const { buffer, filename } = await this.reports.excel(key, query);
+    return new StreamableFile(buffer, {
+      type: XLSX,
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
+
+  @Post('render/excel')
+  @HttpCode(HttpStatus.OK)
+  async renderExcel(@Body() dto: RenderReportExcelDto) {
+    const { buffer, filename } = await this.reports.renderExcel(dto);
     return new StreamableFile(buffer, {
       type: XLSX,
       disposition: `attachment; filename="${filename}"`,

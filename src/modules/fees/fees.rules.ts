@@ -1,4 +1,18 @@
 import { InstallmentStatus } from '@prisma/client';
+import { daysBetween } from '../../common/time/timezone';
+
+export type AgingBucket = '1-30' | '31-60' | '61-90' | '90+';
+
+export const AGING_BUCKETS: readonly AgingBucket[] = ['1-30', '31-60', '61-90', '90+'];
+
+/** Aging bucket of an installment due on `dueDate` (overdue on `today`). */
+export function agingBucket(dueDate: string, today: string): AgingBucket {
+  const late = daysBetween(dueDate, today);
+  if (late <= 30) return '1-30';
+  if (late <= 60) return '31-60';
+  if (late <= 90) return '61-90';
+  return '90+';
+}
 
 /**
  * Pure fee rules (no I/O), in integer minor units (see common/money).

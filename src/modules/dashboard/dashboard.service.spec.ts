@@ -10,6 +10,7 @@ import { StudentsService } from '../students/students.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { FeesReportsService } from '../fees/fees-reports.service';
+import { FeesReportDataService } from '../fees/fees-report-data.service';
 import { ExamsService } from '../exams/exams.service';
 import { SubscriptionRepository } from '../fees/repositories/subscription.repository';
 import { InstallmentRepository } from '../fees/repositories/installment.repository';
@@ -193,6 +194,7 @@ describe('FeesReportsService.getOverview', () => {
             ]),
           },
         },
+        { provide: FeesReportDataService, useValue: {} },
       ],
     }).compile();
     const service = moduleRef.get(FeesReportsService);

@@ -12,6 +12,7 @@ import { StaffActivityService } from '../staff/staff-activity.service';
 import { PaymentsService } from '../fees/payments.service';
 import { findReport, REPORT_CATALOG, ReportDefinition, ReportParamKind } from './report-catalog';
 import { PARAM_FIELDS, ReportQueryDto } from './dto/report-query.dto';
+import { RenderReportExcelDto } from './dto/render-report-excel.dto';
 import { ReportDocument } from './document/report-document';
 import { isoDate, moneyText } from './document/report-format';
 import { REPORT_ROW_LIMIT } from './reports.rules';
@@ -133,6 +134,15 @@ export class ReportsService {
     return {
       buffer: await this.excelWriter.toBuffer(doc, institute?.name ?? ''),
       filename: `${key}-${doc.generatedAt.slice(0, 10)}.xlsx`,
+    };
+  }
+
+  /** Renders an arbitrary valid ReportDocument (e.g. selection export) to an .xlsx buffer. */
+  async renderExcel(doc: RenderReportExcelDto): Promise<{ buffer: Buffer; filename: string }> {
+    const institute = await this.instituteRepository.findById(RequestContext.getInstituteId());
+    return {
+      buffer: await this.excelWriter.toBuffer(doc, institute?.name ?? ''),
+      filename: `${doc.key || 'selection'}-${doc.generatedAt.slice(0, 10)}.xlsx`,
     };
   }
 

@@ -1,5 +1,7 @@
 import {
   addMonths,
+  agingBucket,
+  AGING_BUCKETS,
   allocateFifo,
   buildSchedule,
   installmentStatus,
@@ -27,6 +29,11 @@ describe('money helpers', () => {
     expect(convertToContractMinor(100000, 'SYP', 'USD', 13000)).toBe(769); // 7.69 USD
     expect(convertToContractMinor(5, 'USD', 'USD')).toBe(500);
     expect(() => convertToContractMinor(5, 'USD', 'SYP')).toThrow();
+    expect(AGING_BUCKETS).toEqual(['1-30', '31-60', '61-90', '90+']);
+    expect(agingBucket('2026-11-01', '2026-11-07')).toBe('1-30');
+    expect(agingBucket('2026-09-20', '2026-11-07')).toBe('31-60');
+    expect(agingBucket('2026-08-20', '2026-11-07')).toBe('61-90');
+    expect(agingBucket('2026-01-01', '2026-11-07')).toBe('90+');
   });
 });
 
@@ -116,5 +123,10 @@ describe('fees rules', () => {
     expect(installmentStatus(100, 0, '2026-06-01', '2026-06-01')).toBe(
       'PENDING',
     );
+    expect(AGING_BUCKETS).toEqual(['1-30', '31-60', '61-90', '90+']);
+    expect(agingBucket('2026-11-01', '2026-11-07')).toBe('1-30');
+    expect(agingBucket('2026-09-20', '2026-11-07')).toBe('31-60');
+    expect(agingBucket('2026-08-20', '2026-11-07')).toBe('61-90');
+    expect(agingBucket('2026-01-01', '2026-11-07')).toBe('90+');
   });
 });

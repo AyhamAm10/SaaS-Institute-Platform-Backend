@@ -1,5 +1,6 @@
 import {
   dateOnly,
+  daysBetween,
   getLocalParts,
   localMidnightUtc,
   timeToMinutes,
@@ -42,5 +43,10 @@ describe('timezone helpers', () => {
     expect(localMidnightUtc('2026-11-05', 'UTC').toISOString()).toBe(
       '2026-11-05T00:00:00.000Z',
     );
+  });
+
+  it('calculates days between two calendar dates', () => {
+    expect(daysBetween('2026-10-31', '2026-11-07')).toBe(7);
+    expect(daysBetween('2026-11-07', '2026-10-31')).toBe(-7);
   });
 });

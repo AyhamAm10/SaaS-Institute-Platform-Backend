@@ -28,24 +28,9 @@ export function resolvePeriod(
   return start <= end ? { from: start, to: end } : { from: end, to: start };
 }
 
-/** Whole days from `a` to `b` (b − a). */
-export function daysBetween(a: string, b: string): number {
-  const ms = Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`);
-  return Math.round(ms / 86_400_000);
-}
-
-export type AgingBucket = '1-30' | '31-60' | '61-90' | '90+';
-
-export const AGING_BUCKETS: readonly AgingBucket[] = ['1-30', '31-60', '61-90', '90+'];
-
-/** Aging bucket of an installment due on `dueDate` (overdue on `today`). */
-export function agingBucket(dueDate: string, today: string): AgingBucket {
-  const late = daysBetween(dueDate, today);
-  if (late <= 30) return '1-30';
-  if (late <= 60) return '31-60';
-  if (late <= 90) return '61-90';
-  return '90+';
-}
+export { daysBetween } from '../../common/time/timezone';
+export type { AgingBucket } from '../fees/fees.rules';
+export { AGING_BUCKETS, agingBucket } from '../fees/fees.rules';
 
 /** Sums money per currency in minor units, returned as major numbers. */
 export function sumByCurrency(
