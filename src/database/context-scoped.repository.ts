@@ -102,6 +102,22 @@ export abstract class ContextScopedRepository<
   }
 
   /**
+   * Tenant + branch scope WITHOUT the academic year. Only for record-level
+   * access that legitimately spans years (a student's own history: every
+   * contract, mark or attendance day; a contract opened by id). Every use
+   * must say why in its JSDoc (role.md §3 exceptions); lists and totals
+   * always use `scopeWhere`.
+   */
+  protected scopeWhereAllYears(where?: Record<string, unknown>): Record<string, unknown> {
+    const baseWhere = super.scopeWhere(where);
+    const branchId = RequestContext.getBranchId();
+    if (this.branchKey && branchId !== undefined && !this.hasField(where, this.branchKey)) {
+      this.setNestedField(baseWhere, this.branchKey, branchId);
+    }
+    return baseWhere;
+  }
+
+  /**
    * Automatically sets direct operational scope fields (academicYearId, branchId)
    * on record creation if present in RequestContext and not explicitly provided.
    */

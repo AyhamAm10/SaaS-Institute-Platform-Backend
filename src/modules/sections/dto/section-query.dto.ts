@@ -6,17 +6,6 @@ import { PaginationQueryDto } from '../../../common/pagination/pagination.dto';
  * Query parameters for filtering and paginating sections.
  */
 export class SectionQueryDto extends PaginationQueryDto {
-  @IsOptional()
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  academicYearId?: number;
-
-  @IsOptional()
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  branchId?: number;
 
   @IsOptional()
   @IsInt()

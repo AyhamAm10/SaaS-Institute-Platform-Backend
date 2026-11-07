@@ -19,7 +19,7 @@ import { Resource } from '../../common/types/permissions';
 
 /**
  * Section enrollments. Unassigned students are listed through
- * `GET /students?unassignedYearId=` (students module).
+ * `GET /students?unassigned=true` (context year) (students module).
  */
 @Controller()
 @RequireResource(Resource.Students)

@@ -118,12 +118,6 @@ export class SectionRepository extends ContextScopedRepository<Section> {
       where['id'] = { in: onlyIds };
     }
 
-    if (query.academicYearId !== undefined) {
-      where['academicYearId'] = query.academicYearId;
-    }
-    if (query.branchId !== undefined) {
-      where['branchId'] = query.branchId;
-    }
     if (query.academicBranchId !== undefined) {
       where['academicBranchId'] = query.academicBranchId;
     }

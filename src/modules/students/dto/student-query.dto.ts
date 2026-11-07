@@ -1,17 +1,11 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsPositive, IsString } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import { IsInt, IsOptional, IsPositive, IsString, IsBoolean } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination.dto';
 
 export class StudentQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
-
-  @IsOptional()
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  branchId?: number;
 
   @IsOptional()
   @IsInt()
@@ -49,10 +43,12 @@ export class StudentQueryDto extends PaginationQueryDto {
   @Type(() => Number)
   schoolId?: number;
 
-  /** Only students without an enrollment in this academic year. */
+  /**
+   * Only students without an enrollment in the context academic year (header
+   * year, else the current one). The year itself is never a query parameter.
+   */
   @IsOptional()
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  unassignedYearId?: number;
+  @Transform(({ value }) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined))
+  @IsBoolean()
+  unassigned?: boolean;
 }

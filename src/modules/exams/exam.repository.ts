@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Exam, ExamResult, Prisma } from '@prisma/client';
 import { TenantAwareRepository } from '../../database/tenant-aware.repository';
+import { ContextScopedRepository } from '../../database/context-scoped.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { dateOnly } from '../../common/time/timezone';
 import { createPaginatedResult } from '../../common/pagination/paginated-result';
@@ -23,7 +24,10 @@ export interface ExamWithRefs extends Exam {
 
 /** Exams. Audited (updates and deletions go to AuditLog). */
 @Injectable()
-export class ExamRepository extends TenantAwareRepository<Exam> {
+export class ExamRepository extends ContextScopedRepository<Exam> {
+  // Header year / branch through the section (role.md §3)
+  protected override readonly yearKey = 'section.academicYearId';
+  protected override readonly branchKey = 'section.branchId';
   protected override readonly audited = true;
 
   constructor(@Inject(PrismaService) prisma: PrismaService) {

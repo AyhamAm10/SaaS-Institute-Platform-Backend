@@ -191,6 +191,9 @@ const messages: Record<string, Record<string, string>> = {
     report_not_found: 'Report not found',
     report_param_required: 'This report needs: {param}',
     report_no_academic_year: 'There is no academic year yet',
+    context_branch_invalid: 'The selected branch does not belong to your institute',
+    context_year_invalid: 'The selected academic year does not belong to your institute',
+    context_mismatch: 'This value must match the branch / academic year selected in the header',
   },
   ar: {
     not_found: '{resource} غير موجود',
@@ -346,6 +349,9 @@ const messages: Record<string, Record<string, string>> = {
     report_not_found: 'التقرير غير موجود',
     report_param_required: 'هذا التقرير يحتاج: {param}',
     report_no_academic_year: 'لا توجد سنة دراسية بعد',
+    context_branch_invalid: 'الفرع المختار لا يتبع لمعهدك',
+    context_year_invalid: 'السنة الدراسية المختارة لا تتبع لمعهدك',
+    context_mismatch: 'هذه القيمة يجب أن تطابق الفرع / السنة المختارين في الأعلى',
   },
 };
 

@@ -217,6 +217,44 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
     });
   });
 
+  describe('Operational context headers (role.md §3)', () => {
+    const login = async () =>
+      (
+        await request(app.getHttpServer())
+          .post('/api/auth/login')
+          .set('X-Client-Type', 'mobile')
+          .send({ phone: '+966511111111', password: 'Password123!' })
+          .expect(200)
+      ).body.accessToken as string;
+
+    it('refuses a branch / year that does not belong to the institute', async () => {
+      const token = await login();
+      const branch = await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('X-Client-Type', 'mobile')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Branch-Id', '999999')
+        .expect(400);
+      expect(branch.body.message).toContain('branch');
+
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('X-Client-Type', 'mobile')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Academic-Year-Id', '999999')
+        .expect(400);
+    });
+
+    it('public routes ignore the headers', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .set('X-Client-Type', 'mobile')
+        .set('X-Branch-Id', '999999')
+        .send({ phone: '+966511111111', password: 'Password123!' })
+        .expect(200);
+    });
+  });
+
   describe('POST /api/auth/refresh & POST /api/auth/logout', () => {
     it('refreshes token successfully and allows logout revocation', async () => {
       // 1. Login

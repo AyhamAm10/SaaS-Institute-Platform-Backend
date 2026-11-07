@@ -17,8 +17,10 @@ export interface LocalPeriod {
 
 /**
  * Fee data for the reports module (D3). The fees module owns these queries
- * (role.md §10); the reports only lay them out. Local dates are converted
- * with the institute time zone; the row cap protects the synchronous export.
+ * (role.md §10); the reports only lay them out. Branch / year come from the
+ * header through the context-scoped repositories (role.md §3), never as
+ * parameters. Local dates use the institute time zone; the row cap protects
+ * the synchronous export.
  */
 @Injectable()
 export class FeesReportDataService {
@@ -57,11 +59,7 @@ export class FeesReportDataService {
   }
 
   /** Open installments due before today (overdue). */
-  async getOverdueInstallments(filter: {
-    sectionId?: number;
-    branchId?: number;
-    take: number;
-  }) {
+  async getOverdueInstallments(filter: { sectionId?: number; take: number }) {
     return this.installmentRepository.findOpenForReport({
       ...filter,
       dueBefore: await this.clock.today(),
@@ -71,7 +69,7 @@ export class FeesReportDataService {
   /** Open installments due inside a local period. */
   async getUpcomingInstallments(
     period: LocalPeriod,
-    filter: { branchId?: number; take: number },
+    filter: { take: number },
   ) {
     return this.installmentRepository.findOpenForReport({
       ...filter,
@@ -84,7 +82,6 @@ export class FeesReportDataService {
   async getYearContracts(filter: {
     academicYearId: number;
     sectionId?: number;
-    branchId?: number;
     withDiscount?: boolean;
     take: number;
   }) {

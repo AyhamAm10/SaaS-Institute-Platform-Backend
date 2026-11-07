@@ -96,7 +96,6 @@ export class PaymentRepository extends ContextScopedRepository<Payment> {
   /** `range` = UTC bounds of the local `from` / `to` days (to is exclusive). */
   async findFiltered(query: PaymentQueryDto, range: { gte?: Date; lt?: Date }) {
     const where: Prisma.PaymentWhereInput = {
-      ...(query.branchId && { branchId: query.branchId }),
       ...(query.currency && { currency: query.currency }),
       ...(query.paymentMethod && { paymentMethod: query.paymentMethod }),
       ...(query.status && { status: query.status }),

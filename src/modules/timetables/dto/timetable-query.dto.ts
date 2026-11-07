@@ -2,11 +2,6 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsPositive } from 'class-validator';
 
 export class TimetableQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @IsPositive()
-  academicYearId?: number;
 
   @IsOptional()
   @Type(() => Number)

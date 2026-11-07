@@ -65,12 +65,6 @@ export class PaymentQueryDto extends PaginationQueryDto {
   to?: string;
 
   @IsOptional()
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  branchId?: number;
-
-  @IsOptional()
   @IsEnum(Currency)
   currency?: Currency;
 

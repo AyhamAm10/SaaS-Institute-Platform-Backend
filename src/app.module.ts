@@ -9,6 +9,7 @@ import { RateLimitModule } from './infrastructure/rate-limit/rate-limit.module';
 import { LockModule } from './infrastructure/lock/lock.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { OperationalContextModule } from './modules/operational-context/operational-context.module';
 import { UsersModule } from './modules/users/users.module';
 import { InstitutesModule } from './modules/institutes/institutes.module';
 import { BranchesModule } from './modules/branches/branches.module';
@@ -56,6 +57,8 @@ import { JobsModule } from './modules/jobs/jobs.module';
 
     // Domain modules
     AuthModule,
+    // After AuthModule: validates the branch / year headers of authenticated requests
+    OperationalContextModule,
     UsersModule,
     InstitutesModule,
     BranchesModule,

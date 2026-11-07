@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, NotFoundException } from '@nestjs/common';
 import { StudentsService } from './students.service';
+import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { StudentRepository } from './student.repository';
 import { StudentEnrollmentRepository } from './student-enrollment.repository';
 import { FamilyRepository } from '../families/family.repository';
@@ -11,6 +12,8 @@ import { BranchRepository } from '../branches/branch.repository';
 import { StudentReferencesResolver } from './student-references.resolver';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { RequestContext } from '../../context/request-context';
+
+const mockYearRepo = { findCurrentYear: jest.fn(async () => ({ id: 11 })) };
 
 describe('StudentsService', () => {
   let service: StudentsService;
@@ -73,6 +76,7 @@ describe('StudentsService', () => {
         { provide: StudentFieldRepository, useValue: mockFieldRepo },
         { provide: SectionRepository, useValue: mockSectionRepo },
         { provide: TransactionHelper, useValue: mockTxHelper },
+        { provide: AcademicYearRepository, useValue: mockYearRepo },
       ],
     }).compile();
 
@@ -175,6 +179,8 @@ describe('StudentsService', () => {
         const result = await service.findAll({ page: 1, limit: 20 });
         expect(result.data).toHaveLength(1);
         expect(result.total).toBe(1);
+        // No header year: the current year picks the enrollment shown
+        expect(studentRepo.findFiltered).toHaveBeenCalledWith({ page: 1, limit: 20 }, 11);
       },
     );
   });
@@ -244,5 +250,29 @@ describe('StudentsService', () => {
         RequestContext.run(ctx, () => service.getDeletionReport(99)),
       ).rejects.toThrow(NotFoundException);
     });
+  });
+});
+
+describe('StudentsService context year', () => {
+  it('uses the header year when there is one', async () => {
+    const repo = { findFiltered: jest.fn(async () => ({ data: [], total: 0 })) };
+    const years = { findCurrentYear: jest.fn() };
+    const service = new StudentsService(
+      repo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      years as never,
+      {} as never,
+    );
+    await RequestContext.run(
+      { userId: 1, instituteId: 1, role: 'INSTITUTE_ADMIN', language: 'en', academicYearId: 5 },
+      () => service.findAll({ page: 1, limit: 20, unassigned: true } as never),
+    );
+    expect(repo.findFiltered).toHaveBeenCalledWith({ page: 1, limit: 20, unassigned: true }, 5);
+    expect(years.findCurrentYear).not.toHaveBeenCalled();
   });
 });

@@ -19,12 +19,6 @@ export class OverdueQueryDto extends PaginationQueryDto {
   @IsInt()
   @IsPositive()
   @Type(() => Number)
-  branchId?: number;
-
-  @IsOptional()
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
   sectionId?: number;
 
   /** Student name. */

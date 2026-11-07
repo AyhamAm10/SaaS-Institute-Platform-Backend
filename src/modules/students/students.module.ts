@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AcademicYearsModule } from '../academic-years/academic-years.module';
 import { StudentsController } from './students.controller';
 import { StudentsService } from './students.service';
 import { StudentRepository } from './student.repository';
@@ -12,6 +13,7 @@ import { StudentReferencesResolver } from './student-references.resolver';
 
 @Module({
   imports: [
+    AcademicYearsModule,
     FamiliesModule,
     StudentFieldsModule,
     SectionsModule,

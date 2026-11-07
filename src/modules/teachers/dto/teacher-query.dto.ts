@@ -26,8 +26,4 @@ export class TeacherQueryDto extends PaginationQueryDto {
   @IsInt()
   subjectId?: number;
 
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  branchId?: number;
 }

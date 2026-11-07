@@ -215,7 +215,7 @@ The platform operates as a relational multi-tenant SaaS with a strict **Two-Tier
 | **Branch & Year Scoped** | `TimetableEntry` | `instituteId`, `timetableId`, `roomId`, `teacherId` | Timetable slot. Room MUST match section's branch; Teacher MUST be assigned to section's branch. |
 | **Branch-Scoped** | `Student` | `instituteId`, `branchId` (required) | `branchId` is mandatory: resolved from DTO → header → enrolled section → default branch. |
 | **Year Scoped** | `StudentEnrollment` / `EnrollmentSubject` | `instituteId`, `academicYearId` | One enrollment per student per year. `EnrollmentSubject` lists the subjects a student takes; **no rows = all section subjects**. |
-| **Section Scoped** | `Exam` / `ExamResult` | `instituteId`, `sectionId`, `subjectId` | Exam is defined by section + subject (+ optional `ExamType`); `lessonId` is optional. One result per (exam, student). |
+| **Branch & Year Scoped** (via section) | `Exam` / `ExamResult` | `instituteId`, `sectionId`, `subjectId` (header year / branch through `section`, §3.4) | Exam is defined by section + subject (+ optional `ExamType`); `lessonId` is optional. One result per (exam, student). |
 | **Branch & Year Scoped** | `Payment` / `ReceiptSequence` | `instituteId`, `branchId`, `academicYearId` | `receiptNumber` is sequential per (institute, branch, year). Payments are never deleted — they are cancelled (`status = CANCELLED`). |
 | **Institute-Wide** | `InstituteFeature` | `instituteId`, `key` | Optional modules per institute (SMS, online registration, apps, accounting). No row = disabled. |
 | **Institute-Wide** | `AuditLog` | `instituteId` | Written automatically for audited models (see §4.4). |
@@ -226,6 +226,30 @@ The platform operates as a relational multi-tenant SaaS with a strict **Two-Tier
 3. **Single Tenant Membership**: Every user record belongs to exactly one `Institute`. A phone number is unique **per institute** (`@@unique([instituteId, phone])`), so the same person may hold separate user records in several institutes. Phone uniqueness checks MUST use the tenant-scoped `UserRepository`, never a system-wide lookup.
 4. **Relational Scope**: All major database entities maintain a direct or compound foreign key to `Institute` (`instituteId`) and unique compound keys (`@@unique([instituteId, id])`).
 5. **No Cross-Tenant Leakage**: Unintended cross-institute data exposure is a critical security violation.
+
+### 3.4 Operational Context (Branch + Academic Year) — Single Source of Truth
+
+The active branch and academic year come **only** from the request headers `X-Branch-Id` / `X-Academic-Year-Id` (picked in the dashboard header). They are never query parameters of a list.
+
+1. **Validated**: `OperationalContextGuard` (global, after the auth guards, `src/modules/operational-context/`) refuses a branch or year that does not belong to the caller's institute: `400 context_branch_invalid` / `400 context_year_invalid`. Public routes and the super admin are skipped.
+2. **Enforced by the repositories**: every model with `academicYearId` or `branchId` is read through a `ContextScopedRepository` (`yearKey` / `branchKey`, nested paths allowed). Scoped today:
+
+   | Repository | yearKey | branchKey |
+   | :--- | :--- | :--- |
+   | `SectionRepository`, `PaymentRepository` | `academicYearId` | `branchId` |
+   | `StudentEnrollmentRepository` | `academicYearId` | — |
+   | `TimetableRepository` | `academicYearId` | `section.branchId` |
+   | `ExamRepository` | `section.academicYearId` | `section.branchId` |
+   | `SubscriptionRepository` | `academicYearId` | `section.branchId` |
+   | `InstallmentRepository` | `subscription.academicYearId` | `subscription.section.branchId` |
+   | `StudentRepository`, `RoomRepository`, `BusRepository` | — | `branchId` |
+   | `TeacherRepository` | — | `branchTeachers.some.branchId` |
+   | `DailyAttendanceRepository` | — (local dates) | `branchId` |
+
+3. **Coverage test**: `src/database/context-coverage.spec.ts` reads `schema.prisma`; a model with `academicYearId` / `branchId` and no ContextScoped repository fails the build unless listed in `CONTEXT_EXEMPT` with a reason (today: `ReceiptSequence`, `BranchTeacher`).
+4. **Documented exceptions** (`scopeWhereAllYears`: tenant + branch, no year) are record-level reads that legitimately span years: a student's contracts (`SubscriptionRepository.findByStudent`), a contract opened by id / by enrollment / its schedule (`findDetails`, `findByEnrollment`, `findCurrencies`, `InstallmentRepository.findBySubscription`). Lists, totals and reports never use it. A new exception must be justified in its JSDoc.
+5. **No overrides**: list DTOs have no `branchId` / `academicYearId` (`forbidNonWhitelisted` rejects them). Services that need an explicit year (dashboard, reports, jobs) pass it inside the repository call, never from the client. Students show the enrollment of the context year only (`?unassigned=true` = not enrolled in the context year).
+6. Background jobs run without headers; they pass explicit keys.
 
 ---
 

@@ -26,9 +26,4 @@ export class RoomQueryDto extends PaginationQueryDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @IsOptional()
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  branchId?: number;
 }

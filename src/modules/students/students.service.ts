@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EnrollmentStatus, Student } from '@prisma/client';
 import { StudentRepository } from './student.repository';
+import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { StudentEnrollmentRepository } from './student-enrollment.repository';
 import { FamilyRepository } from '../families/family.repository';
 import { StudentFieldRepository } from '../student-fields/student-field.repository';
@@ -34,6 +35,8 @@ export class StudentsService {
     private readonly branchRepository: BranchRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    @Inject(AcademicYearRepository)
+    private readonly academicYearRepository: AcademicYearRepository,
     @Inject(StudentReferencesResolver)
     private readonly referencesResolver: StudentReferencesResolver,
   ) {}
@@ -122,7 +125,14 @@ export class StudentsService {
   }
 
   async findAll(query: StudentQueryDto): Promise<PaginatedResult<any>> {
-    return this.studentRepository.findFiltered(query);
+    return this.studentRepository.findFiltered(query, await this.contextYearId());
+  }
+
+  /** Header academic year, else the current one (never created here). */
+  private async contextYearId(): Promise<number | null> {
+    const headerYearId = RequestContext.getAcademicYearId();
+    if (headerYearId) return headerYearId;
+    return (await this.academicYearRepository.findCurrentYear())?.id ?? null;
   }
 
   /**

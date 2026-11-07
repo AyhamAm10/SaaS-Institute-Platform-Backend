@@ -87,8 +87,7 @@ export class ContractsController {
   }
 
   @Get(['fees/overdue/summary', 'installments/overdue/summary'])
-  async overdueSummary(@Query('branchId') branchId?: string) {
-    const parsedBranchId = branchId ? parseInt(branchId, 10) : undefined;
-    return this.reports.getOverdueAging(parsedBranchId);
+  async overdueSummary() {
+    return this.reports.getOverdueAging();
   }
 }

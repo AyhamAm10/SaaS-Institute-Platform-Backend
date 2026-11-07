@@ -69,12 +69,10 @@ export class FeesReportsService {
    * Overdue aging breakdown by bucket ('1-30', '31-60', '61-90', '90+')
    * per currency, amounts never mixed.
    */
-  async getOverdueAging(branchId?: number): Promise<OverdueAgingRow[]> {
+  async getOverdueAging(): Promise<OverdueAgingRow[]> {
     const today = await this.clock.today();
-    const installments = await this.reportData.getOverdueInstallments({
-      branchId,
-      take: 10_000,
-    });
+    // Header branch / year apply through the installment repository
+    const installments = await this.reportData.getOverdueInstallments({ take: 10_000 });
 
     const map = new Map<string, { currency: Currency; bucket: AgingBucket; count: number; minor: number }>();
 

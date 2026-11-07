@@ -190,7 +190,6 @@ export class FinanceReports implements ReportBuilderGroup {
     const sectionName = await this.sectionName(ctx);
     const rows = await this.fees.getOverdueInstallments({
       sectionId: ctx.query.sectionId,
-      branchId: ctx.branchId,
       take: ctx.take,
     });
     const items = rows
@@ -284,7 +283,7 @@ export class FinanceReports implements ReportBuilderGroup {
 
   private async upcomingDues(ctx: ReportContext): Promise<ReportBody> {
     const { from, to } = resolvePeriod(ctx.today, ctx.query.from ?? ctx.today, ctx.query.to);
-    const rows = await this.fees.getUpcomingInstallments({ from, to }, { branchId: ctx.branchId, take: ctx.take });
+    const rows = await this.fees.getUpcomingInstallments({ from, to }, { take: ctx.take });
     const items = rows.map((inst) => ({
       inst,
       currency: inst.subscription.currency,
@@ -355,7 +354,7 @@ export class FinanceReports implements ReportBuilderGroup {
     const year = requireYear(ctx);
     const last = year.endDate < ctx.today ? year.endDate : ctx.today;
     const [contracts, payments] = await Promise.all([
-      this.fees.getYearContracts({ academicYearId: year.id, branchId: ctx.branchId, take: ctx.take }),
+      this.fees.getYearContracts({ academicYearId: year.id, take: ctx.take }),
       this.fees.getPayments(
         { from: year.startDate, to: last < year.startDate ? year.startDate : last },
         { by: 'paidAt', status: PaymentStatus.ACTIVE, take: ctx.take },
@@ -506,7 +505,6 @@ export class FinanceReports implements ReportBuilderGroup {
     const contracts = await this.fees.getYearContracts({
       academicYearId: year.id,
       sectionId: ctx.query.sectionId,
-      branchId: ctx.branchId,
       withDiscount: true,
       take: ctx.take,
     });

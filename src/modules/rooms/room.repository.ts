@@ -60,9 +60,6 @@ export class RoomRepository extends ContextScopedRepository<Room> {
       instituteId,
     };
 
-    if (query.branchId !== undefined) {
-      where.branchId = query.branchId;
-    }
 
     if (query.isActive !== undefined) {
       where.isActive = query.isActive;

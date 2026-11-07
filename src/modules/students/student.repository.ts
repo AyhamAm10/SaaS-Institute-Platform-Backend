@@ -25,13 +25,15 @@ export class StudentRepository extends ContextScopedRepository<Student> {
     super(prisma, 'student');
   }
 
-  async findFiltered(query: StudentQueryDto): Promise<PaginatedResult<any>> {
+  /**
+   * Students of the header branch. `contextYearId` (header year, else the
+   * current year) picks the enrollment shown with each student and the
+   * `unassigned` filter; null = no year yet (no enrollment shown).
+   */
+  async findFiltered(query: StudentQueryDto, contextYearId: number | null): Promise<PaginatedResult<any>> {
     const instituteId = this.getInstituteId();
     const where: Prisma.StudentWhereInput = { instituteId };
 
-    if (query.branchId !== undefined) {
-      where.branchId = query.branchId;
-    }
 
     if (query.familyId !== undefined) {
       where.familyId = query.familyId;
@@ -47,11 +49,9 @@ export class StudentRepository extends ContextScopedRepository<Student> {
         studentEnrollments: { some: { sectionId: query.sectionId } },
       });
     }
-    if (query.unassignedYearId !== undefined) {
+    if (query.unassigned && contextYearId !== null) {
       enrollmentFilters.push({
-        studentEnrollments: {
-          none: { academicYearId: query.unassignedYearId },
-        },
+        studentEnrollments: { none: { academicYearId: contextYearId } },
       });
     }
     if (enrollmentFilters.length > 0) where.AND = enrollmentFilters;
@@ -92,7 +92,9 @@ export class StudentRepository extends ContextScopedRepository<Student> {
             },
           },
           ...STUDENT_REFERENCE_INCLUDE,
+          // Only the enrollment of the context year (one per student per year)
           studentEnrollments: {
+            where: { academicYearId: contextYearId ?? -1 },
             include: {
               section: {
                 select: {

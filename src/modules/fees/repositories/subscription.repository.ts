@@ -6,7 +6,7 @@ import {
   Prisma,
   StudentSubscription,
 } from '@prisma/client';
-import { TenantAwareRepository } from '../../../database/tenant-aware.repository';
+import { ContextScopedRepository } from '../../../database/context-scoped.repository';
 import { PrismaService } from '../../../database/prisma.service';
 
 /** Contract with its schedule and payments (student finance view). */
@@ -28,7 +28,10 @@ export const CONTRACT_DETAILS_INCLUDE = {
  * Student contracts (StudentSubscription): one per enrollment. Audited.
  */
 @Injectable()
-export class SubscriptionRepository extends TenantAwareRepository<StudentSubscription> {
+export class SubscriptionRepository extends ContextScopedRepository<StudentSubscription> {
+  // Lists / totals follow the header year and branch (role.md §3)
+  protected override readonly yearKey = 'academicYearId';
+  protected override readonly branchKey = 'section.branchId';
   protected override readonly audited = true;
 
   constructor(@Inject(PrismaService) prisma: PrismaService) {
@@ -38,19 +41,24 @@ export class SubscriptionRepository extends TenantAwareRepository<StudentSubscri
   async findByEnrollment(
     enrollmentId: number,
   ): Promise<StudentSubscription | null> {
-    return this.findOne({ enrollmentId });
+    // One contract per enrollment, whatever the header year (record lookup)
+    return this.client.studentSubscription.findFirst({
+      where: this.scopeWhereAllYears({ enrollmentId }),
+    });
   }
 
   async findDetails(id: number) {
     return this.client.studentSubscription.findFirst({
-      where: this.scopeWhere({ id }),
+      // Opened by id: a contract of another year stays reachable (same branch)
+      where: this.scopeWhereAllYears({ id }),
       include: CONTRACT_DETAILS_INCLUDE,
     });
   }
 
   async findByStudent(studentId: number) {
     return this.client.studentSubscription.findMany({
-      where: this.scopeWhere({ studentId }),
+      // The student's financial history spans every year (documented exception)
+      where: this.scopeWhereAllYears({ studentId }),
       include: CONTRACT_DETAILS_INCLUDE,
       orderBy: { startDate: 'desc' },
     });
@@ -59,7 +67,11 @@ export class SubscriptionRepository extends TenantAwareRepository<StudentSubscri
   /** Contract currency by contract id. */
   async findCurrencies(ids: number[]): Promise<Map<number, Currency>> {
     if (ids.length === 0) return new Map();
-    const rows = await this.findMany({ where: { id: { in: ids } } });
+    const rows: { id: number; currency: Currency }[] =
+      await this.client.studentSubscription.findMany({
+        where: this.scopeWhereAllYears({ id: { in: ids } }),
+        select: { id: true, currency: true },
+      });
     return new Map(rows.map((row) => [row.id, row.currency]));
   }
 
@@ -78,15 +90,14 @@ export class SubscriptionRepository extends TenantAwareRepository<StudentSubscri
    */
   async findForReport(filter: ContractReportFilter) {
     return this.client.studentSubscription.findMany({
-      where: {
-        instituteId: this.getInstituteId(),
+      where: this.scopeWhere({
         academicYearId: filter.academicYearId,
         status: { not: 'CANCELLED' },
         student: { deletedAt: null },
         ...(filter.sectionId && { sectionId: filter.sectionId }),
         ...(filter.branchId && { section: { branchId: filter.branchId } }),
         ...(filter.withDiscount && { discountAmount: { gt: 0 } }),
-      },
+      }),
       include: REPORT_CONTRACT_INCLUDE,
       orderBy: [{ section: { name: 'asc' } }, { student: { fullName: 'asc' } }],
       take: filter.take,

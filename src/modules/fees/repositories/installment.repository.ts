@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Installment, InstallmentStatus, Prisma } from '@prisma/client';
-import { TenantAwareRepository } from '../../../database/tenant-aware.repository';
+import { ContextScopedRepository } from '../../../database/context-scoped.repository';
 import { PrismaService } from '../../../database/prisma.service';
 import { dateOnly } from '../../../common/time/timezone';
 import { createPaginatedResult } from '../../../common/pagination/paginated-result';
@@ -14,7 +14,10 @@ const OPEN_STATUSES = [
 
 /** Installments of a contract. Audited (paid amount / status changes). */
 @Injectable()
-export class InstallmentRepository extends TenantAwareRepository<Installment> {
+export class InstallmentRepository extends ContextScopedRepository<Installment> {
+  // Lists / totals follow the header year and branch through the contract (role.md §3)
+  protected override readonly yearKey = 'subscription.academicYearId';
+  protected override readonly branchKey = 'subscription.section.branchId';
   protected override readonly audited = true;
 
   constructor(@Inject(PrismaService) prisma: PrismaService) {
@@ -22,8 +25,9 @@ export class InstallmentRepository extends TenantAwareRepository<Installment> {
   }
 
   async findBySubscription(subscriptionId: number): Promise<Installment[]> {
-    return this.findMany({
-      where: { subscriptionId },
+    // Schedule of one contract, whatever the header year (record lookup)
+    return this.client.installment.findMany({
+      where: this.scopeWhereAllYears({ subscriptionId }),
       orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
     });
   }
@@ -138,14 +142,12 @@ export class InstallmentRepository extends TenantAwareRepository<Installment> {
 
   /** Unpaid installments due before `today`, oldest first. */
   async findOverdue(query: OverdueQueryDto, today: string) {
-    const where: Prisma.InstallmentWhereInput = {
-      instituteId: this.getInstituteId(),
+    const where = this.scopeWhere({
       status: { in: OPEN_STATUSES },
       dueDate: { lt: dateOnly(today) },
       subscription: {
         status: 'ACTIVE',
         ...(query.currency && { currency: query.currency }),
-        ...(query.branchId && { section: { branchId: query.branchId } }),
         ...(query.sectionId && { sectionId: query.sectionId }),
         ...(query.search?.trim() && {
           student: {
@@ -153,7 +155,7 @@ export class InstallmentRepository extends TenantAwareRepository<Installment> {
           },
         }),
       },
-    };
+    });
     const [data, total] = await Promise.all([
       this.client.installment.findMany({
         where,
@@ -193,17 +195,15 @@ export class InstallmentRepository extends TenantAwareRepository<Installment> {
       ...(filter.dueTo && { lte: dateOnly(filter.dueTo) }),
     };
     return this.client.installment.findMany({
-      where: {
-        instituteId: this.getInstituteId(),
+      where: this.scopeWhere({
         status: { in: OPEN_STATUSES },
         dueDate: due,
         subscription: {
           status: 'ACTIVE',
           student: { deletedAt: null },
           ...(filter.sectionId && { sectionId: filter.sectionId }),
-          ...(filter.branchId && { section: { branchId: filter.branchId } }),
         },
-      },
+      }),
       include: REPORT_INSTALLMENT_INCLUDE,
       orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
       take: filter.take,
@@ -216,7 +216,6 @@ export interface OpenInstallmentFilter {
   dueFrom?: string;
   dueTo?: string;
   sectionId?: number;
-  branchId?: number;
   take: number;
 }
 

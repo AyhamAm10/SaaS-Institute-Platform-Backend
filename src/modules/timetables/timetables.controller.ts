@@ -29,10 +29,8 @@ export class TimetablesController {
 
   @Get()
   async getTimetable(@Query() query: TimetableQueryDto) {
-    return this.timetablesService.getTimetable(
-      query.academicYearId,
-      query.sectionId || 0,
-    );
+    // The year comes from the header (role.md §3), never from the query
+    return this.timetablesService.getTimetable(undefined, query.sectionId || 0);
   }
 
   @Post('generate')

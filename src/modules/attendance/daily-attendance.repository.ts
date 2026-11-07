@@ -4,7 +4,7 @@ import {
   DailyAttendance,
   EnrollmentStatus,
 } from '@prisma/client';
-import { TenantAwareRepository } from '../../database/tenant-aware.repository';
+import { ContextScopedRepository } from '../../database/context-scoped.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { dateOnly } from '../../common/time/timezone';
 import { DayStatusCount } from './attendance.rules';
@@ -14,7 +14,9 @@ import { DayStatusCount } from './attendance.rules';
  * Audited: time / status corrections are written to AuditLog.
  */
 @Injectable()
-export class DailyAttendanceRepository extends TenantAwareRepository<DailyAttendance> {
+export class DailyAttendanceRepository extends ContextScopedRepository<DailyAttendance> {
+  // Header branch (role.md §3); days are local dates, not academic years
+  protected override readonly branchKey = 'branchId';
   protected override readonly audited = true;
 
   constructor(@Inject(PrismaService) prisma: PrismaService) {
@@ -201,12 +203,11 @@ export class DailyAttendanceRepository extends TenantAwareRepository<DailyAttend
   > {
     if (filter.studentIds && filter.studentIds.length === 0) return [];
     return this.client.dailyAttendance.findMany({
-      where: {
-        instituteId: this.getInstituteId(),
+      where: this.scopeWhere({
         date: { gte: dateOnly(from), lte: dateOnly(to) },
         ...(filter.studentIds && { studentId: { in: filter.studentIds } }),
         ...(filter.branchId && { branchId: filter.branchId }),
-      },
+      }),
       select: {
         studentId: true,
         date: true,
