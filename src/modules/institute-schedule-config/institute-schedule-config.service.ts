@@ -150,6 +150,8 @@ export class InstituteScheduleConfigService {
       periodDurationMinutes: config.periodDurationMinutes,
       breaks,
       slots,
+      lateAfterMinutes: config.lateAfterMinutes,
+      attendanceCloseTime: config.attendanceCloseTime,
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
     };
@@ -222,6 +224,12 @@ export class InstituteScheduleConfigService {
       dayEndTime: dto.dayEndTime,
       periodDurationMinutes: dto.periodDurationMinutes,
       breaks: breaks as unknown as Prisma.InputJsonValue,
+      ...(dto.lateAfterMinutes !== undefined && {
+        lateAfterMinutes: dto.lateAfterMinutes,
+      }),
+      ...(dto.attendanceCloseTime !== undefined && {
+        attendanceCloseTime: dto.attendanceCloseTime,
+      }),
     });
 
     return {
@@ -233,6 +241,8 @@ export class InstituteScheduleConfigService {
       periodDurationMinutes: updated.periodDurationMinutes,
       breaks,
       slots,
+      lateAfterMinutes: updated.lateAfterMinutes,
+      attendanceCloseTime: updated.attendanceCloseTime,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
     };

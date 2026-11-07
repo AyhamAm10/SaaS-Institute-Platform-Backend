@@ -19,6 +19,7 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
  * and tenant isolation rules.
  */
 import { SectionSubjectRepository } from './section-subject.repository';
+import { TeacherScopeService } from './teacher-scope.service';
 import { SubjectRepository } from '../subjects/subject.repository';
 import { TeacherRepository } from '../teachers/teacher.repository';
 import { TeacherAssignmentRepository } from '../teachers/teacher-assignment.repository';
@@ -46,6 +47,8 @@ export class SectionsService {
     private readonly teacherAssignmentRepository: TeacherAssignmentRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    @Inject(TeacherScopeService)
+    private readonly teacherScope: TeacherScopeService,
   ) {}
 
   /**
@@ -140,6 +143,7 @@ export class SectionsService {
       academicYearId: academicYear.id,
       academicBranchId: dto.academicBranchId,
       feeAmount: new Prisma.Decimal(dto.feeAmount),
+      ...(dto.feeCurrency && { feeCurrency: dto.feeCurrency }),
     });
   }
 
@@ -252,6 +256,9 @@ export class SectionsService {
     if (dto.feeAmount !== undefined) {
       updateData['feeAmount'] = new Prisma.Decimal(dto.feeAmount);
     }
+    if (dto.feeCurrency !== undefined) {
+      updateData['feeCurrency'] = dto.feeCurrency;
+    }
 
     return this.sectionRepository.update(id, updateData);
   }
@@ -274,6 +281,7 @@ export class SectionsService {
 
     return this.sectionRepository.update(id, {
       feeAmount: new Prisma.Decimal(dto.feeAmount),
+      ...(dto.feeCurrency && { feeCurrency: dto.feeCurrency }),
     });
   }
 
@@ -289,8 +297,10 @@ export class SectionsService {
   /**
    * Paginated list of sections with filters.
    */
+  /** Teachers only see the sections they teach in (role.md §8.6). */
   async findAll(query: SectionQueryDto): Promise<PaginatedResult<Section>> {
-    return this.sectionRepository.findAllFiltered(query);
+    const onlyIds = await this.teacherScope.taughtSectionIds();
+    return this.sectionRepository.findAllFiltered(query, onlyIds ?? undefined);
   }
 
   /**

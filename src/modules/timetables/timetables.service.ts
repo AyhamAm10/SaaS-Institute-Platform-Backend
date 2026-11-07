@@ -19,6 +19,8 @@ import { ErrorMessages } from '../../common/errors/error-messages';
 import { RequestContext } from '../../context/request-context';
 import { GenerateTimetableDto } from './dto/generate-timetable.dto';
 import { SaveTimetableEntryDto } from './dto/save-timetable-entry.dto';
+import { LockService } from '../../infrastructure/lock/lock.service';
+import { LockKeys } from '../../infrastructure/lock/lock-keys';
 
 @Injectable()
 export class TimetablesService {
@@ -51,11 +53,24 @@ export class TimetablesService {
     private readonly academicYearRepository: AcademicYearRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    @Inject(LockService)
+    private readonly lockService: LockService,
   ) {}
 
   /**
    * Retrieve timetable with full entries and conflict detection report.
    */
+  /**
+   * Read-only entries of a year for reports (D3): a section, a teacher, or
+   * every section (teacher load). Never creates a timetable.
+   */
+  async getEntriesForReport(
+    academicYearId: number,
+    filter: { sectionId?: number; teacherId?: number; branchId?: number },
+  ) {
+    return this.entryRepository.findForReport(academicYearId, filter);
+  }
+
   async getTimetable(academicYearId?: number, sectionId?: number) {
     const targetYearId =
       academicYearId ??
@@ -179,6 +194,8 @@ export class TimetablesService {
 
   /**
    * Automatically generate timetable for a section using CSP solver.
+   * Runs under a per-academic-year lock: concurrent generations would assign
+   * the same teachers / rooms twice (409 if one is already running).
    */
   async generateTimetable(dto: GenerateTimetableDto) {
     const targetYearId =
@@ -186,6 +203,14 @@ export class TimetablesService {
       RequestContext.getAcademicYearId() ??
       (await this.academicYearRepository.getOrCreateCurrentYear()).id;
 
+    return this.lockService.withLock(
+      LockKeys.timetableGeneration,
+      [targetYearId],
+      () => this.runGeneration(dto, targetYearId),
+    );
+  }
+
+  private async runGeneration(dto: GenerateTimetableDto, targetYearId: number) {
     const year = await this.academicYearRepository.findById(targetYearId);
     Ensure.exists(year, 'Academic year');
 
@@ -197,7 +222,8 @@ export class TimetablesService {
         : [];
 
     if (targetSectionIds.length === 0) {
-      const yearSections = await this.sectionRepository.findByAcademicYear(targetYearId);
+      const yearSections =
+        await this.sectionRepository.findByAcademicYear(targetYearId);
       targetSectionIds = yearSections.map((s) => s.id);
     }
 

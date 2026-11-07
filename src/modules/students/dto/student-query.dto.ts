@@ -24,4 +24,35 @@ export class StudentQueryDto extends PaginationQueryDto {
   @IsPositive()
   @Type(() => Number)
   familyId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  statusId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  busId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  cityId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  schoolId?: number;
+
+  /** Only students without an enrollment in this academic year. */
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  unassignedYearId?: number;
 }

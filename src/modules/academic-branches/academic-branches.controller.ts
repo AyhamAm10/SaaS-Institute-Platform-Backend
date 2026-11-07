@@ -16,15 +16,15 @@ import { AcademicBranchesService } from './academic-branches.service';
 import { CreateAcademicBranchDto } from './dto/create-academic-branch.dto';
 import { UpdateAcademicBranchDto } from './dto/update-academic-branch.dto';
 import { AcademicBranchQueryDto } from './dto/academic-branch-query.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/types/user-role.enum';
+import { RequireResource } from '../../common/decorators/permissions.decorator';
+import { Resource } from '../../common/types/permissions';
 
 /**
  * Controller for Academic Branch management.
  * Restricted to INSTITUTE_ADMIN and SUPER_ADMIN roles.
  */
 @Controller('academic-branches')
-@Roles(UserRole.INSTITUTE_ADMIN, UserRole.SUPER_ADMIN)
+@RequireResource(Resource.Academic)
 export class AcademicBranchesController {
   constructor(
     @Inject(AcademicBranchesService)

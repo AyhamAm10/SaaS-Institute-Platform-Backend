@@ -5,9 +5,10 @@ import { InstituteRepository } from './institute.repository';
 import { InstituteClockService } from './institute-clock.service';
 import { UsersModule } from '../users/users.module';
 import { AcademicBranchesModule } from '../academic-branches/academic-branches.module';
+import { ReferenceDataModule } from '../reference-data/reference-data.module';
 
 @Module({
-  imports: [UsersModule, AcademicBranchesModule],
+  imports: [UsersModule, AcademicBranchesModule, ReferenceDataModule],
   controllers: [InstitutesController],
   providers: [InstitutesService, InstituteRepository, InstituteClockService],
   exports: [InstitutesService, InstituteRepository, InstituteClockService],

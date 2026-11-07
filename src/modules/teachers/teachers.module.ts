@@ -8,6 +8,7 @@ import { UsersModule } from '../users/users.module';
 import { AcademicBranchesModule } from '../academic-branches/academic-branches.module';
 import { SubjectsModule } from '../subjects/subjects.module';
 import { BranchesModule } from '../branches/branches.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { BranchesModule } from '../branches/branches.module';
     AcademicBranchesModule,
     SubjectsModule,
     BranchesModule,
+    AuthModule,
   ],
   controllers: [TeachersController],
   providers: [

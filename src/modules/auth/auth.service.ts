@@ -15,9 +15,18 @@ import {
   SafeUser,
   UserProfile,
 } from './dto/auth-response.dto';
+import { permissionsOf } from '../../common/types/permissions';
 
 /** Refresh token TTL: 7 days in milliseconds */
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Constant dummy bcrypt hash with cost factor 12.
+ * Used for constant-time dummy verification when no login candidates exist,
+ * mitigating user enumeration via response timing discrepancies.
+ */
+const DUMMY_BCRYPT_HASH =
+  '$2b$12$2CymbZoQ.zs7zo4Lh1K27.FAAb7AWQ34j2g6W.WTd3m7.CRIJB5DC';
 
 /**
  * Authentication business logic.
@@ -58,15 +67,20 @@ export class AuthService {
       dto.phone,
       dto.instituteCode ? normalizeInstituteCode(dto.instituteCode) : undefined,
     );
-    Ensure.exists(candidates[0], 'User');
 
-    // 2. Verify password
+    // 2. Verify password with timing mitigation
     const matches: User[] = [];
-    for (const candidate of candidates) {
-      if (await bcrypt.compare(dto.password, candidate.passwordHash)) {
-        matches.push(candidate);
+    if (candidates.length === 0) {
+      // Execute dummy comparison to equalize response time and prevent user enumeration
+      await bcrypt.compare(dto.password, DUMMY_BCRYPT_HASH);
+    } else {
+      for (const candidate of candidates) {
+        if (await bcrypt.compare(dto.password, candidate.passwordHash)) {
+          matches.push(candidate);
+        }
       }
     }
+
     Ensure.unauthorized(
       matches.length === 0,
       ErrorMessages.get('invalid_credentials'),
@@ -132,8 +146,10 @@ export class AuthService {
       ErrorMessages.get('token_invalid'),
     );
 
-    // 3. Verify user still exists
-    const user = await this.userSystemRepository.findById(payload.sub);
+    // 3. Verify user still exists and is not deactivated (soft-deleted)
+    const user = await this.userSystemRepository.findByIdWithInstitute(
+      payload.sub,
+    );
     Ensure.unauthorized(!user, ErrorMessages.get('token_invalid'));
     const validUser = user!;
 
@@ -156,7 +172,11 @@ export class AuthService {
     Ensure.exists(user, 'User');
 
     const { passwordHash: _passwordHash, ...safeUser } = user;
-    return safeUser as UserProfile;
+    // The dashboard reads permissions from here; it never duplicates the map
+    return {
+      ...safeUser,
+      permissions: permissionsOf(user.role),
+    } as UserProfile;
   }
 
   // ── Private helpers ────────────────────────────────────────────────────

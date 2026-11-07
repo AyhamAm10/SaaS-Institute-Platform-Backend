@@ -109,8 +109,14 @@ export class SectionRepository extends ContextScopedRepository<Section> {
    */
   async findAllFiltered(
     query: SectionQueryDto,
+    onlyIds?: number[],
   ): Promise<PaginatedResult<Section>> {
     const where: Record<string, unknown> = {};
+
+    // Teacher scope: only the sections they teach in
+    if (onlyIds) {
+      where['id'] = { in: onlyIds };
+    }
 
     if (query.academicYearId !== undefined) {
       where['academicYearId'] = query.academicYearId;

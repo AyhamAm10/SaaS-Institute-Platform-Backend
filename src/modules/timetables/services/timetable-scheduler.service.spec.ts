@@ -14,6 +14,8 @@ describe('TimetableSchedulerService', () => {
     dayEndTime: '12:00',
     periodDurationMinutes: 45,
     breaks: [{ name: 'Break', startTime: '09:30', endTime: '10:00' }],
+    lateAfterMinutes: 15,
+    attendanceCloseTime: null,
     slots: [
       {
         type: 'LESSON',

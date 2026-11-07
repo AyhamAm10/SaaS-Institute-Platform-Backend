@@ -8,6 +8,7 @@ import { UserRepository } from '../users/user.repository';
 import { AcademicBranchRepository } from '../academic-branches/academic-branch.repository';
 import { SubjectRepository } from '../subjects/subject.repository';
 import { BranchRepository } from '../branches/branch.repository';
+import { AuthService } from '../auth/auth.service';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { RequestContext } from '../../context/request-context';
 
@@ -20,6 +21,7 @@ describe('TeachersService', () => {
   let mockAcademicBranchRepo: any;
   let mockSubjectRepo: any;
   let mockBranchRepo: any;
+  let mockAuthService: any;
   let mockTransactionHelper: any;
 
   beforeEach(async () => {
@@ -69,6 +71,10 @@ describe('TeachersService', () => {
       getOrCreateDefaultBranch: jest.fn().mockResolvedValue({ id: 5 } as any),
     };
 
+    mockAuthService = {
+      logout: jest.fn().mockResolvedValue(undefined as any),
+    };
+
     mockTransactionHelper = {
       executeInTransaction: (jest.fn() as any).mockImplementation((fn: any) =>
         fn(),
@@ -88,6 +94,7 @@ describe('TeachersService', () => {
         { provide: AcademicBranchRepository, useValue: mockAcademicBranchRepo },
         { provide: SubjectRepository, useValue: mockSubjectRepo },
         { provide: BranchRepository, useValue: mockBranchRepo },
+        { provide: AuthService, useValue: mockAuthService },
         { provide: TransactionHelper, useValue: mockTransactionHelper },
       ],
     }).compile();
@@ -106,6 +113,7 @@ describe('TeachersService', () => {
         service.create({
           fullName: 'Ahmed Teacher',
           phone: '+966512345678',
+          password: 'Password123!',
         }),
       ).rejects.toThrow();
     });
@@ -117,6 +125,7 @@ describe('TeachersService', () => {
         service.create({
           fullName: 'Ahmed Teacher',
           phone: '+966512345678',
+          password: 'Password123!',
           availabilities: [
             { dayOfWeek: 0, startTime: '12:00', endTime: '08:00' },
           ],
@@ -131,6 +140,7 @@ describe('TeachersService', () => {
         service.create({
           fullName: 'Ahmed Teacher',
           phone: '+966512345678',
+          password: 'Password123!',
           availabilities: [
             { dayOfWeek: 0, startTime: '08:00', endTime: '11:00' },
             { dayOfWeek: 0, startTime: '10:30', endTime: '13:00' },
@@ -158,6 +168,7 @@ describe('TeachersService', () => {
       const result = await service.create({
         fullName: 'Ahmed Teacher',
         phone: '+966512345678',
+        password: 'Password123!',
       });
 
       expect(result).toBeDefined();
@@ -200,6 +211,7 @@ describe('TeachersService', () => {
           await service.create({
             fullName: 'Branch Teacher',
             phone: '+966512345679',
+            password: 'Password123!',
           });
           expect(mockBranchRepo.findById).toHaveBeenCalledWith(77);
           expect(
@@ -245,6 +257,35 @@ describe('TeachersService', () => {
         subjectId: 3,
       });
       expect(res.id).toBe(11);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should throw 404 if teacher not found', async () => {
+      mockTeacherRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword(999, { password: 'NewPassword123!' }),
+      ).rejects.toThrow();
+    });
+
+    it('should update password and invoke authService.logout', async () => {
+      mockTeacherRepo.findById.mockResolvedValue({ id: 5, userId: 42 });
+      mockTeacherRepo.getInstituteId.mockReturnValue(1);
+      mockUserSystemRepo.update = jest.fn().mockResolvedValue({ id: 42 });
+
+      const result = await service.resetPassword(5, {
+        password: 'NewPassword123!',
+      });
+
+      expect(result).toEqual({ updated: true });
+      expect(mockUserSystemRepo.update).toHaveBeenCalledWith(
+        42,
+        expect.objectContaining({
+          passwordHash: expect.any(String),
+        }),
+      );
+      expect(mockAuthService.logout).toHaveBeenCalledWith(42);
     });
   });
 });

@@ -6,6 +6,15 @@ import { StudentQueryDto } from './dto/student-query.dto';
 import { PaginatedResult } from '../../common/pagination/paginated-result';
 import { StudentDeletionReport } from './dto/student-deletion-report.dto';
 
+/** Reference-data links returned with every student (id + display fields). */
+const STUDENT_REFERENCE_INCLUDE = {
+  city: { select: { id: true, name: true } },
+  school: { select: { id: true, name: true } },
+  bus: { select: { id: true, name: true } },
+  knowWay: { select: { id: true, name: true } },
+  status: { select: { id: true, name: true, tone: true } },
+} as const;
+
 @Injectable()
 export class StudentRepository extends ContextScopedRepository<Student> {
   protected override readonly branchKey = 'branchId';
@@ -27,14 +36,25 @@ export class StudentRepository extends ContextScopedRepository<Student> {
     if (query.familyId !== undefined) {
       where.familyId = query.familyId;
     }
+    if (query.statusId !== undefined) where.statusId = query.statusId;
+    if (query.busId !== undefined) where.busId = query.busId;
+    if (query.cityId !== undefined) where.cityId = query.cityId;
+    if (query.schoolId !== undefined) where.schoolId = query.schoolId;
 
+    const enrollmentFilters: Prisma.StudentWhereInput[] = [];
     if (query.sectionId !== undefined) {
-      where.studentEnrollments = {
-        some: {
-          sectionId: query.sectionId,
-        },
-      };
+      enrollmentFilters.push({
+        studentEnrollments: { some: { sectionId: query.sectionId } },
+      });
     }
+    if (query.unassignedYearId !== undefined) {
+      enrollmentFilters.push({
+        studentEnrollments: {
+          none: { academicYearId: query.unassignedYearId },
+        },
+      });
+    }
+    if (enrollmentFilters.length > 0) where.AND = enrollmentFilters;
 
     if (query.search && query.search.trim()) {
       const q = query.search.trim();
@@ -71,6 +91,7 @@ export class StudentRepository extends ContextScopedRepository<Student> {
               name: true,
             },
           },
+          ...STUDENT_REFERENCE_INCLUDE,
           studentEnrollments: {
             include: {
               section: {
@@ -117,6 +138,7 @@ export class StudentRepository extends ContextScopedRepository<Student> {
       include: {
         family: true,
         branch: true,
+        ...STUDENT_REFERENCE_INCLUDE,
         studentEnrollments: {
           include: {
             section: true,
@@ -135,6 +157,16 @@ export class StudentRepository extends ContextScopedRepository<Student> {
     });
   }
 
+  /** Students without an enrollment in the year (branch from the header). */
+  async countUnassigned(academicYearId: number): Promise<number> {
+    return this.count({ studentEnrollments: { none: { academicYearId } } });
+  }
+
+  /** Students registered since an instant (branch from the header). */
+  async countCreatedSince(since: Date): Promise<number> {
+    return this.count({ createdAt: { gte: since } });
+  }
+
   /** Counts of records attached to a student (used before soft delete). */
   async getDeletionReport(studentId: number): Promise<StudentDeletionReport> {
     const instituteId = this.getInstituteId();
@@ -151,7 +183,7 @@ export class StudentRepository extends ContextScopedRepository<Student> {
       (this.client as any).lessonAttendance.count({ where }),
       (this.client as any).studentSubscription.count({ where }),
       (this.client as any).payment.count({
-        where: { instituteId, installment: { subscription: { studentId } } },
+        where: { instituteId, subscription: { studentId } },
       }),
     ]);
     return {

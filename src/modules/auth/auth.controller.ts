@@ -24,6 +24,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ClientTypeHeader } from '../../common/decorators/client-type.decorator';
 import { ClientType } from '../../common/types/client-type.enum';
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+import { LoginRateLimit } from '../../infrastructure/rate-limit/rate-limit.decorators';
 
 /**
  * Authentication controller — handles authentication with dual client delivery strategies:
@@ -43,6 +44,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @LoginRateLimit('phone')
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(

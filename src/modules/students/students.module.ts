@@ -7,6 +7,8 @@ import { FamiliesModule } from '../families/families.module';
 import { StudentFieldsModule } from '../student-fields/student-fields.module';
 import { SectionsModule } from '../sections/sections.module';
 import { BranchesModule } from '../branches/branches.module';
+import { ReferenceDataModule } from '../reference-data/reference-data.module';
+import { StudentReferencesResolver } from './student-references.resolver';
 
 @Module({
   imports: [
@@ -14,9 +16,15 @@ import { BranchesModule } from '../branches/branches.module';
     StudentFieldsModule,
     SectionsModule,
     BranchesModule,
+    ReferenceDataModule,
   ],
   controllers: [StudentsController],
-  providers: [StudentsService, StudentRepository, StudentEnrollmentRepository],
+  providers: [
+    StudentsService,
+    StudentRepository,
+    StudentEnrollmentRepository,
+    StudentReferencesResolver,
+  ],
   exports: [StudentsService, StudentRepository, StudentEnrollmentRepository],
 })
 export class StudentsModule {}

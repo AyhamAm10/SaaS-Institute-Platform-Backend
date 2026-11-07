@@ -59,3 +59,22 @@ export function timeToMinutes(time: string): number {
 export function dateOnly(localDate: string): Date {
   return new Date(`${localDate}T00:00:00.000Z`);
 }
+
+/**
+ * UTC instant of local midnight of `localDate` in `timeZone`
+ * (start of an institute day, for filtering timestamps by local date).
+ */
+export function localMidnightUtc(localDate: string, timeZone: string): Date {
+  const guess = new Date(`${localDate}T00:00:00.000Z`);
+  const parts = getLocalParts(guess, timeZone);
+  const localAsUtc =
+    Date.parse(`${parts.date}T00:00:00.000Z`) + parts.minutesOfDay * 60_000;
+  return new Date(guess.getTime() - (localAsUtc - guess.getTime()));
+}
+
+/** Local `YYYY-MM-DD` shifted by `days` (calendar arithmetic, no time zone involved). */
+export function shiftLocalDate(localDate: string, days: number): string {
+  const d = new Date(`${localDate}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}

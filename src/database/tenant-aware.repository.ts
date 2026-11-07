@@ -29,6 +29,9 @@ const AUDIT_REDACTED_KEYS = /password/i;
  * - `audited = true`     → model has `createdById` / `updatedById`: actor is
  *   stamped on create/update and every update/delete writes an `AuditLog`
  *   row in the same transaction.
+ * - `actorColumns = false` → audited model WITHOUT `createdById` /
+ *   `updatedById` (e.g. users): the AuditLog rows are still written (with the
+ *   actor), only the column stamping is skipped.
  *
  * Usage: Extend this for any model that has an `instituteId` field.
  *   class UserRepository extends TenantAwareRepository<User> { ... }
@@ -39,6 +42,7 @@ export abstract class TenantAwareRepository<T> extends BaseRepository<T> {
   protected readonly softDelete: boolean = false;
   protected readonly softDeleteReleaseFields: readonly string[] = [];
   protected readonly audited: boolean = false;
+  protected readonly actorColumns: boolean = true;
 
   constructor(prisma: PrismaService, modelName: string) {
     super(prisma, modelName);
@@ -104,7 +108,7 @@ export abstract class TenantAwareRepository<T> extends BaseRepository<T> {
     return this.delegate.create({
       data: {
         ...data,
-        ...(this.audited && { createdById: actorId, updatedById: actorId }),
+        ...(this.stampsActor && { createdById: actorId, updatedById: actorId }),
         instituteId: this.getInstituteId(),
       },
     }) as Promise<T>;
@@ -125,7 +129,9 @@ export abstract class TenantAwareRepository<T> extends BaseRepository<T> {
     return TransactionHelper.run(this.prisma, async () => {
       const updated = (await this.delegate.update({
         where: { id },
-        data: { ...data, updatedById: this.getActorId() },
+        data: this.stampsActor
+          ? { ...data, updatedById: this.getActorId() }
+          : data,
       })) as T;
       await this.writeAudit(AuditAction.UPDATE, id, existing, data);
       return updated;
@@ -169,6 +175,11 @@ export abstract class TenantAwareRepository<T> extends BaseRepository<T> {
 
   // ── Soft delete & audit internals ──────────────────────────────────────
 
+  /** The model has createdById / updatedById to stamp. */
+  private get stampsActor(): boolean {
+    return this.audited && this.actorColumns;
+  }
+
   /** Authenticated user performing the change, or null outside a user request. */
   protected getActorId(): number | null {
     return RequestContext.get()?.userId || null;
@@ -185,7 +196,7 @@ export abstract class TenantAwareRepository<T> extends BaseRepository<T> {
         data[field] = `${row[field]}__deleted_${id}`;
       }
     }
-    if (this.audited) {
+    if (this.stampsActor) {
       data['updatedById'] = this.getActorId();
     }
     return data;

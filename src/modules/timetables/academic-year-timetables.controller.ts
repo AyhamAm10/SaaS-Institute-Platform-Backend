@@ -13,8 +13,8 @@ import {
 import { TimetablesService } from './timetables.service';
 import { GenerateTimetableDto } from './dto/generate-timetable.dto';
 import { SaveTimetableEntryDto } from './dto/save-timetable-entry.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/types/user-role.enum';
+import { RequireResource } from '../../common/decorators/permissions.decorator';
+import { Resource } from '../../common/types/permissions';
 
 /**
  * Controller to handle nested academic year timetable routes requested by frontend:
@@ -23,7 +23,7 @@ import { UserRole } from '../../common/types/user-role.enum';
  * /api/academic-years/:academicYearId/sections/:sectionId/timetable/entries
  */
 @Controller('academic-years/:academicYearId')
-@Roles(UserRole.INSTITUTE_ADMIN, UserRole.SUPER_ADMIN)
+@RequireResource(Resource.Academic)
 export class AcademicYearTimetablesController {
   constructor(
     @Inject(TimetablesService)

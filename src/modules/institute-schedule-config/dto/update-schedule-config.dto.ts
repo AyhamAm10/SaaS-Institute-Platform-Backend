@@ -60,4 +60,19 @@ export class UpdateScheduleConfigDto {
   @ValidateNested({ each: true })
   @Type(() => BreakItemDto)
   breaks?: BreakItemDto[];
+
+  /** Minutes after dayStartTime before a check-in counts as LATE (E8). */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(180)
+  lateAfterMinutes?: number;
+
+  /** HH:mm when absences are marked; null = dayEndTime. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: 'attendanceCloseTime must be in HH:mm format',
+  })
+  attendanceCloseTime?: string | null;
 }

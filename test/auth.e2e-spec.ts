@@ -7,6 +7,11 @@ import { GlobalExceptionFilter } from '../src/common/errors/http-exception.filte
 import { UserSystemRepository } from '../src/modules/users/user-system.repository';
 import bcrypt from 'bcryptjs';
 
+// These tests log in repeatedly with the same phones: lift the login rate limit.
+process.env['THROTTLE_LOGIN_LIMIT'] = '1000';
+// No background workers / schedules in API tests (they would wait for Redis).
+process.env['JOBS_ENABLED'] = 'false';
+
 describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
   let app: INestApplication;
   let mockUserSystemRepo: any;

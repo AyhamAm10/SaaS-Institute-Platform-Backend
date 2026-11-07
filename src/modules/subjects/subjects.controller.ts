@@ -16,15 +16,15 @@ import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { SubjectQueryDto } from './dto/subject-query.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/types/user-role.enum';
+import { RequireResource } from '../../common/decorators/permissions.decorator';
+import { Resource } from '../../common/types/permissions';
 
 /**
  * Controller for Subject management.
  * Restricted to INSTITUTE_ADMIN and SUPER_ADMIN roles.
  */
 @Controller('subjects')
-@Roles(UserRole.INSTITUTE_ADMIN, UserRole.SUPER_ADMIN)
+@RequireResource(Resource.Academic)
 export class SubjectsController {
   constructor(
     @Inject(SubjectsService)

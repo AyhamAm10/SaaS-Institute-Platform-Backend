@@ -14,16 +14,16 @@ import {
 import { AcademicYearsService } from './academic-years.service';
 import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 import { UpdateAcademicYearDto } from './dto/update-academic-year.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/types/user-role.enum';
 import { PaginationQueryDto } from '../../common/pagination/pagination.dto';
+import { RequireResource } from '../../common/decorators/permissions.decorator';
+import { Resource } from '../../common/types/permissions';
 
 /**
  * Controller for Academic Year management.
  * Restricted to INSTITUTE_ADMIN and SUPER_ADMIN roles.
  */
 @Controller('academic-years')
-@Roles(UserRole.INSTITUTE_ADMIN, UserRole.SUPER_ADMIN)
+@RequireResource(Resource.Academic)
 export class AcademicYearsController {
   constructor(
     @Inject(AcademicYearsService)

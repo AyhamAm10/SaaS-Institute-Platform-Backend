@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TimetablesService } from './timetables.service';
+import { LockService } from '../../infrastructure/lock/lock.service';
 import { TimetableRepository } from './timetable.repository';
 import { TimetableEntryRepository } from './timetable-entry.repository';
 import { TimetableConflictService } from './services/timetable-conflict.service';
@@ -129,6 +130,13 @@ describe('TimetablesService', () => {
         },
         { provide: AcademicYearRepository, useValue: mockAcademicYearRepo },
         { provide: TransactionHelper, useValue: mockTransactionHelper },
+        {
+          provide: LockService,
+          useValue: {
+            withLock: (_def: unknown, _args: unknown, fn: () => unknown) =>
+              fn(),
+          },
+        },
       ],
     }).compile();
 

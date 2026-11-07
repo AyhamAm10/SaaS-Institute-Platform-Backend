@@ -16,11 +16,11 @@ import { TimetablesService } from './timetables.service';
 import { GenerateTimetableDto } from './dto/generate-timetable.dto';
 import { SaveTimetableEntryDto } from './dto/save-timetable-entry.dto';
 import { TimetableQueryDto } from './dto/timetable-query.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/types/user-role.enum';
+import { RequireResource } from '../../common/decorators/permissions.decorator';
+import { Resource } from '../../common/types/permissions';
 
 @Controller('timetables')
-@Roles(UserRole.INSTITUTE_ADMIN, UserRole.SUPER_ADMIN)
+@RequireResource(Resource.Academic)
 export class TimetablesController {
   constructor(
     @Inject(TimetablesService)

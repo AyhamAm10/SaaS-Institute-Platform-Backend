@@ -17,6 +17,8 @@ export interface ScheduleConfigResponseDto {
   dayEndTime: string;
   periodDurationMinutes: number;
   breaks: Array<{ name: string; startTime: string; endTime: string }>;
+  lateAfterMinutes: number;
+  attendanceCloseTime: string | null;
   slots: ScheduleSlot[];
   createdAt: Date;
   updatedAt: Date;

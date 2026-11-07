@@ -18,6 +18,12 @@ export class InstituteRepository extends SystemRepository<Institute> {
    * Create an InstituteAdmin link between an institute and an admin user.
    * Respects active transaction context via `this.client`.
    */
+  /** Ids of every institute (scheduled job dispatchers). */
+  async findAllIds(): Promise<number[]> {
+    const rows = await this.findMany({ orderBy: { id: 'asc' } });
+    return rows.map((row) => row.id);
+  }
+
   /** Find an institute by its (global, unique) login code. */
   async findByCode(code: string): Promise<Institute | null> {
     return this.findOne({ code });

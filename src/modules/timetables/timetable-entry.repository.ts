@@ -30,6 +30,40 @@ export class TimetableEntryRepository extends TenantAwareRepository<TimetableEnt
     });
   }
 
+  /**
+   * Entries of a year for reports (D3): one section, one teacher, or all
+   * (teacher load), with section, subject, teacher and room names.
+   */
+  async findForReport(
+    academicYearId: number,
+    filter: { sectionId?: number; teacherId?: number; branchId?: number },
+  ): Promise<ReportTimetableEntry[]> {
+    return (this.client as any).timetableEntry.findMany({
+      where: {
+        instituteId: this.getInstituteId(),
+        ...(filter.teacherId && { teacherId: filter.teacherId }),
+        timetable: {
+          academicYearId,
+          ...(filter.sectionId && { sectionId: filter.sectionId }),
+          ...(filter.branchId && { section: { branchId: filter.branchId } }),
+        },
+      },
+      select: {
+        dayOfWeek: true,
+        periodNumber: true,
+        startTime: true,
+        endTime: true,
+        timetable: { select: { section: { select: { id: true, name: true } } } },
+        subject: { select: { id: true, name: true } },
+        teacher: {
+          select: { id: true, user: { select: { fullName: true } } },
+        },
+        room: { select: { name: true } },
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+  }
+
   async findInstituteEntriesForYear(academicYearId: number) {
     const instituteId = this.getInstituteId();
     return (this.client as any).timetableEntry.findMany({
@@ -148,4 +182,16 @@ export class TimetableEntryRepository extends TenantAwareRepository<TimetableEnt
   async deleteEntry(id: number): Promise<void> {
     await this.delete(id);
   }
+}
+
+/** Timetable entry as the reports read it (D3). */
+export interface ReportTimetableEntry {
+  dayOfWeek: number;
+  periodNumber: number | null;
+  startTime: string;
+  endTime: string;
+  timetable: { section: { id: number; name: string } };
+  subject: { id: number; name: string };
+  teacher: { id: number; user: { fullName: string } };
+  room: { name: string } | null;
 }

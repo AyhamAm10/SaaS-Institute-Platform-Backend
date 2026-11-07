@@ -137,6 +137,8 @@ describe('SectionsService', () => {
       mockTeacherRepo,
       mockTeacherAssignmentRepo,
       mockTxHelper as TransactionHelper,
+      // Not a teacher: no scope restriction
+      { taughtSectionIds: async () => null } as never,
     );
   });
 
@@ -240,7 +242,7 @@ describe('SectionsService', () => {
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
       mockSectionRepo.create!.mockResolvedValue(sampleSection);
 
-      const { branchId, ...dtoWithoutBranch } = validDto;
+      const { branchId: _branchId, ...dtoWithoutBranch } = validDto;
       const result = await service.create(dtoWithoutBranch as any);
 
       expect(mockBranchRepo.getOrCreateDefaultBranch).toHaveBeenCalled();
@@ -261,7 +263,7 @@ describe('SectionsService', () => {
       mockSectionRepo.findByNameAndBranch!.mockResolvedValue(null);
       mockSectionRepo.create!.mockResolvedValue(sampleSection);
 
-      const { academicYearId, ...dtoWithoutYear } = validDto;
+      const { academicYearId: _academicYearId, ...dtoWithoutYear } = validDto;
       const result = await service.create(dtoWithoutYear as any);
 
       expect(

@@ -1,4 +1,9 @@
-import { dateOnly, getLocalParts, timeToMinutes } from './timezone';
+import {
+  dateOnly,
+  getLocalParts,
+  localMidnightUtc,
+  timeToMinutes,
+} from './timezone';
 
 describe('timezone helpers', () => {
   it('returns the local date in Damascus around UTC midnight', () => {
@@ -26,6 +31,16 @@ describe('timezone helpers', () => {
     expect(timeToMinutes('08:15')).toBe(495);
     expect(dateOnly('2026-11-03').toISOString()).toBe(
       '2026-11-03T00:00:00.000Z',
+    );
+  });
+
+  it('finds the UTC instant of a local midnight', () => {
+    // Damascus is UTC+3: local midnight is 21:00 UTC the day before
+    expect(localMidnightUtc('2026-11-05', 'Asia/Damascus').toISOString()).toBe(
+      '2026-11-04T21:00:00.000Z',
+    );
+    expect(localMidnightUtc('2026-11-05', 'UTC').toISOString()).toBe(
+      '2026-11-05T00:00:00.000Z',
     );
   });
 });

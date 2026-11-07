@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
+import { Currency } from '@prisma/client';
 import {
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -48,4 +50,9 @@ export class CreateSectionDto {
   @Min(0)
   @Type(() => Number)
   feeAmount: number;
+
+  /** SYP (default) or USD; contracts default to this currency. */
+  @IsOptional()
+  @IsEnum(Currency)
+  feeCurrency?: Currency;
 }

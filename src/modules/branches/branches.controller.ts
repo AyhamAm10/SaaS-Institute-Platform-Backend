@@ -15,15 +15,15 @@ import { Branch } from '@prisma/client';
 import { BranchesService } from './branches.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/types/user-role.enum';
+import { RequireResource } from '../../common/decorators/permissions.decorator';
+import { Resource } from '../../common/types/permissions';
 
 /**
  * Controller for physical institute Branches.
  * All operations are tenant-scoped via BranchesService & BranchRepository.
  */
 @Controller('branches')
-@Roles(UserRole.INSTITUTE_ADMIN, UserRole.SUPER_ADMIN)
+@RequireResource(Resource.Academic)
 export class BranchesController {
   constructor(
     @Inject(BranchesService)

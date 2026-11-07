@@ -6,6 +6,8 @@ import {
   LocalDateTimeParts,
 } from '../../common/time/timezone';
 import { InstituteRepository } from './institute.repository';
+import { CacheService } from '../../infrastructure/cache/cache.service';
+import { CacheKeys } from '../../infrastructure/cache/cache-keys';
 
 /**
  * InstituteClock
@@ -19,14 +21,18 @@ export class InstituteClockService {
   constructor(
     @Inject(InstituteRepository)
     private readonly instituteRepository: InstituteRepository,
+    @Inject(CacheService)
+    private readonly cache: CacheService,
   ) {}
 
-  /** IANA time zone of the current institute. */
+  /** IANA time zone of the current institute (cached; invalidated on institute update). */
   async getTimezone(): Promise<string> {
-    const institute = await this.instituteRepository.findById(
-      RequestContext.getInstituteId(),
-    );
-    return institute?.timezone ?? DEFAULT_INSTITUTE_TIMEZONE;
+    return this.cache.getOrSet(CacheKeys.instituteTimezone, [], async () => {
+      const institute = await this.instituteRepository.findById(
+        RequestContext.getInstituteId(),
+      );
+      return institute?.timezone ?? DEFAULT_INSTITUTE_TIMEZONE;
+    });
   }
 
   /** Local date / time-of-day / weekday of `at` (default: now) for the institute. */

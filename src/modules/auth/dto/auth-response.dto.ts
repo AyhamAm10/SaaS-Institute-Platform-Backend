@@ -27,6 +27,8 @@ export interface SafeUser {
 /** User profile with institute details. */
 export interface UserProfile extends SafeUser {
   institute: Institute;
+  /** Permissions of the role (role.md §8.6), for the dashboard. */
+  permissions: string[];
 }
 
 /** Response from web login (tokens stored in HttpOnly cookies). */

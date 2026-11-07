@@ -6,6 +6,7 @@ import { FamilyRepository } from '../families/family.repository';
 import { StudentFieldRepository } from '../student-fields/student-field.repository';
 import { SectionRepository } from '../sections/section.repository';
 import { BranchRepository } from '../branches/branch.repository';
+import { StudentReferencesResolver } from './student-references.resolver';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { RequestContext } from '../../context/request-context';
 import { Ensure } from '../../common/errors/ensure';
@@ -33,6 +34,8 @@ export class StudentsService {
     private readonly branchRepository: BranchRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    @Inject(StudentReferencesResolver)
+    private readonly referencesResolver: StudentReferencesResolver,
   ) {}
 
   async create(dto: CreateStudentDto): Promise<Student> {
@@ -91,6 +94,10 @@ export class StudentsService {
         Ensure.exists(await this.branchRepository.findById(branchId), 'Branch');
       }
 
+      const references = await this.referencesResolver.resolve(dto, branchId, {
+        isCreate: true,
+      });
+
       const student = await this.studentRepository.create({
         fullName: dto.fullName.trim(),
         birthDate: new Date(dto.birthDate),
@@ -98,6 +105,7 @@ export class StudentsService {
         familyId: familyId!,
         branchId,
         customFields,
+        ...references,
       });
 
       if (section) {
@@ -115,6 +123,23 @@ export class StudentsService {
 
   async findAll(query: StudentQueryDto): Promise<PaginatedResult<any>> {
     return this.studentRepository.findFiltered(query);
+  }
+
+  /**
+   * Dashboard counters (branch from the header): students without a section
+   * in the year, and students registered since `newSince`.
+   */
+  async getOverview(
+    academicYearId: number | null,
+    newSince: Date,
+  ): Promise<{ unassigned: number; newSince: number }> {
+    const [unassigned, created] = await Promise.all([
+      academicYearId
+        ? this.studentRepository.countUnassigned(academicYearId)
+        : Promise.resolve(0),
+      this.studentRepository.countCreatedSince(newSince),
+    ]);
+    return { unassigned, newSince: created };
   }
 
   async findById(id: number): Promise<any> {
@@ -168,9 +193,20 @@ export class StudentsService {
       data['branchId'] = dto.branchId;
     }
 
+    Object.assign(
+      data,
+      await this.referencesResolver.resolve(
+        dto,
+        dto.branchId ?? existing.branchId,
+        {
+          currentBusId: existing.busId,
+        },
+      ),
+    );
+
     if (dto.customFields !== undefined) {
       const merged = {
-        ...((existing.customFields as Record<string, unknown>) ?? {}),
+        ...(existing.customFields as Record<string, unknown>),
         ...dto.customFields,
       };
       await this.assertRequiredCustomFields(merged);

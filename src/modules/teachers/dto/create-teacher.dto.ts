@@ -6,10 +6,12 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MaxLength,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { STAFF_PASSWORD_MIN } from '../../staff/dto/staff.dto';
 import { TeacherQualificationDto } from './teacher-assignment.dto';
 import { TeacherAvailabilityItemDto } from './teacher-availability.dto';
 
@@ -24,10 +26,10 @@ export class CreateTeacherDto {
   })
   phone!: string;
 
-  @IsOptional()
   @IsString()
-  @MinLength(6)
-  password?: string;
+  @MinLength(STAFF_PASSWORD_MIN)
+  @MaxLength(100)
+  password!: string;
 
   @IsOptional()
   @IsString()

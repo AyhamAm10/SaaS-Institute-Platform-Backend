@@ -26,6 +26,17 @@ class MockSoftDeleteRepository extends TenantAwareRepository<MockEntity> {
   }
 }
 
+/** Audited model without createdById / updatedById columns (like users). */
+class MockAuditOnlyRepository extends TenantAwareRepository<MockEntity> {
+  protected override readonly softDelete = true;
+  protected override readonly audited = true;
+  protected override readonly actorColumns = false;
+
+  constructor(prisma: PrismaService) {
+    super(prisma, 'mockModel');
+  }
+}
+
 class MockSystemRepository extends SystemRepository<MockEntity> {
   constructor(prisma: PrismaService) {
     super(prisma, 'mockModel');
@@ -234,6 +245,33 @@ describe('TenantAwareRepository vs SystemRepository', () => {
         expect(audit.action).toBe('UPDATE');
         expect(audit.before).toEqual({ id: 3, instituteId: 42, name: 'Old' });
         expect(audit.changes).toEqual({ name: 'New' });
+      });
+    });
+
+    it('actorColumns = false: no actor stamping, audit rows still written', async () => {
+      const auditOnly = new MockAuditOnlyRepository(mockPrisma);
+      mockPrisma.mockModel.findFirst.mockResolvedValue({
+        id: 4,
+        instituteId: 42,
+        name: 'Old',
+      });
+
+      await RequestContext.run(ctx, async () => {
+        await auditOnly.create({ name: 'A' });
+        expect(mockPrisma.mockModel.create).toHaveBeenCalledWith({
+          data: { name: 'A', instituteId: 42 },
+        });
+
+        await auditOnly.update(4, { name: 'New' });
+        expect(mockPrisma.mockModel.update).toHaveBeenCalledWith({
+          where: { id: 4 },
+          data: { name: 'New' },
+        });
+
+        await auditOnly.delete(4);
+        const softDelete = mockPrisma.mockModel.update.mock.calls[1][0];
+        expect(softDelete.data.updatedById).toBeUndefined();
+        expect(mockPrisma.auditLog.create).toHaveBeenCalledTimes(2);
       });
     });
   });

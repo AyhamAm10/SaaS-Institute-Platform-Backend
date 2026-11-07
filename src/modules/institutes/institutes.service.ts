@@ -14,6 +14,9 @@ import { UserRole } from '../../common/types/user-role.enum';
 import { PaginationQueryDto } from '../../common/pagination/pagination.dto';
 import { PaginatedResult } from '../../common/pagination/paginated-result';
 import { randomInt } from 'node:crypto';
+import { SystemCacheService } from '../../infrastructure/cache/system-cache.service';
+import { StudentStatusesService } from '../reference-data/student-statuses/student-statuses.service';
+import { CacheKeys } from '../../infrastructure/cache/cache-keys';
 
 /**
  * Service managing Institute lifecycle and Super Admin tenant provisioning.
@@ -29,6 +32,10 @@ export class InstitutesService {
     private readonly academicBranchesService: AcademicBranchesService,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    @Inject(SystemCacheService)
+    private readonly systemCache: SystemCacheService,
+    @Inject(StudentStatusesService)
+    private readonly studentStatusesService: StudentStatusesService,
   ) {}
 
   /**
@@ -90,6 +97,7 @@ export class InstitutesService {
 
       // Automatically provision standard Arabic Academic Branches
       await this.academicBranchesService.provisionDefaultBranches(institute.id);
+      await this.studentStatusesService.provisionDefaults(institute.id);
 
       return {
         institute,
@@ -183,6 +191,13 @@ export class InstitutesService {
 
     if (Object.keys(data).length > 0) {
       await this.instituteRepository.update(id, data);
+      if (data['timezone'] !== undefined) {
+        await this.systemCache.delForInstitute(
+          id,
+          CacheKeys.instituteTimezone,
+          [],
+        );
+      }
     }
     return this.findById(id);
   }

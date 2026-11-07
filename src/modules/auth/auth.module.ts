@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { JwtTokenService } from './jwt-token.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
 import { UsersModule } from '../users/users.module';
 
 import { AuthCookiesService } from './auth-cookies.service';
@@ -33,7 +34,12 @@ import { AuthCookiesService } from './auth-cookies.service';
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
+    // Global permission guard — enforces @RequireResource / @RequirePermission
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
+    },
   ],
-  exports: [JwtTokenService, RolesGuard, AuthCookiesService],
+  exports: [JwtTokenService, RolesGuard, AuthCookiesService, AuthService],
 })
 export class AuthModule {}

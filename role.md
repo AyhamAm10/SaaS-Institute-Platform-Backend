@@ -3,7 +3,7 @@
 > **Document Status**: Authoritative Engineering Contract  
 > **Target Audience**: AI Agents, Backend Developers, and System Architects  
 > **Project**: SaaS Education Platform Backend (`institute-platform-backend`)  
-> **Stack**: NestJS 12, TypeScript 6, Prisma ORM 7 (`@prisma/adapter-pg`), PostgreSQL, Redis (`ioredis`), JWT  
+> **Stack**: NestJS 12, TypeScript 6, Prisma ORM 7 (`@prisma/adapter-pg`), PostgreSQL, Redis (`ioredis`, BullMQ), JWT  
 
 ---
 
@@ -42,8 +42,8 @@ graph TD
     Tx -.-> Repo
     Repo --> PS[PrismaService]
     PS --> DB[(PostgreSQL)]
-    Svc --> Red[RedisService]
-    Red --> RDB[(Redis Store)]
+    Svc --> Red[CacheService / LockService]
+    Red --> RDB[(Redis via RedisService)]
 ```
 
 ### 1.1 Controllers (`src/modules/<feature>/<feature>.controller.ts`)
@@ -74,7 +74,7 @@ Services are the sole orchestrators of business logic and domain invariants.
 #### Services MUST:
 * Contain all domain validation, state transitions, calculations, and business workflows.
 * Perform assertions and validation using `Ensure` and `ErrorMessages`.
-* Coordinate between domain repositories and external infrastructure (e.g., `RedisService`, `JwtTokenService`).
+* Coordinate between domain repositories and infrastructure services (e.g., `CacheService`, `LockService`, `JwtTokenService`) — never `RedisService` directly (§14.2).
 * Execute multi-step atomic operations using `TransactionHelper.executeInTransaction()`.
 * Sanitize and map internal entities to safe output structures (e.g., stripping `passwordHash`).
 * Reuse existing domain services rather than duplicating queries or business logic.
@@ -365,12 +365,13 @@ export class SubjectRepository extends TenantAwareRepository<Subject> {
   protected override readonly softDelete = true;                  // model has deletedAt
   protected override readonly softDeleteReleaseFields = ['name']; // unique columns to free
   protected override readonly audited = true;                     // model has createdById/updatedById
+  // protected override readonly actorColumns = false;            // audited model WITHOUT those columns (users)
 }
 ```
 
 * **`softDelete`**: `delete()` sets `deletedAt` instead of removing the row; `scopeWhere()`, `findById()` and every base read skip deleted rows. Custom queries that bypass `scopeWhere()` (e.g. `findRawById`) MUST wrap their `where` with `this.notDeleted(...)`. Relation includes of soft-deletable children SHOULD filter `deletedAt: null`.
 * **`softDeleteReleaseFields`**: string columns covered by a unique constraint are suffixed with `__deleted_<id>` on soft delete so the value can be reused by a new record.
-* **`audited`**: `create()` stamps `createdById`/`updatedById` from `RequestContext`; `update()` / `delete()` write an `AuditLog` row (`before` snapshot + `changes`) in the same transaction. Keys matching `/password/i` are never written to the log.
+* **`audited`**: `create()` stamps `createdById`/`updatedById` from `RequestContext`; `update()` / `delete()` write an `AuditLog` row (`before` snapshot + `changes`) in the same transaction. Keys matching `/password/i` are never written to the log. A model that must be audited but has no actor columns (`User`, via `StaffRepository`) sets `actorColumns = false`: AuditLog rows are written, column stamping is skipped.
 * Soft-delete models today: `Student`, `Family`, `Teacher`, `Section`, `Subject`, `Room`, `User` (`phone` released). Audited: the same minus `User`. Financial and academic records (`StudentSubscription`, `Installment`, `Payment`, `ExamResult`, `LessonAttendance`, `Exam`, `StudentEnrollment`, `EnrollmentSubject`) already have the actor columns and MUST set `audited = true` when their repository is created.
 * Repositories without the flags keep the original hard-delete behaviour.
 
@@ -506,7 +507,7 @@ sequenceDiagram
 
 ### 8.3 Role-Based Access Control (RBAC)
 Role authorization is enforced at the controller and route level using the `@Roles(...)` decorator and `RolesGuard`:
-* **Roles Enum (`UserRole`)**: `SUPER_ADMIN`, `INSTITUTE_ADMIN`, `TEACHER`, `FAMILY`, `STUDENT`.
+* **Roles Enum (`UserRole`)**: `SUPER_ADMIN`, `INSTITUTE_ADMIN`, `REGISTRAR`, `ACCOUNTANT`, `TEACHER`, `FAMILY`, `STUDENT`. Institute endpoints use permissions (§8.6); `@Roles` stays for platform-only routes (`@Roles(SUPER_ADMIN)`).
 * **Decorator (`@Roles`)**: Attached to a Controller class or route handler method (`@Roles(UserRole.SUPER_ADMIN)`).
 * **`RolesGuard`**: Applied globally via `APP_GUARD` in `AuthModule` immediately after `JwtAuthGuard`. Checks whether the caller's role (`request.user.role` or `RequestContext.getRole()`) is included in the endpoint's required roles. If unauthorized, throws `ForbiddenException` (403) via `Ensure.forbidden`.
 * **Public Exemption**: Routes decorated with `@Public()` automatically bypass both `JwtAuthGuard` and `RolesGuard`.
@@ -518,6 +519,15 @@ Role authorization is enforced at the controller and route level using the `@Rol
 ### 8.5 Feature Flags
 * `@RequireFeature(FeatureKey.X)` on a controller or route restricts it to institutes that have the feature enabled; `FeatureGuard` (global, after `RolesGuard`) throws `403 feature_disabled` otherwise.
 * `GET /features` returns the caller institute's flags; super admin manages them via `GET/PUT /institutes/:instituteId/features`.
+
+
+### 8.6 Permissions, Teacher Scope and Staff (D2)
+* **Permission = resource + action**: `Resource` (`dashboard`, `students`, `attendance`, `fees`, `exams`, `academic`, `settings`, `staff`) × `view` / `manage`, plus `marks.enter`. `ROLE_PERMISSIONS` in `common/types/permissions.ts` is the only place that decides which role has which permission; `GET /auth/me` returns the caller's list (`permissions`), and the dashboard only reads that list.
+* **Controllers** declare `@RequireResource(Resource.X)`: GET/HEAD/OPTIONS need `x.view`, every other method needs `x.manage`. `@RequirePermission(...)` on a route overrides it (any of the listed permissions), e.g. `PUT exams/:id/results` → `marks.enter`. `PermissionsGuard` is global, after `RolesGuard`; a denial is `403 permission_denied`.
+* **Roles today**: admins = everything; `REGISTRAR` = view all but staff, manage students + attendance; `ACCOUNTANT` = view dashboard/students/fees/academic/settings, manage fees; `TEACHER` = view attendance/exams/academic, manage attendance, `marks.enter`.
+* **Teacher scope**: a permission says WHAT a teacher may do, `TeacherScopeService` (sections module) says ON WHICH ROWS — only the section/subject pairs of `SectionSubject.teacherId`. Services call `taughtPairs()` / `taughtSectionIds()` (null = not a teacher, no filter) for lists and `assertTeachesSubject` / `assertTeachesSection` for single rows (`403 teacher_scope_*`). Any new teacher-reachable endpoint MUST apply it.
+* **Staff accounts** (`/staff`, `staff.*`): roles `INSTITUTE_ADMIN` / `REGISTRAR` / `ACCOUNTANT`, password ≥ 8 (bcrypt 12). Nobody changes their own role or deactivates themselves; the institute always keeps one active admin; a role change, a password reset and a deactivation revoke the member's sessions. Deactivation is a soft delete (phone released, audit kept). The `InstituteAdmin` link follows the admin role. Teachers are created by the teachers module, not here.
+* **Teacher password & reset** (`/teachers`, `academic.*`): teacher password is required on creation (minimum 8 characters, `STAFF_PASSWORD_MIN`). Password is not updatable via `PATCH /teachers/:id`; password resets are exclusively handled by `POST /teachers/:id/reset-password` using `ResetStaffPasswordDto` (bcrypt 12), which immediately logs out the teacher's active sessions via `authService.logout(userId)`.
 
 ---
 
@@ -578,6 +588,85 @@ To prevent logic duplication and divergent business rules:
 2. **Cross-Domain Reusability**: When feature A requires logic from feature B, feature A's service MUST inject and call feature B's service rather than duplicating queries or business rules.
 3. **No Controller-to-Controller Calls**: Controllers MUST NOT call other controllers.
 4. **No Repository Bypassing**: Do not duplicate a repository query in an unrelated service; expose a method on the owning repository or service.
+
+### 10.1 Reference Data (Lookup Tables)
+
+Simple institute-owned lists (cities, schools, buses, know-ways, student statuses, exam types) live in `src/modules/reference-data/` and are built on one generic base in `reference-data/lookup/`:
+
+1. **Repository**: extend `LookupRepository<T>` (tenant-scoped, soft delete that releases `name`). Branch-owned lists (buses) extend `ContextScopedRepository` instead and implement the same `LookupStore<T>` contract.
+2. **Service**: extend `LookupService<T, CreateDto, UpdateDto>`; it owns paging, duplicate-name checks (`lookup_name_duplicate`) and **refuses deleting an entry still in use** (`lookup_in_use`, with the usage count from `countUsage`). Override only the hooks `toData`, `validate`, `findDuplicate`.
+3. **Controller**: extend `NameLookupController` (or write a thin controller with concrete DTOs when the table has extra fields).
+4. **Consumers** (e.g. students) validate and resolve links through the owning services (`StudentReferencesResolver`), never by querying lookup tables directly. A bus MUST belong to the student's branch (`bus_branch_mismatch`).
+5. **Student statuses**: exactly one default per institute; it cannot be deleted or un-set without choosing another (`student_status_default_locked`). New institutes get the default statuses via `StudentStatusesService.provisionDefaults`.
+
+### 10.2 Enrollments (Students in Sections)
+
+Enrollment logic is owned by `src/modules/enrollments/` (`EnrollmentsService`); `StudentEnrollmentRepository` (students module, **audited**) and `EnrollmentSubjectRepository` are its repositories. Pure rules live in `enrollment.rules.ts`.
+
+1. **One enrollment per student per academic year** (DB unique). The year is read from the section, never sent by the client.
+2. **Section branch = student branch.** Bulk enroll (`POST /sections/:id/enrollments`) never fails as a whole: each student is `enrolled` or `rejected` with a translated reason.
+3. **Transfer** (`PATCH /enrollments/:id/transfer`): only an ACTIVE enrollment, same year and same branch. It updates `sectionId` (the audit log records the move) and drops chosen subjects the new section does not teach.
+4. **Status** (`PATCH /enrollments/:id/status`): ACTIVE → WITHDRAWN (reason required) or COMPLETED; WITHDRAWN → ACTIVE. `statusReason` / `statusChangedAt` keep the last change.
+5. **Subjects** (`PUT /enrollments/:id/subjects`): no rows = every section subject; a choice must come from the section plan, and a choice covering the whole plan is stored as empty.
+6. **Effective subjects**: attendance, grades and fees MUST call `EnrollmentsService.getEffectiveSubjects(enrollmentId)`; never re-implement the "empty = all" rule.
+7. Unassigned students are listed with `GET /students?unassignedYearId=` (no separate route that could clash with `/students/:id`).
+
+### 10.3 Fees: Contracts, Installments and Payments
+
+Owned by `src/modules/fees/` (`ContractsService`, `PaymentsService`, `FeesReportsService`). Pure rules live in `fees.rules.ts` and `common/money/money.ts`.
+
+1. **Money**: compute in integer minor units (`toMinor` / `minorToDecimal`). SYP has no fractions, USD two decimals (`money_invalid_precision`). Never mix currencies in a sum; reports return one row per currency. Exchange rates are always **SYP per 1 USD**.
+2. **Contract** (`StudentSubscription`): one per enrollment (`enrollmentId` unique, survives transfers). Amount and currency default to the section fee (`Section.feeCurrency`). `total = gross − discount`, discount ≤ gross.
+3. **Schedule**: optional first payment = installment #1 due on `startDate`; the rest is split monthly (clamped to month length) with the **rounding remainder on the last installment**. `POST /enrollments/:id/contract/preview` returns it without saving.
+4. **Editing** a contract: only the discount and installments with nothing paid. Paid / partly paid installments are kept; the rest is regenerated and numbered after them.
+5. **Payment**: inside one transaction — row-lock the contract (`SubscriptionRepository.lockForUpdate`), convert to the contract currency (`appliedAmount`), allocate **FIFO by due date** (`PaymentAllocation`), refuse more than the remaining balance, take the receipt number from `ReceiptSequence` (per branch + year), update installment and contract statuses.
+6. **Cancellation**: payments are never deleted. `PATCH /payments/:id/cancel` requires a reason, reverses the allocations and keeps the receipt number. Everything is audited.
+7. **Overdue**: computed from the institute's today (`InstituteClock`), so reports are right even before the job runs. The `fees` queue job `mark-overdue-installments` persists `OVERDUE` (idempotent); it is fanned out per institute by the hourly `dispatch` job (`src/modules/jobs/`).
+8. **Workers** are declared with `autorun: false` and started on bootstrap unless `JOBS_ENABLED=false` (tests, API-only instances), so a missing Redis never blocks the API or the test runner.
+
+### 10.4 Daily Attendance
+
+Owned by `src/modules/attendance/` (`AttendanceService`, `DailyAttendanceRepository`, audited). Pure rules in `attendance.rules.ts`.
+
+1. **One record per student per local day** (`DailyAttendance`, unique `[instituteId, studentId, date]`). `date` is always the institute-local date from `InstituteClock` / `getLocalParts`; `checkInAt` / `checkOutAt` are UTC instants.
+2. **Check-in**: only for a student with an ACTIVE enrollment, only on `workingDays`, once per day, never in the future. `LATE` when after `dayStartTime + lateAfterMinutes` (schedule config, default 15), else `PRESENT`. A late arrival replaces an ABSENT / EXCUSED mark of the same day.
+3. **Check-out**: only after the check-in of the same day, once.
+4. **Bulk** (`POST /attendance/bulk`) never fails as a whole: `done` + `skipped` with the translated reason.
+5. **Corrections** (`PATCH /attendance/:id`) are audited; changing only the check-in time recomputes PRESENT / LATE.
+6. **Absence job**: the hourly dispatcher enqueues `mark-absences` per institute; after `attendanceCloseTime` (default `dayEndTime`) of a working day it inserts ABSENT for students without a record (`createMany` + `skipDuplicates`): existing records are never touched.
+7. `LessonAttendance` stays in the schema for later; there is no module for it.
+
+### 10.5 Exams and Marks
+
+Owned by `src/modules/exams/` (`ExamsService`, `ExamRepository` / `ExamResultRepository`, both audited). Pure rules in `exams.rules.ts`.
+
+1. **Exam**: section + one of its **plan subjects** (`exam_subject_not_in_section`), date inside the section's academic year, `0 < passMark ≤ maxMark`. Section and subject cannot change after creation.
+2. **Students of an exam** = ACTIVE enrollments of the section that study the subject, from `EnrollmentsService.findStudentsTakingSubject` (same "no choice = all subjects" rule as `getEffectiveSubjects`). A student who already has a mark stays on the sheet (flagged `eligible: false`).
+3. **Marks** (`PUT /exams/:id/results`): bulk upsert; the status is always computed server-side: ABSENT when flagged, PENDING without a mark, else PASSED / FAILED against `passMark`. Marks outside `[0, maxMark]` or with more than two decimals are refused.
+4. Changing `passMark` / `maxMark` re-computes existing statuses; a `maxMark` below an entered mark is refused.
+5. **Delete**: an exam with marks needs `?force=true` (409 `exam_has_results` otherwise); marks and exam are deleted in one transaction and audited.
+6. `GET /students/:id/results` returns every mark plus the average percentage per subject.
+
+### 10.6 Dashboard Overview (Read-Only Composition)
+
+`src/modules/dashboard/` serves `GET /dashboard/overview`: every number of the home page in one call, for the header branch and the header (or current) academic year, with local dates from `InstituteClock`.
+
+1. **Each domain computes its own numbers** through an overview method on its owning service: `StudentsService.getOverview`, `EnrollmentsService.getActiveStudentSections`, `AttendanceService.getOverview`, `FeesReportsService.getOverview`, `ExamsService.getOverview`. `DashboardService` only composes them (plus the sections list and the teachers count).
+2. **No manual SQL** (§18.9): aggregates use Prisma `groupBy` / `count` / `findMany` with `select`; the repositories own those queries (`countByDayAndStatus`, `sumOpenBySubscription`, `averageByExam`, ...).
+3. **Pure joins and maths** live in rules files with tests: `attendanceRate`, `lastWorkingDays`, `attendanceSeries` (attendance), `lastMonthKeys`, `collectionsByMonth` (fees), `weightedAveragePercent` (exams), `todayAttendance`, `sectionRows` (dashboard).
+4. **Money is never mixed**: finance numbers are one row per currency. Collections are in the payment currency; balance and overdue are in the contract currency.
+5. Without an academic year the endpoint returns zeros and `academicYear: null` (it never creates a year).
+6. Calendar shifts use `shiftLocalDate` from `common/time/timezone.ts`; do not add private date helpers.
+
+### 10.7 Reports and Printing (Read-Only Composition, D3)
+
+`src/modules/reports/` serves every report of the platform. It owns no table.
+
+1. **One catalog**: `report-catalog.ts` defines each report ONCE (key, category, title, permission, parameters, `verifiable`). `GET /reports/catalog` returns the entries the caller's role may open; the dashboard builds its reports center, parameter forms and contextual menus from it. A new report = a catalog entry + a builder (the `ReportsService` spec fails if a key has no builder).
+2. **One document shape**: builders return a `ReportDocument` (`document/report-document.ts`): title, meta, orientation and typed blocks (`stats`, `fields`, `table`, `grid`, `bars`, `note`, `signatures`). Table cells are typed by their column `kind`; money cells carry their currency and totals are one row per currency (never mixed). The dashboard renders it (screen + print) and `ReportExcelService` writes the same document to `.xlsx` (RTL sheet, money / date / percent formats): `GET /reports/:key` and `GET /reports/:key/excel`.
+3. **Composition only**: builders (`builders/*.reports.ts`, one class per category) call the owning domain services; the queries live in the domain repositories (`FeesReportDataService`, `AttendanceService.getRecordsBetween`, `ExamsService.getExamsWithResults`, `EnrollmentsService.getYearEnrollments`, `TimetablesService.getEntriesForReport`, `StaffActivityService`). Pure maths (periods, aging buckets, ranking, distributions, working days) lives in `reports.rules.ts` with tests.
+4. **Security**: `ReportsService` checks the report permission (403), required parameters (400 `report_param_required`) and the teacher scope of a `sectionId`; domain calls keep their own scope checks (exam sheets, student history). Reports follow the header branch / year (else the current year) and the institute-local dates. Synchronous reports are capped at `REPORT_ROW_LIMIT` (5000) rows; bigger exports wait for background jobs.
+5. **Verification**: verifiable documents (student statement, transcript, exam sheet) and receipts get a document number and an HMAC-signed token (`ReportVerificationService`, secret `REPORT_SIGNING_SECRET`, falls back to `JWT_ACCESS_SECRET`). The QR opens the public `/verify/:token` page, which shows the institute, the number and the signed summary lines; any change to the token makes it invalid. Tokens hold no sensitive data (a name and short lines only).
 
 ---
 
@@ -697,7 +786,43 @@ When creating a new domain feature (e.g., `students`, `sections`, `finances`):
 ### 14.1 Platform Infrastructure Modules
 * **Storage** (`modules/storage`): `StorageService` is the only entry point for files. Keys are always `institutes/<instituteId>/<category>/<uuid>.<ext>` (built from `RequestContext`, never from client input). Drivers implement `StorageDriver` and are selected in `StorageModule` via the `STORAGE_DRIVER` token; only the `local` driver (`STORAGE_LOCAL_DIR`) exists today. Upload: `POST /files` (multipart `file` + `category`); download: `GET /files/:category/:fileName` (same institute only). Allowed: JPG, PNG, WEBP, PDF up to 5 MB.
 * **API docs**: Swagger UI at `/<API_PREFIX>/docs` outside production. DTO schemas come from the `@nestjs/swagger` CLI plugin (`nest-cli.json`) — no manual decorators required.
-* **Background jobs**: not available yet — the project has no Redis/queue infrastructure. Do not add ad-hoc in-process schedulers; introduce a queue module (BullMQ on Redis) first.
+* **Background jobs**: BullMQ via `QueueModule` — see §14.2. Do not add ad-hoc in-process schedulers (`setInterval`, cron libraries).
+
+### 14.2 Redis Infrastructure (`src/infrastructure/`)
+
+Redis is treated like Prisma: **one module owns the connection, purpose-specific services sit on top, and domain code only sees those services.**
+
+```text
+Domain services
+     │ use only
+     ▼
+CacheService / SystemCacheService   LockService   RateLimitGuard   TenantJobProcessor
+     │                                  │              │                │
+     └──────────── RedisService (src/infrastructure/redis) ─────────────┘
+```
+
+| Module | Responsibility | Failure policy |
+| :--- | :--- | :--- |
+| `RedisModule` (global) | The ONLY owner of the ioredis connection (`REDIS_URL`, `REDIS_KEY_PREFIX`). Exposes `key(...)`, `ping()`, `connectionOptions()` | Startup without Redis logs an error and continues |
+| `CacheModule` (global) | `CacheService` (tenant) / `SystemCacheService` (platform & super-admin invalidation) | **Fail-open**: store errors are logged and the loader (DB) result is returned |
+| `RateLimitModule` | Global `RateLimitGuard` (registered **before** `AuthModule`): `default` policy per IP on every route; `@LoginRateLimit('phone')` adds a per IP + phone policy. Limits from `THROTTLE_*` env. 429 + `Retry-After` | **Fail-open** |
+| `LockModule` (global) | `LockService.withLock(LockKeys.x, args, fn)`: institute-scoped mutual exclusion (SET NX PX + token release) | **Fail-closed**: held → 409 `operation_in_progress`; Redis down → 503 `service_unavailable`. Never runs `fn` without the lock |
+| `QueueModule` | BullMQ connection and defaults (3 attempts, exponential backoff, failed jobs kept) | **Fail-closed** |
+| `HealthModule` | `GET /health` (Public): postgres / redis status | — |
+
+#### Rules
+1. **No `import ioredis` (or `bullmq` connections) outside `src/infrastructure/`.** Domain code never touches `RedisService.client`.
+2. **Cache keys live in `cache-keys.ts`, lock names in `lock-keys.ts`** (central registries, like `ErrorMessages`). Each cache key has a mandatory TTL; each lock a safety TTL. No ad-hoc key strings.
+3. **Tenant isolation**: `CacheService` and `LockService` scope keys to `RequestContext.getInstituteId()` automatically (`t:{instituteId}:…`). The tenant is never passed as an argument. Only `SystemCacheService` may address another institute, and only for super-admin mutations (mirrors `SystemRepository`).
+4. **Single domain ownership**: only the service that owns the data caches it, and it MUST invalidate after every mutation of that data (`del` / `delForInstitute`). Whole-institute invalidation bumps a version counter. `KEYS` / `SCAN` are forbidden.
+5. **Cached values are JSON-safe DTOs** (no Prisma `Decimal` / `Date` instances); never cache credentials or tokens.
+6. **Background jobs**:
+   - Job data is built with `tenantJobData(payload)`, which attaches `instituteId` / `userId` from `RequestContext`.
+   - Every worker extends `TenantJobProcessor`, which rebuilds `RequestContext` (role `SYSTEM`) before `handle()` and rejects jobs without a tenant.
+   - Queue names live in a central `queue-names.ts` (created with the first queue).
+   - Jobs must be idempotent (they may be retried).
+7. **What does NOT go to Redis**: refresh tokens (`refresh_tokens` table) and receipt numbers (`ReceiptSequence`, same DB transaction as the payment).
+8. **Tests**: unit tests use `InMemoryCacheStore` / mocked clients and never need a running Redis. Locally Redis runs with `docker compose up -d` (`docker-compose.yml`).
 
 ---
 
@@ -716,7 +841,7 @@ When creating a new domain feature (e.g., `students`, `sections`, `finances`):
 2. **Never Hardcode Secrets**:
    - Database credentials (`DATABASE_URL`)
    - JWT secrets (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`)
-   - Redis host/passwords (`REDIS_HOST`, `REDIS_PASSWORD`)
+   - Redis connection (`REDIS_URL`, may include the password)
    - API keys and tokens
 3. **Strict Validation**: Critical configurations MUST use `configService.getOrThrow<string>('KEY')` on startup to fail fast if variables are missing.
 

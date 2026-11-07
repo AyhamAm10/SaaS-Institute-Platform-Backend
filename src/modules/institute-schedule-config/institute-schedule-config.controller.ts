@@ -9,11 +9,11 @@ import {
 } from '@nestjs/common';
 import { InstituteScheduleConfigService } from './institute-schedule-config.service';
 import { UpdateScheduleConfigDto } from './dto/update-schedule-config.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/types/user-role.enum';
+import { RequireResource } from '../../common/decorators/permissions.decorator';
+import { Resource } from '../../common/types/permissions';
 
 @Controller('schedule-config')
-@Roles(UserRole.INSTITUTE_ADMIN, UserRole.SUPER_ADMIN)
+@RequireResource(Resource.Settings)
 export class InstituteScheduleConfigController {
   constructor(
     @Inject(InstituteScheduleConfigService)

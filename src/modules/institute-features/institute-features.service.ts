@@ -6,6 +6,9 @@ import { InstitutesService } from '../institutes/institutes.service';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { UpdateInstituteFeaturesDto } from './dto/update-institute-features.dto';
 import { FeatureStatus } from './dto/feature-status.dto';
+import { CacheService } from '../../infrastructure/cache/cache.service';
+import { SystemCacheService } from '../../infrastructure/cache/system-cache.service';
+import { CacheKeys } from '../../infrastructure/cache/cache-keys';
 
 @Injectable()
 export class InstituteFeaturesService {
@@ -18,15 +21,22 @@ export class InstituteFeaturesService {
     private readonly institutesService: InstitutesService,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    @Inject(CacheService)
+    private readonly cache: CacheService,
+    @Inject(SystemCacheService)
+    private readonly systemCache: SystemCacheService,
   ) {}
 
-  /** Features of the caller's institute. */
+  /** Features of the caller's institute (cached — checked by FeatureGuard on every request). */
   async getCurrent(): Promise<FeatureStatus[]> {
-    return this.toStatusList(await this.featureRepository.findMany());
+    return this.cache.getOrSet(CacheKeys.instituteFeatures, [], async () =>
+      this.toStatusList(await this.featureRepository.findMany()),
+    );
   }
 
   async isEnabled(key: FeatureKey): Promise<boolean> {
-    return this.featureRepository.isEnabled(key);
+    const features = await this.getCurrent();
+    return features.some((f) => f.key === key && f.enabled);
   }
 
   /** Features of any institute (super admin). */
@@ -48,6 +58,11 @@ export class InstituteFeaturesService {
         await this.featureSystemRepository.upsert(instituteId, key, enabled);
       }
     });
+    await this.systemCache.delForInstitute(
+      instituteId,
+      CacheKeys.instituteFeatures,
+      [],
+    );
     return this.getForInstitute(instituteId);
   }
 

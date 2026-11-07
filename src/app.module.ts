@@ -2,6 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './database/prisma.module';
 import { RequestContextModule } from './context/request-context.module';
+import { RedisModule } from './infrastructure/redis/redis.module';
+import { CacheModule } from './infrastructure/cache/cache.module';
+import { HealthModule } from './infrastructure/health/health.module';
+import { RateLimitModule } from './infrastructure/rate-limit/rate-limit.module';
+import { LockModule } from './infrastructure/lock/lock.module';
+import { QueueModule } from './infrastructure/queue/queue.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { InstitutesModule } from './modules/institutes/institutes.module';
@@ -19,6 +25,15 @@ import { StudentFieldsModule } from './modules/student-fields/student-fields.mod
 import { StudentsModule } from './modules/students/students.module';
 import { InstituteFeaturesModule } from './modules/institute-features/institute-features.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { ReferenceDataModule } from './modules/reference-data/reference-data.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
+import { FeesModule } from './modules/fees/fees.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { ExamsModule } from './modules/exams/exams.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { StaffModule } from './modules/staff/staff.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 
 @Module({
   imports: [
@@ -31,6 +46,13 @@ import { StorageModule } from './modules/storage/storage.module';
     // Infrastructure
     PrismaModule,
     RequestContextModule,
+    RedisModule,
+    CacheModule,
+    LockModule,
+    QueueModule,
+    HealthModule,
+    // Before AuthModule: its global guard must throttle before authentication
+    RateLimitModule,
 
     // Domain modules
     AuthModule,
@@ -50,6 +72,15 @@ import { StorageModule } from './modules/storage/storage.module';
     StudentsModule,
     InstituteFeaturesModule,
     StorageModule,
+    ReferenceDataModule,
+    EnrollmentsModule,
+    FeesModule,
+    AttendanceModule,
+    ExamsModule,
+    DashboardModule,
+    StaffModule,
+    ReportsModule,
+    JobsModule,
   ],
 })
 export class AppModule {}

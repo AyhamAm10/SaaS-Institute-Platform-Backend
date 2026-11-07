@@ -15,11 +15,11 @@ import {
 import { StudentFieldsService } from './student-fields.service';
 import { CreateStudentFieldDto } from './dto/create-student-field.dto';
 import { UpdateStudentFieldDto } from './dto/update-student-field.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/types/user-role.enum';
+import { RequireResource } from '../../common/decorators/permissions.decorator';
+import { Resource } from '../../common/types/permissions';
 
 @Controller('student-fields')
-@Roles(UserRole.INSTITUTE_ADMIN, UserRole.SUPER_ADMIN)
+@RequireResource(Resource.Settings)
 export class StudentFieldsController {
   constructor(
     @Inject(StudentFieldsService)

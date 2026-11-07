@@ -6,7 +6,6 @@ import bcrypt from 'bcryptjs';
 import {
   HttpException,
   UnauthorizedException,
-  NotFoundException,
 } from '@nestjs/common';
 
 describe('AuthService', () => {
@@ -81,21 +80,37 @@ describe('AuthService', () => {
       });
     });
 
-    it('throws NotFoundException when user phone does not exist', async () => {
+    it('throws UnauthorizedException when user phone does not exist and calls bcrypt.compare once', async () => {
       userSystemRepo.findLoginCandidates.mockResolvedValue([] as any);
+      const compareSpy = jest.spyOn(bcrypt, 'compare');
 
       await expect(
         authService.login({ phone: '+966500000000', password: 'Password123!' }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(compareSpy).toHaveBeenCalledTimes(1);
+      compareSpy.mockRestore();
     });
 
-    it('throws UnauthorizedException when password is wrong', async () => {
+    it('throws UnauthorizedException with exact same message when password is wrong', async () => {
       userSystemRepo.findLoginCandidates.mockResolvedValue([mockUser] as any);
 
       await expect(
         authService.login({
           phone: '+966500000001',
           password: 'WrongPassword',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException when institute code has no match', async () => {
+      userSystemRepo.findLoginCandidates.mockResolvedValue([] as any);
+
+      await expect(
+        authService.login({
+          phone: '+966500000001',
+          password: 'Password123!',
+          instituteCode: 'NONEXISTENT',
         }),
       ).rejects.toThrow(UnauthorizedException);
     });
@@ -151,6 +166,22 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
+    it('refuses a deactivated (soft-deleted) account', async () => {
+      prismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 1,
+        userId: 1,
+        tokenHash: 'mock-hash-sha256',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as never);
+      // findByIdWithInstitute filters deletedAt: null → no user
+      userSystemRepo.findByIdWithInstitute.mockResolvedValue(null as never);
+
+      await expect(
+        authService.refresh({ refreshToken: 'mock-refresh-token' }),
+      ).rejects.toThrow();
+      expect(prismaService.refreshToken.create).not.toHaveBeenCalled();
+    });
+
     it('rotates tokens successfully with valid active refresh token', async () => {
       const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       prismaService.refreshToken.findUnique.mockResolvedValue({
@@ -159,7 +190,7 @@ describe('AuthService', () => {
         tokenHash: 'mock-hash-sha256',
         expiresAt: futureDate,
       } as never);
-      userSystemRepo.findById.mockResolvedValue(mockUser as any);
+      userSystemRepo.findByIdWithInstitute.mockResolvedValue(mockUser as any);
 
       const result = await authService.refresh({
         refreshToken: 'mock-refresh-token',
@@ -231,6 +262,9 @@ describe('AuthService', () => {
       expect(profile.id).toBe(1);
       expect(profile.institute.name).toBe('Al-Noor Academy');
       expect((profile as any).passwordHash).toBeUndefined();
+      expect(profile.permissions).toEqual(
+        expect.arrayContaining(['staff.manage', 'marks.enter']),
+      );
     });
   });
 });

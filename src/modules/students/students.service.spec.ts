@@ -8,6 +8,7 @@ import { FamilyRepository } from '../families/family.repository';
 import { StudentFieldRepository } from '../student-fields/student-field.repository';
 import { SectionRepository } from '../sections/section.repository';
 import { BranchRepository } from '../branches/branch.repository';
+import { StudentReferencesResolver } from './student-references.resolver';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { RequestContext } from '../../context/request-context';
 
@@ -16,7 +17,6 @@ describe('StudentsService', () => {
   let studentRepo: any;
   let enrollmentRepo: any;
   let familyRepo: any;
-  let fieldRepo: any;
   let sectionRepo: any;
 
   const mockStudent = {
@@ -65,6 +65,10 @@ describe('StudentsService', () => {
         { provide: StudentRepository, useValue: mockStudentRepo },
         { provide: StudentEnrollmentRepository, useValue: mockEnrollmentRepo },
         { provide: BranchRepository, useValue: mockBranchRepo },
+        {
+          provide: StudentReferencesResolver,
+          useValue: { resolve: jest.fn().mockResolvedValue({} as never) },
+        },
         { provide: FamilyRepository, useValue: mockFamilyRepo },
         { provide: StudentFieldRepository, useValue: mockFieldRepo },
         { provide: SectionRepository, useValue: mockSectionRepo },
@@ -76,7 +80,6 @@ describe('StudentsService', () => {
     studentRepo = module.get(StudentRepository);
     enrollmentRepo = module.get(StudentEnrollmentRepository);
     familyRepo = module.get(FamilyRepository);
-    fieldRepo = module.get(StudentFieldRepository);
     sectionRepo = module.get(SectionRepository);
   });
 

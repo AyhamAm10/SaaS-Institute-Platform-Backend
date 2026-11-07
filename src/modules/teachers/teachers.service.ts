@@ -7,6 +7,7 @@ import { UserRepository } from '../users/user.repository';
 import { AcademicBranchRepository } from '../academic-branches/academic-branch.repository';
 import { SubjectRepository } from '../subjects/subject.repository';
 import { BranchRepository } from '../branches/branch.repository';
+import { AuthService } from '../auth/auth.service';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
@@ -16,12 +17,15 @@ import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { TeacherQueryDto } from './dto/teacher-query.dto';
 import { TeacherQualificationDto } from './dto/teacher-assignment.dto';
 import { TeacherAvailabilityItemDto } from './dto/teacher-availability.dto';
+import { ResetStaffPasswordDto } from '../staff/dto/staff.dto';
 import { RequestContext } from '../../context/request-context';
 
 function parseTimeToMinutes(timeStr: string): number {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return (hours ?? 0) * 60 + (minutes ?? 0);
 }
+
+const HASH_ROUNDS = 12;
 
 @Injectable()
 export class TeachersService {
@@ -40,6 +44,8 @@ export class TeachersService {
     private readonly subjectRepository: SubjectRepository,
     @Inject(BranchRepository)
     private readonly branchRepository: BranchRepository,
+    @Inject(AuthService)
+    private readonly authService: AuthService,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
   ) {}
@@ -113,8 +119,7 @@ export class TeachersService {
       this.validateAvailabilityWindows(dto.availabilities);
     }
 
-    const defaultPassword = dto.password?.trim() || 'Teacher123!';
-    const passwordHash = await bcrypt.hash(defaultPassword, 12);
+    const passwordHash = await bcrypt.hash(dto.password, HASH_ROUNDS);
     const instituteId = this.teacherRepository.getInstituteId();
 
     return this.transactionHelper.executeInTransaction(async () => {
@@ -402,6 +407,20 @@ export class TeachersService {
     Ensure.exists(teacher, 'Teacher');
     await this.ensureTeacherAssignedToContextBranch(teacherId);
     return this.availabilityRepository.findByTeacher(teacherId);
+  }
+
+  /**
+   * Reset teacher password and revoke sessions (role.md §8.6).
+   */
+  async resetPassword(id: number, dto: ResetStaffPasswordDto) {
+    const teacher = await this.teacherRepository.findById(id);
+    Ensure.exists(teacher, 'Teacher');
+    await this.ensureTeacherAssignedToContextBranch(id);
+
+    const passwordHash = await bcrypt.hash(dto.password, HASH_ROUNDS);
+    await this.userRepository.update(teacher.userId, { passwordHash });
+    await this.authService.logout(teacher.userId);
+    return { updated: true };
   }
 
   /**

@@ -2,6 +2,8 @@ import { jest } from '@jest/globals';
 import { InstituteClockService } from './institute-clock.service';
 import { InstituteRepository } from './institute.repository';
 import { RequestContext } from '../../context/request-context';
+import { CacheService } from '../../infrastructure/cache/cache.service';
+import { InMemoryCacheStore } from '../../infrastructure/cache/in-memory-cache.store';
 
 describe('InstituteClockService', () => {
   const ctx = {
@@ -15,7 +17,8 @@ describe('InstituteClockService', () => {
     const repo = {
       findById: jest.fn(async () => (timezone ? { id: 7, timezone } : null)),
     } as unknown as InstituteRepository;
-    return { clock: new InstituteClockService(repo), repo };
+    const cache = new CacheService(new InMemoryCacheStore());
+    return { clock: new InstituteClockService(repo, cache), repo };
   }
 
   it('computes local parts in the institute time zone', async () => {
@@ -35,5 +38,16 @@ describe('InstituteClockService', () => {
     const timezone = await RequestContext.run(ctx, () => clock.getTimezone());
 
     expect(timezone).toBe('Asia/Damascus');
+  });
+
+  it('caches the time zone per institute', async () => {
+    const { clock, repo } = createClock('Africa/Cairo');
+
+    await RequestContext.run(ctx, async () => {
+      await clock.today();
+      await clock.today();
+    });
+
+    expect(repo.findById).toHaveBeenCalledTimes(1);
   });
 });

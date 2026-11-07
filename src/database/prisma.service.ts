@@ -41,4 +41,14 @@ export class PrismaService
     await this.$disconnect();
     this.logger.log('Disconnected from PostgreSQL');
   }
+
+  /** Liveness probe used by the health endpoint. */
+  async ping(): Promise<boolean> {
+    try {
+      await this.$queryRaw`SELECT 1`;
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

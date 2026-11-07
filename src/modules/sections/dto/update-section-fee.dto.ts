@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, Min } from 'class-validator';
+import { Currency } from '@prisma/client';
 
 /**
  * DTO for dedicated section fee update endpoint.
@@ -10,4 +11,9 @@ export class UpdateSectionFeeDto {
   @Min(0)
   @Type(() => Number)
   feeAmount: number;
+
+  /** SYP (default) or USD. */
+  @IsOptional()
+  @IsEnum(Currency)
+  feeCurrency?: Currency;
 }
