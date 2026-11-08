@@ -48,8 +48,28 @@ describe('StudentsService', () => {
       create: jest.fn(),
       findFamilyById: jest.fn(),
     };
+    const mockBloodTypeField = {
+      id: 1,
+      name: 'blood_type',
+      label: 'فصيلة الدم',
+      type: 'SELECT',
+      options: ['O+', 'A+'],
+      isRequired: false,
+      isFilterable: true,
+      isActive: true,
+    };
+    const mockNotesField = {
+      id: 2,
+      name: 'notes',
+      label: 'ملاحظات',
+      type: 'TEXT',
+      options: [],
+      isRequired: false,
+      isFilterable: false,
+      isActive: true,
+    };
     const mockFieldRepo = {
-      findAllForTenant: jest.fn().mockResolvedValue([] as any),
+      findAllForTenant: jest.fn().mockResolvedValue([mockBloodTypeField, mockNotesField] as any),
     };
     const mockSectionRepo = {
       findRawById: jest.fn(),
@@ -180,7 +200,7 @@ describe('StudentsService', () => {
         expect(result.data).toHaveLength(1);
         expect(result.total).toBe(1);
         // No header year: the current year picks the enrollment shown
-        expect(studentRepo.findFiltered).toHaveBeenCalledWith({ page: 1, limit: 20 }, 11);
+        expect(studentRepo.findFiltered).toHaveBeenCalledWith({ page: 1, limit: 20 }, 11, undefined);
       },
     );
   });
@@ -257,11 +277,12 @@ describe('StudentsService context year', () => {
   it('uses the header year when there is one', async () => {
     const repo = { findFiltered: jest.fn(async () => ({ data: [], total: 0 })) };
     const years = { findCurrentYear: jest.fn() };
+    const fieldRepo = { findAllForTenant: jest.fn().mockResolvedValue([]) };
     const service = new StudentsService(
       repo as never,
       {} as never,
       {} as never,
-      {} as never,
+      fieldRepo as never,
       {} as never,
       {} as never,
       {} as never,
@@ -272,7 +293,58 @@ describe('StudentsService context year', () => {
       { userId: 1, instituteId: 1, role: 'INSTITUTE_ADMIN', language: 'en', academicYearId: 5 },
       () => service.findAll({ page: 1, limit: 20, unassigned: true } as never),
     );
-    expect(repo.findFiltered).toHaveBeenCalledWith({ page: 1, limit: 20, unassigned: true }, 5);
+    expect(repo.findFiltered).toHaveBeenCalledWith({ page: 1, limit: 20, unassigned: true }, 5, undefined);
     expect(years.findCurrentYear).not.toHaveBeenCalled();
+  });
+
+  it('validates customFilters and rejects non-filterable or invalid options', async () => {
+    const repo = { findFiltered: jest.fn(async () => ({ data: [], total: 0 })) };
+    const years = { findCurrentYear: jest.fn() };
+    const fieldRepo = {
+      findAllForTenant: jest.fn().mockResolvedValue([
+        { name: 'blood_type', label: 'فصيلة الدم', type: 'SELECT', options: ['A+', 'O+'], isFilterable: true },
+        { name: 'has_scholarship', label: 'منحة', type: 'BOOLEAN', isFilterable: true },
+        { name: 'notes', label: 'ملاحظات', type: 'TEXT', isFilterable: false },
+      ]),
+    };
+    const service = new StudentsService(
+      repo as never,
+      {} as never,
+      {} as never,
+      fieldRepo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      years as never,
+      {} as never,
+    );
+
+    await RequestContext.run(
+      { userId: 1, instituteId: 1, role: 'INSTITUTE_ADMIN', language: 'en' },
+      async () => {
+        // Valid custom filter
+        await service.findAll({ customFilters: JSON.stringify({ blood_type: 'A+', has_scholarship: true }) });
+        expect(repo.findFiltered).toHaveBeenCalledWith(
+          expect.anything(),
+          null,
+          { blood_type: 'A+', has_scholarship: true },
+        );
+
+        // Non-filterable field rejected
+        await expect(
+          service.findAll({ customFilters: JSON.stringify({ notes: 'test' }) }),
+        ).rejects.toThrow(HttpException);
+
+        // Invalid option rejected
+        await expect(
+          service.findAll({ customFilters: JSON.stringify({ blood_type: 'INVALID' }) }),
+        ).rejects.toThrow(HttpException);
+
+        // Non-existent field rejected
+        await expect(
+          service.findAll({ customFilters: JSON.stringify({ non_existent: 'val' }) }),
+        ).rejects.toThrow(HttpException);
+      },
+    );
   });
 });

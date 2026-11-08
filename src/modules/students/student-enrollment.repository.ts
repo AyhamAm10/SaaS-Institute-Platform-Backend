@@ -13,6 +13,7 @@ const ROSTER_INCLUDE = {
       branchId: true,
       family: { select: { id: true, familyName: true, phone: true } },
       status: { select: { id: true, name: true, tone: true } },
+      customFields: true,
     },
   },
   subjects: {
@@ -174,6 +175,7 @@ export interface RosterRow extends StudentEnrollment {
     branchId: number;
     family: { id: number; familyName: string; phone: string | null } | null;
     status: { id: number; name: string; tone: string } | null;
+    customFields?: unknown;
   };
   subjects: { subjectId: number; subject: { id: number; name: string } }[];
 }

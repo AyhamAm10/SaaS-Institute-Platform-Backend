@@ -43,6 +43,16 @@ export class StudentQueryDto extends PaginationQueryDto {
   @Type(() => Number)
   schoolId?: number;
 
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  knowWayId?: number;
+
+  @IsOptional()
+  @IsString()
+  customFilters?: string;
+
   /**
    * Only students without an enrollment in the context academic year (header
    * year, else the current one). The year itself is never a query parameter.

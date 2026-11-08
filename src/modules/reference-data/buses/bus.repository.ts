@@ -48,9 +48,14 @@ export class BusRepository
   }
 
   /** Students using the bus. */
-  async countUsage(id: number): Promise<number> {
+  async countUsage(id: number, excludeStudentId?: number | null): Promise<number> {
     return this.client.student.count({
-      where: { instituteId: this.getInstituteId(), busId: id, deletedAt: null },
+      where: {
+        instituteId: this.getInstituteId(),
+        busId: id,
+        deletedAt: null,
+        ...(excludeStudentId ? { id: { not: excludeStudentId } } : {}),
+      },
     });
   }
 }

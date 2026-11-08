@@ -20,7 +20,13 @@ export type ReportParamKind =
   | 'currency'
   | 'paymentMethod'
   | 'minCount'
-  | 'days';
+  | 'days'
+  | 'status'
+  | 'city'
+  | 'school'
+  | 'bus'
+  | 'knowWay'
+  | 'customFilters';
 
 export interface ReportParam {
   kind: ReportParamKind;
@@ -77,6 +83,22 @@ export const REPORT_CATALOG: readonly ReportDefinition[] = [
     description: 'البيانات الشخصية والعائلة والتسجيلات في صفحة واحدة',
     permission: 'students.view',
     params: [req('student')],
+  },
+  {
+    key: 'students-directory',
+    category: 'student',
+    title: 'قائمة الطلاب',
+    description: 'دليل الطلاب مع بيانات التواصل والشعب والحقول المخصصة',
+    permission: 'students.view',
+    params: [
+      opt('section'),
+      opt('status'),
+      opt('city'),
+      opt('school'),
+      opt('bus'),
+      opt('knowWay'),
+      opt('customFilters'),
+    ],
   },
   // ── Finance ────────────────────────────────────────────────────────────
   {

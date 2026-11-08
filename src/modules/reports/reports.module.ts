@@ -10,6 +10,7 @@ import { ExamsModule } from '../exams/exams.module';
 import { TimetablesModule } from '../timetables/timetables.module';
 import { TeachersModule } from '../teachers/teachers.module';
 import { StaffModule } from '../staff/staff.module';
+import { StudentFieldsModule } from '../student-fields/student-fields.module';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { ReportVerificationService } from './report-verification.service';
@@ -38,6 +39,7 @@ import { AdminReports } from './builders/admin.reports';
     TimetablesModule,
     TeachersModule,
     StaffModule,
+    StudentFieldsModule,
   ],
   controllers: [ReportsController],
   providers: [

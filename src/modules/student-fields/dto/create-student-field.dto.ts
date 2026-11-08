@@ -48,6 +48,10 @@ export class CreateStudentFieldDto {
   @IsOptional()
   displayInReport?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  isFilterable?: boolean;
+
   @IsNumber()
   @IsOptional()
   sortOrder?: number;

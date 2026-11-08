@@ -3,9 +3,10 @@ import { EnrollmentsService } from '../../enrollments/enrollments.service';
 import { SectionsService } from '../../sections/sections.service';
 import { AttendanceService } from '../../attendance/attendance.service';
 import { ExamsService } from '../../exams/exams.service';
+import { StudentFieldsService } from '../../student-fields/student-fields.service';
 import { ExamWithRefs } from '../../exams/exam.repository';
 import { dayOfWeekOf } from '../../attendance/attendance.rules';
-import { ReportBody } from '../document/report-document';
+import { ReportBody, ReportColumn, ReportRow } from '../document/report-document';
 import { dateText, GENDER_LABELS, isoDate, WEEKDAY_LABELS } from '../document/report-format';
 import { nextWorkingDays } from '../reports.rules';
 import { ReportBuilderGroup, ReportContext } from './report-context';
@@ -22,6 +23,8 @@ export class SheetReports implements ReportBuilderGroup {
     @Inject(SectionsService) private readonly sections: SectionsService,
     @Inject(AttendanceService) private readonly attendance: AttendanceService,
     @Inject(ExamsService) private readonly exams: ExamsService,
+    @Inject(StudentFieldsService)
+    private readonly studentFields: StudentFieldsService,
   ) {}
 
   readonly builders = {
@@ -42,13 +45,63 @@ export class SheetReports implements ReportBuilderGroup {
   }
 
   private async roster(ctx: ReportContext): Promise<ReportBody> {
-    const { section, students } = await this.activeRoster(ctx.query.sectionId!);
+    const [{ section, students }, allFields] = await Promise.all([
+      this.activeRoster(ctx.query.sectionId!),
+      this.studentFields.findAll(false),
+    ]);
+    const reportFields = allFields
+      .filter((f) => f.displayInReport)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .slice(0, 4);
+
     const males = students.filter((s) => s.student.gender === 'MALE').length;
+
+    const columns: ReportColumn[] = [
+      { key: 'n', title: '#', kind: 'number', width: 0.35 },
+      { key: 'student', title: 'الطالب', kind: 'text', width: 1.8 },
+      { key: 'gender', title: 'الجنس', kind: 'text', width: 0.5 },
+      { key: 'family', title: 'العائلة', kind: 'text' },
+      { key: 'phone', title: 'هاتف ولي الأمر', kind: 'phone' },
+      { key: 'status', title: 'الحالة', kind: 'text', width: 0.7 },
+      ...reportFields.map((f) => ({
+        key: `cf_${f.name}`,
+        title: f.label,
+        kind: 'text' as const,
+      })),
+      { key: 'notes', title: 'ملاحظات', kind: 'blank', width: 1.2 },
+    ];
+
+    const rows: ReportRow[] = students.map((s, i) => {
+      const customData =
+        (s.student.customFields as Record<string, unknown>) || {};
+      const row: ReportRow = {
+        n: i + 1,
+        student: s.student.fullName,
+        gender: GENDER_LABELS[s.student.gender] ?? '—',
+        family: s.student.familyName ?? '—',
+        phone: s.student.phone,
+        status: s.student.status?.name ?? '—',
+      };
+      for (const f of reportFields) {
+        const val = customData[f.name];
+        if (val === undefined || val === null || String(val).trim() === '') {
+          row[`cf_${f.name}`] = '—';
+        } else if (f.type === 'BOOLEAN') {
+          row[`cf_${f.name}`] = val === true || val === 'true' ? 'نعم' : 'لا';
+        } else if (f.type === 'DATE') {
+          row[`cf_${f.name}`] = isoDate(val as string | Date);
+        } else {
+          row[`cf_${f.name}`] = String(val);
+        }
+      }
+      row.notes = null;
+      return row;
+    });
 
     return {
       title: 'قائمة طلاب الشعبة',
       subtitle: 'الأسماء مع أرقام أولياء الأمور للتواصل',
-      orientation: 'portrait',
+      orientation: reportFields.length > 2 ? 'landscape' : 'portrait',
       meta: [
         { label: 'الشعبة', value: section.name },
         ...(ctx.year ? [{ label: 'السنة الدراسية', value: ctx.year.name }] : []),
@@ -64,24 +117,8 @@ export class SheetReports implements ReportBuilderGroup {
         },
         {
           type: 'table',
-          columns: [
-            { key: 'n', title: '#', kind: 'number', width: 0.35 },
-            { key: 'student', title: 'الطالب', kind: 'text', width: 1.8 },
-            { key: 'gender', title: 'الجنس', kind: 'text', width: 0.5 },
-            { key: 'family', title: 'العائلة', kind: 'text' },
-            { key: 'phone', title: 'هاتف ولي الأمر', kind: 'phone' },
-            { key: 'status', title: 'الحالة', kind: 'text', width: 0.7 },
-            { key: 'notes', title: 'ملاحظات', kind: 'blank', width: 1.2 },
-          ],
-          rows: students.map((s, i) => ({
-            n: i + 1,
-            student: s.student.fullName,
-            gender: GENDER_LABELS[s.student.gender] ?? '—',
-            family: s.student.familyName ?? '—',
-            phone: s.student.phone,
-            status: s.student.status?.name ?? '—',
-            notes: null,
-          })),
+          columns,
+          rows,
           ruled: true,
           emptyText: 'لا يوجد طلاب في هذه الشعبة',
         },

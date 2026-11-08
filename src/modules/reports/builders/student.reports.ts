@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { InstallmentStatus } from '@prisma/client';
 import { StudentsService } from '../../students/students.service';
+import { StudentQueryDto } from '../../students/dto/student-query.dto';
+import { StudentFieldsService } from '../../student-fields/student-fields.service';
 import { FeesReportDataService } from '../../fees/fees-report-data.service';
 import { FeesReportsService } from '../../fees/fees-reports.service';
 import { ExamsService } from '../../exams/exams.service';
@@ -8,7 +10,7 @@ import { AttendanceService } from '../../attendance/attendance.service';
 import { attendanceRate } from '../../attendance/attendance.rules';
 import { hasPermission } from '../../../common/types/permissions';
 import { RequestContext } from '../../../context/request-context';
-import { badge, BadgeCell, money, ReportBlock, ReportBody, StatItem } from '../document/report-document';
+import { badge, BadgeCell, money, ReportBlock, ReportBody, ReportColumn, ReportRow, StatItem } from '../document/report-document';
 import {
   attendanceBadge,
   dateText,
@@ -22,7 +24,7 @@ import {
   timeText,
   WEEKDAY_LABELS,
 } from '../document/report-format';
-import { average, percent, resolvePeriod } from '../reports.rules';
+import { average, percent, REPORT_ROW_LIMIT, resolvePeriod } from '../reports.rules';
 import { ReportBuilderGroup, ReportContext } from './report-context';
 import { CURRENCY_ORDER, num, openAmount } from './report-helpers';
 import { dayOfWeekOf } from '../../attendance/attendance.rules';
@@ -32,6 +34,8 @@ import { dayOfWeekOf } from '../../attendance/attendance.rules';
 export class StudentReports implements ReportBuilderGroup {
   constructor(
     @Inject(StudentsService) private readonly students: StudentsService,
+    @Inject(StudentFieldsService)
+    private readonly studentFields: StudentFieldsService,
     @Inject(FeesReportDataService) private readonly feesData: FeesReportDataService,
     @Inject(FeesReportsService) private readonly feesReports: FeesReportsService,
     @Inject(ExamsService) private readonly exams: ExamsService,
@@ -43,6 +47,7 @@ export class StudentReports implements ReportBuilderGroup {
     'student-transcript': (ctx: ReportContext) => this.transcript(ctx),
     'student-attendance': (ctx: ReportContext) => this.attendanceLog(ctx),
     'student-card': (ctx: ReportContext) => this.card(ctx),
+    'students-directory': (ctx: ReportContext) => this.directory(ctx),
   };
 
   private async statement(ctx: ReportContext): Promise<ReportBody> {
@@ -313,6 +318,26 @@ export class StudentReports implements ReportBuilderGroup {
       stats.push({ label: 'المعدل العام', kind: 'percent', value: avg, tone: gradeTone(avg) });
     }
 
+    const allFields = await this.studentFields.findAll(false);
+    const reportFields = allFields
+      .filter((f) => f.displayInReport)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const customItems: { label: string; value: string }[] = [];
+    const studentCustomData =
+      (student.customFields as Record<string, unknown>) || {};
+    for (const field of reportFields) {
+      const val = studentCustomData[field.name];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        let formatted = String(val);
+        if (field.type === 'BOOLEAN') {
+          formatted = val === true || val === 'true' ? 'نعم' : 'لا';
+        } else if (field.type === 'DATE') {
+          formatted = isoDate(val as string | Date);
+        }
+        customItems.push({ label: field.label, value: formatted });
+      }
+    }
+
     return {
       title: 'بطاقة الطالب الشاملة',
       subtitle: 'البيانات الشخصية والعائلة والتسجيلات',
@@ -347,6 +372,16 @@ export class StudentReports implements ReportBuilderGroup {
             { label: 'اسم الأم', value: student.family?.motherName ?? '—' },
           ],
         },
+        ...(customItems.length
+          ? [
+              {
+                type: 'fields' as const,
+                title: 'معلومات إضافية',
+                columns: 3 as const,
+                items: customItems,
+              },
+            ]
+          : []),
         ...(stats.length ? [{ type: 'stats' as const, title: 'ملخص', items: stats }] : []),
         {
           type: 'table',
@@ -364,6 +399,104 @@ export class StudentReports implements ReportBuilderGroup {
             status: badge(ENROLLMENT_STATUS_LABELS[e.status] ?? e.status, e.status === 'ACTIVE' ? 'success' : 'neutral'),
           })),
           emptyText: 'لا توجد تسجيلات',
+        },
+      ],
+    };
+  }
+
+  private async directory(ctx: ReportContext): Promise<ReportBody> {
+    const [allFields, paginated] = await Promise.all([
+      this.studentFields.findAll(false),
+      this.students.findAll(
+        Object.assign(new StudentQueryDto(), {
+          sectionId: ctx.query.sectionId,
+          statusId: ctx.query.statusId,
+          cityId: ctx.query.cityId,
+          schoolId: ctx.query.schoolId,
+          busId: ctx.query.busId,
+          knowWayId: ctx.query.knowWayId,
+          customFilters: ctx.query.customFilters,
+          page: 1,
+          limit: REPORT_ROW_LIMIT,
+        }),
+      ),
+    ]);
+
+    const reportFields = allFields
+      .filter((f) => f.displayInReport)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const students = paginated.data || [];
+    const males = students.filter((s: any) => s.gender === 'MALE').length;
+
+    const columns: ReportColumn[] = [
+      { key: 'n', title: '#', kind: 'number', width: 0.35 },
+      { key: 'student', title: 'الاسم', kind: 'text', width: 1.5 },
+      { key: 'gender', title: 'الجنس', kind: 'text', width: 0.5 },
+      { key: 'family', title: 'العائلة', kind: 'text' },
+      { key: 'phone', title: 'الهاتف', kind: 'phone' },
+      { key: 'status', title: 'الحالة', kind: 'badge', width: 0.8 },
+      { key: 'section', title: 'الشعبة', kind: 'text', width: 1 },
+      ...reportFields.map((f) => ({
+        key: `cf_${f.name}`,
+        title: f.label,
+        kind: 'text' as const,
+      })),
+    ];
+
+    const rows: ReportRow[] = students.map((s: any, idx: number) => {
+      const activeEnrollment = (s.studentEnrollments || []).find(
+        (e: any) => e.status === 'ACTIVE',
+      );
+      const customData = (s.customFields as Record<string, unknown>) || {};
+      const row: ReportRow = {
+        n: idx + 1,
+        student: s.fullName,
+        gender: GENDER_LABELS[s.gender] ?? '—',
+        family: s.family?.familyName ?? '—',
+        phone: s.family?.phone ?? '—',
+        status: badge(s.status?.name ?? '—', 'neutral'),
+        section: activeEnrollment?.section?.name ?? '—',
+      };
+
+      for (const f of reportFields) {
+        const val = customData[f.name];
+        if (val === undefined || val === null || String(val).trim() === '') {
+          row[`cf_${f.name}`] = '—';
+        } else if (f.type === 'BOOLEAN') {
+          row[`cf_${f.name}`] = val === true || val === 'true' ? 'نعم' : 'لا';
+        } else if (f.type === 'DATE') {
+          row[`cf_${f.name}`] = isoDate(val as string | Date);
+        } else {
+          row[`cf_${f.name}`] = String(val);
+        }
+      }
+
+      return row;
+    });
+
+    return {
+      title: 'قائمة الطلاب',
+      subtitle: 'دليل الطلاب مع بيانات التواصل والشعب والحقول المخصصة',
+      orientation: reportFields.length > 2 ? 'landscape' : 'portrait',
+      meta: [
+        ...(ctx.year ? [{ label: 'السنة الدراسية', value: ctx.year.name }] : []),
+        { label: 'إجمالي النتائج', value: String(paginated.total) },
+      ],
+      blocks: [
+        {
+          type: 'stats',
+          items: [
+            { label: 'عدد الطلاب', value: paginated.total, tone: 'brand' },
+            { label: 'ذكور', value: males, tone: 'info' },
+            { label: 'إناث', value: students.length - males, tone: 'info' },
+          ],
+        },
+        {
+          type: 'table',
+          columns,
+          rows,
+          emptyText: 'لا يوجد طلاب يطابقون هذه المعايير',
         },
       ],
     };

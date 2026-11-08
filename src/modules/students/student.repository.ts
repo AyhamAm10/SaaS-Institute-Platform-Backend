@@ -32,10 +32,13 @@ export class StudentRepository extends ContextScopedRepository<Student> {
    * (or, with `unassigned`, students not enrolled in that year).
    * null = no year yet (falls back to all branch students).
    */
-  async findFiltered(query: StudentQueryDto, contextYearId: number | null): Promise<PaginatedResult<any>> {
+  async findFiltered(
+    query: StudentQueryDto,
+    contextYearId: number | null,
+    customFilters?: Record<string, unknown>,
+  ): Promise<PaginatedResult<any>> {
     const instituteId = this.getInstituteId();
     const where: Prisma.StudentWhereInput = { instituteId };
-
 
     if (query.familyId !== undefined) {
       where.familyId = query.familyId;
@@ -44,27 +47,40 @@ export class StudentRepository extends ContextScopedRepository<Student> {
     if (query.busId !== undefined) where.busId = query.busId;
     if (query.cityId !== undefined) where.cityId = query.cityId;
     if (query.schoolId !== undefined) where.schoolId = query.schoolId;
+    if (query.knowWayId !== undefined) where.knowWayId = query.knowWayId;
 
-    const enrollmentFilters: Prisma.StudentWhereInput[] = [];
+    const andConditions: Prisma.StudentWhereInput[] = [];
     if (query.sectionId !== undefined) {
-      enrollmentFilters.push({
+      andConditions.push({
         studentEnrollments: { some: { sectionId: query.sectionId } },
       });
     } else if (query.unassigned && contextYearId !== null) {
-      enrollmentFilters.push({
+      andConditions.push({
         studentEnrollments: { none: { academicYearId: contextYearId } },
       });
     } else if (contextYearId !== null) {
       // Enrolled in the year, or registered but never enrolled yet (a new
       // student must not vanish until they are added to a section)
-      enrollmentFilters.push({
+      andConditions.push({
         OR: [
           { studentEnrollments: { some: { academicYearId: contextYearId } } },
           { studentEnrollments: { none: {} } },
         ],
       });
     }
-    if (enrollmentFilters.length > 0) where.AND = enrollmentFilters;
+
+    if (customFilters && Object.keys(customFilters).length > 0) {
+      for (const [key, value] of Object.entries(customFilters)) {
+        andConditions.push({
+          customFields: {
+            path: [key],
+            equals: value as Prisma.InputJsonValue,
+          },
+        });
+      }
+    }
+
+    if (andConditions.length > 0) where.AND = andConditions;
 
     if (query.search && query.search.trim()) {
       const q = query.search.trim();

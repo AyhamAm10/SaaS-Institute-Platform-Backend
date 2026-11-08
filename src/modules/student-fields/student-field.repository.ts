@@ -36,4 +36,45 @@ export class StudentFieldRepository extends TenantAwareRepository<StudentField> 
       where: { id, instituteId },
     });
   }
+
+  async countStudentsUsingOption(
+    fieldName: string,
+    option: string,
+  ): Promise<number> {
+    const instituteId = this.getInstituteId();
+    return (this.client as any).student.count({
+      where: {
+        instituteId,
+        deletedAt: null,
+        customFields: {
+          path: [fieldName],
+          equals: option,
+        },
+      },
+    });
+  }
+
+  async countStudentsUsingField(fieldName: string): Promise<number> {
+    const instituteId = this.getInstituteId();
+    return (this.client as any).student.count({
+      where: {
+        instituteId,
+        deletedAt: null,
+        AND: [
+          {
+            customFields: {
+              path: [fieldName],
+              not: Prisma.DbNull,
+            },
+          },
+          {
+            customFields: {
+              path: [fieldName],
+              not: Prisma.JsonNull,
+            },
+          },
+        ],
+      },
+    });
+  }
 }

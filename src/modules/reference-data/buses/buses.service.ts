@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Bus } from '@prisma/client';
 import { RequestContext } from '../../../context/request-context';
 import { Ensure } from '../../../common/errors/ensure';
+import { ErrorMessages } from '../../../common/errors/error-messages';
 import { BranchRepository } from '../../branches/branch.repository';
 import { LookupService } from '../lookup/lookup.service';
 import { BusRepository } from './bus.repository';
@@ -60,5 +61,25 @@ export class BusesService extends LookupService<
     return branchId
       ? this.busRepository.findByNameInBranch(name, branchId)
       : this.busRepository.findByName(name);
+  }
+
+  /**
+   * Asserts the bus has remaining capacity for an additional student.
+   * If `currentStudentId` is provided (student update), they are excluded
+   * so an existing seat on this bus is not double-counted.
+   */
+  async assertHasCapacity(
+    busId: number,
+    currentStudentId?: number | null,
+  ): Promise<void> {
+    const bus = await this.getById(busId);
+    if (bus.capacity !== null && bus.capacity !== undefined && bus.capacity > 0) {
+      const used = await this.busRepository.countUsage(busId, currentStudentId);
+      Ensure.custom(
+        used >= bus.capacity,
+        ErrorMessages.get('bus_capacity_exceeded'),
+        400,
+      );
+    }
   }
 }

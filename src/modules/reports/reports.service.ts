@@ -39,6 +39,12 @@ const PARAM_LABELS: Record<ReportParamKind, string> = {
   paymentMethod: 'طريقة الدفع',
   minCount: 'الحد الأدنى',
   days: 'عدد الأيام',
+  status: 'الحالة',
+  city: 'المدينة',
+  school: 'المدرسة',
+  bus: 'الحافلة',
+  knowWay: 'طريقة المعرفة',
+  customFilters: 'الفلاتر المخصصة',
 };
 
 /**

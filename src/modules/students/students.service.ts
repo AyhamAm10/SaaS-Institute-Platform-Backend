@@ -57,7 +57,7 @@ export class StudentsService {
 
     // Validate custom fields requirements
     const customFields = dto.customFields || {};
-    await this.assertRequiredCustomFields(customFields);
+    await this.validateCustomFields(customFields, { isCreate: true });
 
     return this.transactionHelper.executeInTransaction(async () => {
       let familyId = dto.familyId;
@@ -125,7 +125,14 @@ export class StudentsService {
   }
 
   async findAll(query: StudentQueryDto): Promise<PaginatedResult<any>> {
-    return this.studentRepository.findFiltered(query, await this.contextYearId());
+    const customFilters = await this.validateAndParseCustomFilters(
+      query.customFilters,
+    );
+    return this.studentRepository.findFiltered(
+      query,
+      await this.contextYearId(),
+      customFilters,
+    );
   }
 
   /** Header academic year, else the current one (never created here). */
@@ -210,11 +217,15 @@ export class StudentsService {
         dto.branchId ?? existing.branchId,
         {
           currentBusId: existing.busId,
+          currentCityId: existing.cityId,
+          currentSchoolId: existing.schoolId,
+          currentStudentId: existing.id,
         },
       ),
     );
 
     if (dto.customFields !== undefined) {
+      await this.validateCustomFields(dto.customFields, { isCreate: false });
       const merged = {
         ...(existing.customFields as Record<string, unknown>),
         ...dto.customFields,
@@ -266,5 +277,163 @@ export class StudentsService {
         );
       }
     }
+  }
+
+  private async validateCustomFields(
+    payload: Record<string, unknown>,
+    { isCreate }: { isCreate: boolean },
+  ): Promise<void> {
+    const configuredFields = await this.fieldRepository.findAllForTenant(false);
+    const fieldsMap = new Map(configuredFields.map((f) => [f.name, f]));
+
+    for (const [key, val] of Object.entries(payload)) {
+      const field = fieldsMap.get(key);
+      Ensure.custom(
+        !field,
+        ErrorMessages.get('custom_field_unknown', { field: key }),
+        400,
+      );
+
+      if (val === undefined || val === null || val === '') {
+        continue;
+      }
+
+      if (field!.type === 'NUMBER') {
+        const isNum =
+          typeof val === 'number'
+            ? !Number.isNaN(val)
+            : typeof val === 'string' && /^-?\d+(\.\d+)?$/.test(val.trim());
+        Ensure.custom(
+          !isNum,
+          ErrorMessages.get('custom_field_invalid_number', {
+            field: field!.label,
+          }),
+          400,
+        );
+      } else if (field!.type === 'DATE') {
+        const isDate =
+          typeof val === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(val) &&
+          !Number.isNaN(Date.parse(val));
+        Ensure.custom(
+          !isDate,
+          ErrorMessages.get('custom_field_invalid_date', {
+            field: field!.label,
+          }),
+          400,
+        );
+      } else if (field!.type === 'BOOLEAN') {
+        const isBool =
+          typeof val === 'boolean' || val === 'true' || val === 'false';
+        Ensure.custom(
+          !isBool,
+          ErrorMessages.get('custom_field_invalid_boolean', {
+            field: field!.label,
+          }),
+          400,
+        );
+      } else if (field!.type === 'SELECT') {
+        const options = Array.isArray(field!.options)
+          ? (field!.options as string[])
+          : [];
+        Ensure.custom(
+          typeof val !== 'string' || !options.includes(val),
+          ErrorMessages.get('custom_field_invalid_option', {
+            field: field!.label,
+            value: String(val),
+          }),
+          400,
+        );
+      } else if (field!.type === 'TEXT') {
+        Ensure.custom(
+          typeof val !== 'string',
+          ErrorMessages.get('custom_field_invalid_text', {
+            field: field!.label,
+          }),
+          400,
+        );
+      }
+    }
+
+    if (isCreate) {
+      await this.assertRequiredCustomFields(payload);
+    }
+  }
+
+  private async validateAndParseCustomFilters(
+    raw?: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    if (!raw || !raw.trim()) return undefined;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      Ensure.custom(
+        true,
+        ErrorMessages.get('custom_filters_invalid_json'),
+        400,
+      );
+    }
+
+    Ensure.custom(
+      !parsed || typeof parsed !== 'object' || Array.isArray(parsed),
+      ErrorMessages.get('custom_filters_invalid_json'),
+      400,
+    );
+
+    const configuredFields = await this.fieldRepository.findAllForTenant(false);
+    const fieldsMap = new Map(configuredFields.map((f) => [f.name, f]));
+    const normalized: Record<string, unknown> = {};
+
+    for (const [key, val] of Object.entries(parsed as Record<string, unknown>)) {
+      const field = fieldsMap.get(key);
+      Ensure.custom(
+        !field,
+        ErrorMessages.get('custom_field_unknown', { field: key }),
+        400,
+      );
+      Ensure.custom(
+        !field!.isFilterable,
+        ErrorMessages.get('custom_field_not_filterable', {
+          field: field!.label,
+        }),
+        400,
+      );
+
+      if (field!.type === 'SELECT') {
+        const options = Array.isArray(field!.options)
+          ? (field!.options as string[])
+          : [];
+        Ensure.custom(
+          typeof val !== 'string' || !options.includes(val),
+          ErrorMessages.get('custom_field_invalid_option', {
+            field: field!.label,
+            value: String(val),
+          }),
+          400,
+        );
+        normalized[key] = val;
+      } else if (field!.type === 'BOOLEAN') {
+        Ensure.custom(
+          typeof val !== 'boolean' && val !== 'true' && val !== 'false',
+          ErrorMessages.get('custom_field_invalid_boolean', {
+            field: field!.label,
+          }),
+          400,
+        );
+        normalized[key] = typeof val === 'boolean' ? val : val === 'true';
+      } else {
+        Ensure.custom(
+          true,
+          ErrorMessages.get('custom_field_not_filterable', {
+            field: field!.label,
+          }),
+          400,
+        );
+      }
+    }
+
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
   }
 }

@@ -14,6 +14,7 @@ export interface SectionRosterItem {
     familyName: string | null;
     phone: string | null;
     status: { id: number; name: string; tone: string } | null;
+    customFields?: unknown;
   };
   /** True when no subset was chosen (the student takes every section subject). */
   takesAllSubjects: boolean;

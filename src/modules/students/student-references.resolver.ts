@@ -24,28 +24,63 @@ export class StudentReferencesResolver {
   ) {}
 
   /**
-   * @param branchId     the student's (final) branch
-   * @param currentBusId the bus already linked (update), re-checked if the branch changes
-   * @param isCreate     applies the default status when none is given
+   * @param branchId         the student's (final) branch
+   * @param currentBusId     the bus already linked (update), re-checked if the branch changes
+   * @param currentCityId    the student's existing city (update)
+   * @param currentSchoolId  the student's existing school (update)
+   * @param currentStudentId the student id (update), excluded from bus capacity count
+   * @param isCreate         applies the default status when none is given
    */
   async resolve(
     dto: StudentReferencesDto,
     branchId: number,
     {
       currentBusId = null,
+      currentCityId = null,
+      currentSchoolId = null,
+      currentStudentId = null,
       isCreate = false,
-    }: { currentBusId?: number | null; isCreate?: boolean } = {},
+    }: {
+      currentBusId?: number | null;
+      currentCityId?: number | null;
+      currentSchoolId?: number | null;
+      currentStudentId?: number | null;
+      isCreate?: boolean;
+    } = {},
   ): Promise<Record<string, unknown>> {
     const data: Record<string, unknown> = {};
+
+    const effectiveCityId =
+      dto.cityId !== undefined ? dto.cityId : currentCityId;
 
     if (dto.cityId !== undefined) {
       if (dto.cityId) await this.citiesService.getById(dto.cityId);
       data['cityId'] = dto.cityId;
     }
+
     if (dto.schoolId !== undefined) {
-      if (dto.schoolId) await this.schoolsService.getById(dto.schoolId);
+      if (dto.schoolId) {
+        const school = await this.schoolsService.getById(dto.schoolId);
+        if (
+          school.cityId &&
+          effectiveCityId &&
+          school.cityId !== effectiveCityId
+        ) {
+          Ensure.custom(true, ErrorMessages.get('school_city_mismatch'), 400);
+        }
+      }
       data['schoolId'] = dto.schoolId;
+    } else if (dto.cityId !== undefined && currentSchoolId) {
+      const school = await this.schoolsService.getById(currentSchoolId);
+      if (
+        school.cityId &&
+        effectiveCityId &&
+        school.cityId !== effectiveCityId
+      ) {
+        Ensure.custom(true, ErrorMessages.get('school_city_mismatch'), 400);
+      }
     }
+
     if (dto.knowWayId !== undefined) {
       if (dto.knowWayId) await this.knowWaysService.getById(dto.knowWayId);
       data['knowWayId'] = dto.knowWayId;
@@ -60,7 +95,12 @@ export class StudentReferencesResolver {
         400,
       );
     }
-    if (dto.busId !== undefined) data['busId'] = dto.busId;
+    if (dto.busId !== undefined) {
+      if (dto.busId && dto.busId !== currentBusId) {
+        await this.busesService.assertHasCapacity(dto.busId, currentStudentId);
+      }
+      data['busId'] = dto.busId;
+    }
 
     if (dto.statusId) {
       await this.statusesService.getById(dto.statusId);

@@ -60,7 +60,8 @@ export function moneyText(amount: number, currency: Currency): string {
 }
 
 /** Local date of a stored `@db.Date` value. */
-export function isoDate(value: Date): string {
+export function isoDate(value: Date | string): string {
+  if (typeof value === 'string') return value.slice(0, 10);
   return value.toISOString().slice(0, 10);
 }
 

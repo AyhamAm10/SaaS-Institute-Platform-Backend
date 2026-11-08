@@ -362,6 +362,7 @@ model StudentField {
   options         Json?    @default("[]")
   isRequired      Boolean  @default(false) @map("is_required")
   displayInReport Boolean  @default(false) @map("display_in_report")
+  isFilterable    Boolean  @default(false) @map("is_filterable")
   sortOrder       Int      @default(0) @map("sort_order")
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")

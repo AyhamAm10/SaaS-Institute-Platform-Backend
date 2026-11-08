@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsPositive,
+  IsString,
   Max,
   Min,
 } from 'class-validator';
@@ -75,6 +76,40 @@ export class ReportQueryDto {
   @Max(31)
   @Type(() => Number)
   days?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  statusId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  cityId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  schoolId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  busId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  knowWayId?: number;
+
+  @IsOptional()
+  @IsString()
+  customFilters?: string;
 }
 
 /** Query param name of each catalog parameter kind. */
@@ -90,4 +125,10 @@ export const PARAM_FIELDS = {
   paymentMethod: 'paymentMethod',
   minCount: 'minCount',
   days: 'days',
+  status: 'statusId',
+  city: 'cityId',
+  school: 'schoolId',
+  bus: 'busId',
+  knowWay: 'knowWayId',
+  customFilters: 'customFilters',
 } as const satisfies Record<string, keyof ReportQueryDto>;

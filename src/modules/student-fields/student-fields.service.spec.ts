@@ -27,6 +27,8 @@ describe('StudentFieldsService', () => {
       findAllForTenant: jest.fn(),
       findByName: jest.fn(),
       findFieldById: jest.fn(),
+      countStudentsUsingField: jest.fn(),
+      countStudentsUsingOption: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     };
@@ -73,6 +75,50 @@ describe('StudentFieldsService', () => {
     const result = await service.update(1, { isRequired: true });
     expect(result.isRequired).toBe(true);
     expect(repository.update).toHaveBeenCalledWith(1, { isRequired: true });
+  });
+
+  it('rejects isFilterable for non-SELECT non-BOOLEAN fields', async () => {
+    repository.findByName.mockResolvedValue(null);
+
+    await expect(
+      service.create({
+        label: 'رقم القيد',
+        type: 'NUMBER',
+        isFilterable: true,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('allows isFilterable for SELECT and BOOLEAN fields', async () => {
+    repository.findByName.mockResolvedValue(null);
+    repository.create.mockResolvedValue({ ...mockField, isFilterable: true });
+
+    const result = await service.create({
+      label: 'فصيلة الدم',
+      type: 'SELECT',
+      options: ['A+'],
+      isFilterable: true,
+    });
+    expect(result.isFilterable).toBe(true);
+  });
+
+  it('rejects changing field type when students have data for it', async () => {
+    repository.findFieldById.mockResolvedValue(mockField);
+    repository.countStudentsUsingField.mockResolvedValue(3);
+
+    await expect(
+      service.update(1, { type: 'TEXT' }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects deleting an option when students use it', async () => {
+    repository.findFieldById.mockResolvedValue(mockField);
+    repository.countStudentsUsingOption.mockResolvedValue(1);
+
+    // Removed 'O-' which has 1 student
+    await expect(
+      service.update(1, { options: ['A+', 'A-', 'B+', 'B-', 'O+'] }),
+    ).rejects.toThrow();
   });
 
   it('deactivates custom field on delete', async () => {

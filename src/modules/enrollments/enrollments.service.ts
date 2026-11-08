@@ -309,6 +309,7 @@ export class EnrollmentsService {
         familyName: row.student.family?.familyName ?? null,
         phone: row.student.family?.phone ?? null,
         status: row.student.status,
+        customFields: row.student.customFields,
       },
       takesAllSubjects,
       subjects: takesAllSubjects ? plan : row.subjects.map((s) => s.subject),
