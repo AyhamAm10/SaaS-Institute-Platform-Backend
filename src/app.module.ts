@@ -35,6 +35,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { InstituteProfileModule } from './modules/institute-profile/institute-profile.module';
+import { MobileAccountsModule } from './modules/mobile-accounts/mobile-accounts.module';
 
 @Module({
   imports: [
@@ -84,6 +86,8 @@ import { JobsModule } from './modules/jobs/jobs.module';
     StaffModule,
     ReportsModule,
     JobsModule,
+    InstituteProfileModule,
+    MobileAccountsModule,
   ],
 })
 export class AppModule {}

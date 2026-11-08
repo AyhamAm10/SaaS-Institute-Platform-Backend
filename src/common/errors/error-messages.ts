@@ -194,6 +194,13 @@ const messages: Record<string, Record<string, string>> = {
     context_branch_invalid: 'The selected branch does not belong to your institute',
     context_year_invalid: 'The selected academic year does not belong to your institute',
     context_mismatch: 'This value must match the branch / academic year selected in the header',
+    invalid_timezone: 'Invalid IANA time zone',
+    mobile_account_phone_duplicate:
+      'A user with this phone already exists in the institute',
+    student_already_has_account:
+      'This student already has an active mobile account',
+    mobile_account_invalid_role:
+      'Target user is not a mobile account (family or student)',
   },
   ar: {
     not_found: '{resource} غير موجود',
@@ -352,6 +359,13 @@ const messages: Record<string, Record<string, string>> = {
     context_branch_invalid: 'الفرع المختار لا يتبع لمعهدك',
     context_year_invalid: 'السنة الدراسية المختارة لا تتبع لمعهدك',
     context_mismatch: 'هذه القيمة يجب أن تطابق الفرع / السنة المختارين في الأعلى',
+    invalid_timezone: 'المنطقة الزمنية غير صالحة',
+    mobile_account_phone_duplicate:
+      'يوجد مستخدم آخر بنفس رقم الهاتف في هذا المعهد',
+    student_already_has_account:
+      'هذا الطالب لديه حساب تطبيق بالفعل',
+    mobile_account_invalid_role:
+      'المستخدم المحدد ليس حساب تطبيق (ولي أمر أو طالب)',
   },
 };
 

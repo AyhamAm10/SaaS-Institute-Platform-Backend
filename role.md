@@ -552,6 +552,8 @@ Role authorization is enforced at the controller and route level using the `@Rol
 * **Teacher scope**: a permission says WHAT a teacher may do, `TeacherScopeService` (sections module) says ON WHICH ROWS — only the section/subject pairs of `SectionSubject.teacherId`. Services call `taughtPairs()` / `taughtSectionIds()` (null = not a teacher, no filter) for lists and `assertTeachesSubject` / `assertTeachesSection` for single rows (`403 teacher_scope_*`). Any new teacher-reachable endpoint MUST apply it.
 * **Staff accounts** (`/staff`, `staff.*`): roles `INSTITUTE_ADMIN` / `REGISTRAR` / `ACCOUNTANT`, password ≥ 8 (bcrypt 12). Nobody changes their own role or deactivates themselves; the institute always keeps one active admin; a role change, a password reset and a deactivation revoke the member's sessions. Deactivation is a soft delete (phone released, audit kept). The `InstituteAdmin` link follows the admin role. Teachers are created by the teachers module, not here.
 * **Teacher password & reset** (`/teachers`, `academic.*`): teacher password is required on creation (minimum 8 characters, `STAFF_PASSWORD_MIN`). Password is not updatable via `PATCH /teachers/:id`; password resets are exclusively handled by `POST /teachers/:id/reset-password` using `ResetStaffPasswordDto` (bcrypt 12), which immediately logs out the teacher's active sessions via `authService.logout(userId)`.
+* **Institute profile** (`/institute/profile`, `settings.*`): current institute profile (`name`, `phone`, `address`, `timezone`). Changing timezone invalidates `CacheKeys.instituteTimezone`.
+* **Mobile accounts** (`/mobile-accounts`, `students.*`): family and student application accounts (`FAMILY` and `STUDENT` roles). Guardian accounts create `User` + `FamilyUser`; student accounts create `User` and link to `Student.userId`. Password reset and deactivation revoke sessions via `authService.logout`. Deactivation is a soft delete releasing the phone.
 
 ---
 
@@ -795,10 +797,12 @@ src/
     │   ├── institutes.controller.ts
     │   ├── institutes.service.ts
     │   └── institutes.module.ts
-    └── users/                  # User management module
-        ├── user.repository.ts          # Tenant-scoped repository
-        ├── user-system.repository.ts   # System-level repository (cross-tenant)
-        └── users.module.ts
+    ├── users/                  # User management module
+    │   ├── user.repository.ts          # Tenant-scoped repository
+    │   ├── user-system.repository.ts   # System-level repository (cross-tenant)
+    │   └── users.module.ts
+    ├── institute-profile/      # Current institute profile management (settings.view/manage)
+    └── mobile-accounts/        # Family & student mobile app accounts (students.view/manage)
 ```
 
 ### Future Module Creation Rules:
