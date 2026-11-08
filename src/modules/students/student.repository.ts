@@ -26,9 +26,11 @@ export class StudentRepository extends ContextScopedRepository<Student> {
   }
 
   /**
-   * Students of the header branch. `contextYearId` (header year, else the
-   * current year) picks the enrollment shown with each student and the
-   * `unassigned` filter; null = no year yet (no enrollment shown).
+   * Students of the header branch and context year.
+   * `contextYearId` (header year, else current year) restricts the list to
+   * students enrolled in that year plus new students never enrolled anywhere
+   * (or, with `unassigned`, students not enrolled in that year).
+   * null = no year yet (falls back to all branch students).
    */
   async findFiltered(query: StudentQueryDto, contextYearId: number | null): Promise<PaginatedResult<any>> {
     const instituteId = this.getInstituteId();
@@ -48,10 +50,18 @@ export class StudentRepository extends ContextScopedRepository<Student> {
       enrollmentFilters.push({
         studentEnrollments: { some: { sectionId: query.sectionId } },
       });
-    }
-    if (query.unassigned && contextYearId !== null) {
+    } else if (query.unassigned && contextYearId !== null) {
       enrollmentFilters.push({
         studentEnrollments: { none: { academicYearId: contextYearId } },
+      });
+    } else if (contextYearId !== null) {
+      // Enrolled in the year, or registered but never enrolled yet (a new
+      // student must not vanish until they are added to a section)
+      enrollmentFilters.push({
+        OR: [
+          { studentEnrollments: { some: { academicYearId: contextYearId } } },
+          { studentEnrollments: { none: {} } },
+        ],
       });
     }
     if (enrollmentFilters.length > 0) where.AND = enrollmentFilters;
