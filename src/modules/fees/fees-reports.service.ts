@@ -9,6 +9,12 @@ import { getLocalParts, localMidnightUtc } from '../../common/time/timezone';
 import { agingBucket, AgingBucket, collectionsByMonth, lastMonthKeys } from './fees.rules';
 import { OverdueQueryDto } from './dto/overdue-query.dto';
 import { FeesReportDataService } from './fees-report-data.service';
+import {
+  buildStudentFinance,
+  CurrencySummary,
+  StudentFinance,
+  summarizeContracts,
+} from './student-finance';
 
 export interface OverdueAgingRow {
   currency: Currency;
@@ -17,13 +23,7 @@ export interface OverdueAgingRow {
   amount: number;
 }
 
-export interface CurrencySummary {
-  currency: Currency;
-  total: number;
-  paid: number;
-  remaining: number;
-  overdue: number;
-}
+export type { CurrencySummary };
 
 /** Dashboard finance row: one per currency, amounts never mixed. */
 export interface FinanceOverviewRow {
@@ -119,34 +119,17 @@ export class FeesReportsService {
     const today = await this.clock.today();
     const contracts =
       await this.subscriptionRepository.findByStudent(studentId);
-    const byCurrency = new Map<
-      Currency,
-      { total: number; paid: number; overdue: number }
-    >();
+    return summarizeContracts(contracts, today);
+  }
 
-    for (const contract of contracts) {
-      if (contract.status === 'CANCELLED') continue;
-      const c = contract.currency;
-      const row = byCurrency.get(c) ?? { total: 0, paid: 0, overdue: 0 };
-      row.total += toMinor(contract.totalAmount, c);
-      for (const inst of contract.installments) {
-        const amount = toMinor(inst.amount, c);
-        const paid = toMinor(inst.paidAmount, c);
-        row.paid += paid;
-        if (inst.dueDate.toISOString().slice(0, 10) < today) {
-          row.overdue += Math.max(0, amount - paid);
-        }
-      }
-      byCurrency.set(c, row);
-    }
-
-    return [...byCurrency.entries()].map(([currency, row]) => ({
-      currency,
-      total: fromMinor(row.total, currency),
-      paid: fromMinor(row.paid, currency),
-      remaining: fromMinor(row.total - row.paid, currency),
-      overdue: fromMinor(row.overdue, currency),
-    }));
+  /** Contracts, installments, payments and next due date of one student (guardian view). */
+  async getStudentFinance(studentId: number): Promise<StudentFinance> {
+    const [today, timeZone, contracts] = await Promise.all([
+      this.clock.today(),
+      this.clock.getTimezone(),
+      this.subscriptionRepository.findByStudent(studentId),
+    ]);
+    return buildStudentFinance(contracts, today, timeZone);
   }
 
   /**

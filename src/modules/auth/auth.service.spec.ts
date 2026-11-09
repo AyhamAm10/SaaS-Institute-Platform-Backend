@@ -267,4 +267,32 @@ describe('AuthService', () => {
       );
     });
   });
+
+  describe('mobile roles (FAMILY / STUDENT) log in like everyone else', () => {
+    it.each(['FAMILY', 'STUDENT'])('%s logs in with phone + password and gets tokens', async (role) => {
+      const user = { ...mockUser, id: 5, role, phone: '0933000001' };
+      userSystemRepo.findLoginCandidates.mockResolvedValue([user] as any);
+
+      const result = await authService.login({ phone: user.phone, password: 'Password123!' });
+
+      expect(result.accessToken).toBe('mock-access-token');
+      expect(result.refreshToken).toBe('mock-refresh-token');
+      expect(result.user.role).toBe(role);
+      expect(jwtTokenService.generateAccessToken).toHaveBeenCalledWith({
+        sub: 5,
+        instituteId: 10,
+        role,
+      });
+    });
+
+    it('asks for the institute code when the same guardian exists in two institutes', async () => {
+      const a = { ...mockUser, id: 5, instituteId: 10, role: 'FAMILY' };
+      const b = { ...mockUser, id: 6, instituteId: 11, role: 'FAMILY' };
+      userSystemRepo.findLoginCandidates.mockResolvedValue([a, b] as any);
+
+      await expect(
+        authService.login({ phone: '0933000001', password: 'Password123!' }),
+      ).rejects.toThrow(HttpException);
+    });
+  });
 });

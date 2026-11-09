@@ -122,3 +122,16 @@ export function weightedAveragePercent(
   );
   return Math.round((weighted / graded) * 10) / 10;
 }
+
+/** mark ÷ max in %, one decimal; null without a mark or a valid maximum. */
+export function percentOf(mark: number | null, maxMark: number): number | null {
+  if (mark === null || maxMark <= 0) return null;
+  return Math.round((mark / maxMark) * 1000) / 10;
+}
+
+/** Plain mean of the known percentages (each exam weighs the same), one decimal. */
+export function meanPercent(percents: (number | null)[]): number | null {
+  const known = percents.filter((p): p is number => p !== null);
+  if (known.length === 0) return null;
+  return Math.round((known.reduce((a, b) => a + b, 0) / known.length) * 10) / 10;
+}

@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { RequestContext } from '../../context/request-context';
 import { MobileAccountsService } from './mobile-accounts.service';
@@ -214,5 +215,19 @@ describe('MobileAccountsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
-});
 
+  describe('active account (mobile API)', () => {
+    it('returns the live account', async () => {
+      repo.findActiveAccount = jest.fn(async () => ({ id: 4, fullName: 'P', phone: '0911', role: 'FAMILY' }));
+      const account = await RequestContext.run(ctx, () => service.getActiveAccount(4));
+      expect(account).toEqual({ id: 4, fullName: 'P', phone: '0911', role: 'FAMILY' });
+    });
+
+    it('a deactivated or unknown account is a 401', async () => {
+      repo.findActiveAccount = jest.fn(async () => null);
+      await expect(
+        RequestContext.run(ctx, () => service.getActiveAccount(4)),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+});

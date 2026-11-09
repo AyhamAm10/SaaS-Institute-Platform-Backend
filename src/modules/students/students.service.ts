@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EnrollmentStatus, Student } from '@prisma/client';
-import { StudentRepository } from './student.repository';
+import {
+  MobileStudentOwner,
+  MobileStudentRow,
+  StudentRepository,
+} from './student.repository';
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { StudentEnrollmentRepository } from './student-enrollment.repository';
 import { FamilyRepository } from '../families/family.repository';
@@ -133,6 +137,14 @@ export class StudentsService {
       await this.contextYearId(),
       customFilters,
     );
+  }
+
+  /** Live students a mobile caller owns (see StudentRepository.findForMobile). */
+  async findForMobile(
+    owner: MobileStudentOwner,
+    studentId?: number,
+  ): Promise<MobileStudentRow[]> {
+    return this.studentRepository.findForMobile(owner, studentId);
   }
 
   /** Header academic year, else the current one (never created here). */

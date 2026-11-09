@@ -16,6 +16,7 @@ import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
 import { dateOnly, shiftLocalDate } from '../../common/time/timezone';
+import { buildMarksView, StudentMarksView } from './student-marks';
 import {
   examStats,
   resultStatus,
@@ -279,10 +280,13 @@ export class ExamsService {
     });
   }
 
-  /** All marks of a student with the average percentage per subject. */
-  async getStudentResults(studentId: number) {
+  /**
+   * All marks of a student with the average percentage per subject,
+   * optionally only one academic year.
+   */
+  async getStudentResults(studentId: number, academicYearId?: number) {
     const [all, pairs] = await Promise.all([
-      this.resultRepository.findByStudent(studentId),
+      this.resultRepository.findByStudent(studentId, academicYearId),
       this.teacherScope.taughtPairs(),
     ]);
     // Teachers only see the marks of the subjects they teach
@@ -312,6 +316,41 @@ export class ExamsService {
         })),
       ),
     };
+  }
+
+  /** Marks of one academic year grouped by subject, with percentages (mobile apps). */
+  async getStudentMarksView(
+    studentId: number,
+    academicYearId: number,
+  ): Promise<StudentMarksView> {
+    const { results } = await this.getStudentResults(studentId, academicYearId);
+    return buildMarksView(results);
+  }
+
+  /**
+   * Next exams of a student's section from `today` on, limited to the
+   * subjects the enrollment studies (the same rule as the mark sheet).
+   */
+  async getUpcomingForStudent(
+    enrollment: { id: number; sectionId: number },
+    today: string,
+    take: number,
+  ) {
+    const subjectIds = await this.enrollments.getEffectiveSubjects(
+      enrollment.id,
+    );
+    const exams = await this.examRepository.findUpcomingForSection(
+      enrollment.sectionId,
+      today,
+      subjectIds,
+      take,
+    );
+    return exams.map((e) => ({
+      id: e.id,
+      title: e.title,
+      examDate: e.examDate.toISOString().slice(0, 10),
+      subject: { id: e.subject.id, name: e.subject.name },
+    }));
   }
 
   /**

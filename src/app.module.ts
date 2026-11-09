@@ -37,6 +37,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { InstituteProfileModule } from './modules/institute-profile/institute-profile.module';
 import { MobileAccountsModule } from './modules/mobile-accounts/mobile-accounts.module';
+import { MobileApiModule } from './modules/mobile-api/mobile-api.module';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { MobileAccountsModule } from './modules/mobile-accounts/mobile-accounts.
     JobsModule,
     InstituteProfileModule,
     MobileAccountsModule,
+    MobileApiModule,
   ],
 })
 export class AppModule {}

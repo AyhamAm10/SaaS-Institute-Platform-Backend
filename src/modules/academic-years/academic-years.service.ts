@@ -164,6 +164,11 @@ export class AcademicYearsService {
     return this.academicYearRepository.findAllPaginated(pagination, search);
   }
 
+  /** Id of the institute's current year; never creates one (null when none). */
+  async findCurrentYearId(): Promise<number | null> {
+    return (await this.academicYearRepository.findCurrentYear())?.id ?? null;
+  }
+
   /**
    * Retrieve an academic year by ID.
    */

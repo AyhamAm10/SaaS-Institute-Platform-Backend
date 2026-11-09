@@ -214,6 +214,8 @@ const messages: Record<string, Record<string, string>> = {
       'This student already has an active mobile account',
     mobile_account_invalid_role:
       'Target user is not a mobile account (family or student)',
+    mobile_account_inactive: 'This account is deactivated or no longer exists',
+    mobile_finance_family_only: 'Financial data is available to guardians only',
   },
   ar: {
     not_found: '{resource} غير موجود',
@@ -392,6 +394,8 @@ const messages: Record<string, Record<string, string>> = {
       'هذا الطالب لديه حساب تطبيق بالفعل',
     mobile_account_invalid_role:
       'المستخدم المحدد ليس حساب تطبيق (ولي أمر أو طالب)',
+    mobile_account_inactive: 'هذا الحساب معطّل أو لم يعد موجودًا',
+    mobile_finance_family_only: 'البيانات المالية متاحة لولي الأمر فقط',
   },
 };
 

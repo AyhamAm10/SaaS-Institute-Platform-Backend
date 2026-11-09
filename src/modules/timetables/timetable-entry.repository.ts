@@ -49,6 +49,7 @@ export class TimetableEntryRepository extends TenantAwareRepository<TimetableEnt
         },
       },
       select: {
+        id: true,
         dayOfWeek: true,
         periodNumber: true,
         startTime: true,
@@ -186,6 +187,7 @@ export class TimetableEntryRepository extends TenantAwareRepository<TimetableEnt
 
 /** Timetable entry as the reports read it (D3). */
 export interface ReportTimetableEntry {
+  id: number;
   dayOfWeek: number;
   periodNumber: number | null;
   startTime: string;

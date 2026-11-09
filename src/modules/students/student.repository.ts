@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, Student } from '@prisma/client';
+import { EnrollmentStatus, Gender, Prisma, Student } from '@prisma/client';
 import { ContextScopedRepository } from '../../database/context-scoped.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { StudentQueryDto } from './dto/student-query.dto';
@@ -14,6 +14,36 @@ const STUDENT_REFERENCE_INCLUDE = {
   knowWay: { select: { id: true, name: true } },
   status: { select: { id: true, name: true, tone: true } },
 } as const;
+
+/** A student as the mobile apps read it (branch, status, bus, family, current enrollment). */
+export interface MobileStudentRow {
+  id: number;
+  fullName: string;
+  gender: Gender;
+  birthDate: Date;
+  branchId: number;
+  branch: { id: number; name: string };
+  status: { id: number; name: string } | null;
+  bus: {
+    id: number;
+    name: string;
+    driverName: string | null;
+    driverPhone: string | null;
+  } | null;
+  family: { id: number; familyName: string; phone: string | null };
+  /** The ACTIVE enrollment of the latest year (at most one). */
+  studentEnrollments: {
+    id: number;
+    sectionId: number;
+    academicYearId: number;
+    section: { id: number; name: string };
+  }[];
+}
+
+/** Who a mobile caller owns: the students of their families, or themselves. */
+export type MobileStudentOwner =
+  | { familyIds: number[]; userId?: undefined }
+  | { userId: number; familyIds?: undefined };
 
 @Injectable()
 export class StudentRepository extends ContextScopedRepository<Student> {
@@ -183,6 +213,53 @@ export class StudentRepository extends ContextScopedRepository<Student> {
         },
       },
     });
+  }
+
+  /**
+   * Live students owned by a guardian (their families) or by a student
+   * account, optionally one id. Tenant scope always applies; the branch
+   * scope applies only if the request context carries one (mobile callers
+   * clear it, see MobileContextService).
+   */
+  async findForMobile(
+    owner: MobileStudentOwner,
+    studentId?: number,
+  ): Promise<MobileStudentRow[]> {
+    if (owner.familyIds && owner.familyIds.length === 0) return [];
+    const ownership = owner.familyIds
+      ? { familyId: { in: owner.familyIds }, family: { deletedAt: null } }
+      : { userId: owner.userId };
+    return this.client.student.findMany({
+      where: this.scopeWhere({
+        ...ownership,
+        ...(studentId !== undefined && { id: studentId }),
+      }),
+      select: {
+        id: true,
+        fullName: true,
+        gender: true,
+        birthDate: true,
+        branchId: true,
+        branch: { select: { id: true, name: true } },
+        status: { select: { id: true, name: true } },
+        bus: {
+          select: { id: true, name: true, driverName: true, driverPhone: true },
+        },
+        family: { select: { id: true, familyName: true, phone: true } },
+        studentEnrollments: {
+          where: { status: EnrollmentStatus.ACTIVE },
+          orderBy: { academicYear: { startDate: 'desc' } },
+          take: 1,
+          select: {
+            id: true,
+            sectionId: true,
+            academicYearId: true,
+            section: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { fullName: 'asc' },
+    }) as Promise<MobileStudentRow[]>;
   }
 
   /** Students without an enrollment in the year (branch from the header). */

@@ -102,6 +102,24 @@ export class MobileAccountsRepository extends TenantAwareRepository<User> {
     return this.findOne({ phone });
   }
 
+  /** Live (not deactivated) FAMILY / STUDENT user of this institute. */
+  async findActiveAccount(id: number): Promise<User | null> {
+    return this.findOne({ id, role: { in: [...MOBILE_ROLES] } });
+  }
+
+  /** Families (not deleted) a guardian account is linked to. */
+  async findGuardianFamilyIds(userId: number): Promise<number[]> {
+    const rows: { familyId: number }[] = await this.client.familyUser.findMany({
+      where: {
+        instituteId: this.getInstituteId(),
+        userId,
+        family: { deletedAt: null },
+      },
+      select: { familyId: true },
+    });
+    return rows.map((r) => r.familyId);
+  }
+
   async findMobileUserById(id: number): Promise<User | null> {
     return this.client.user.findFirst({
       where: {

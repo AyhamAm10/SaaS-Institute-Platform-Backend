@@ -20,6 +20,13 @@ import { MobileAccountItem } from './dto/mobile-account-response.dto';
 
 const HASH_ROUNDS = 12;
 
+export interface ActiveMobileAccount {
+  id: number;
+  fullName: string;
+  phone: string;
+  role: string;
+}
+
 @Injectable()
 export class MobileAccountsService {
   constructor(
@@ -37,6 +44,25 @@ export class MobileAccountsService {
 
   async findAll(query: MobileAccountQueryDto) {
     return this.repository.findAccounts(query);
+  }
+
+  /**
+   * The live account behind an access token. Tokens are stateless, so a
+   * deactivated account is refused here on every mobile request (401).
+   */
+  async getActiveAccount(userId: number): Promise<ActiveMobileAccount> {
+    const user = await this.repository.findActiveAccount(userId);
+    Ensure.unauthorized(!user, ErrorMessages.get('mobile_account_inactive'));
+    return {
+      id: user!.id,
+      fullName: user!.fullName,
+      phone: user!.phone,
+      role: user!.role,
+    };
+  }
+
+  async getGuardianFamilyIds(userId: number): Promise<number[]> {
+    return this.repository.findGuardianFamilyIds(userId);
   }
 
   async findEligibleStudents(search?: string) {

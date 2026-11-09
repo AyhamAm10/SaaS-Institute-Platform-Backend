@@ -18,6 +18,7 @@ import {
   shiftLocalDate,
 } from '../../common/time/timezone';
 import {
+  attendanceRate,
   attendanceSeries,
   AttendanceDayConfig,
   checkInStatus,
@@ -247,6 +248,30 @@ export class AttendanceService {
     const records = await this.repository.findForStudent(studentId, from, to);
     const counts = countDay(records.map((r) => r.status));
     return { from, to, counts: { ...counts, notRecorded: undefined }, records };
+  }
+
+  /**
+   * Counters, rate and records of a student between two local dates
+   * (inclusive). Rate = (PRESENT + LATE) / all recorded days, one decimal.
+   */
+  async getStudentPeriod(studentId: number, from: string, to: string) {
+    await this.assertCanMark(studentId);
+    const records = await this.repository.findForStudent(studentId, from, to);
+    const counts = countDay(records.map((r) => r.status));
+    const recorded =
+      counts.present + counts.late + counts.absent + counts.excused;
+    return {
+      from,
+      to,
+      counts,
+      ratePercent: attendanceRate(counts.present + counts.late, recorded),
+      records,
+    };
+  }
+
+  /** Whether a local date is a working day of the institute schedule. */
+  async isWorkingDate(date: string): Promise<boolean> {
+    return isWorkingDay(await this.dayConfig(), dayOfWeekOf(date));
   }
 
   /** Records of a local period for reports (D3): some students or one branch. */

@@ -99,6 +99,29 @@ export class ExamRepository extends ContextScopedRepository<Exam> {
     });
   }
 
+  /**
+   * Exams of one section from a local date on (inclusive), soonest first,
+   * only for the given subjects (what the student actually studies).
+   */
+  async findUpcomingForSection(
+    sectionId: number,
+    from: string,
+    subjectIds: number[],
+    take: number,
+  ): Promise<ExamWithRefs[]> {
+    if (subjectIds.length === 0) return [];
+    return this.client.exam.findMany({
+      where: this.scopeWhere({
+        sectionId,
+        subjectId: { in: subjectIds },
+        examDate: { gte: dateOnly(from) },
+      }),
+      include: EXAM_INCLUDE,
+      orderBy: [{ examDate: 'asc' }, { id: 'asc' }],
+      take,
+    });
+  }
+
   /** Section, date and maximum mark of every exam of a year (averages). */
   async findForYear(
     academicYearId: number,
@@ -235,10 +258,18 @@ export class ExamResultRepository extends TenantAwareRepository<ExamResult> {
     });
   }
 
-  /** Results of a student with exam, subject and type (newest first). */
-  async findByStudent(studentId: number) {
+  /**
+   * Results of a student with exam, subject and type (newest first),
+   * optionally only the exams of one academic year.
+   */
+  async findByStudent(studentId: number, academicYearId?: number) {
     return this.client.examResult.findMany({
-      where: this.scopeWhere({ studentId }),
+      where: this.scopeWhere({
+        studentId,
+        ...(academicYearId !== undefined && {
+          exam: { section: { academicYearId } },
+        }),
+      }),
       include: {
         exam: {
           select: {
@@ -249,7 +280,7 @@ export class ExamResultRepository extends TenantAwareRepository<ExamResult> {
             passMark: true,
             subject: { select: { id: true, name: true } },
             examType: { select: { id: true, name: true } },
-            section: { select: { id: true, name: true } },
+            section: { select: { id: true, name: true, academicYearId: true } },
           },
         },
       },
@@ -267,7 +298,7 @@ export interface StudentResultRow extends ExamResult {
     passMark: Prisma.Decimal;
     subject: { id: number; name: string };
     examType: { id: number; name: string } | null;
-    section: { id: number; name: string };
+    section: { id: number; name: string; academicYearId: number };
   };
 }
 
