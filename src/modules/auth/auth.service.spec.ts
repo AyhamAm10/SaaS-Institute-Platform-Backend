@@ -21,6 +21,8 @@ describe('AuthService', () => {
     phone: '+966500000001',
     passwordHash: '',
     role: 'INSTITUTE_ADMIN',
+    isActive: true,
+    mustChangePassword: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -32,6 +34,8 @@ describe('AuthService', () => {
       findLoginCandidates: jest.fn(),
       findById: jest.fn(),
       findByIdWithInstitute: jest.fn(),
+      isInactiveTeacher: jest.fn().mockResolvedValue(false),
+      setPassword: jest.fn(),
     } as any;
 
     jwtTokenService = {
@@ -116,6 +120,97 @@ describe('AuthService', () => {
     });
   });
 
+  describe('account state', () => {
+    it('refuses a deactivated account, but only after the password matched', async () => {
+      const off = { ...mockUser, isActive: false };
+      userSystemRepo.findLoginCandidates.mockResolvedValue([off] as any);
+
+      await expect(
+        authService.login({ phone: off.phone, password: 'Password123!' }),
+      ).rejects.toThrow('deactivated');
+      // a wrong password reveals nothing about the state
+      await expect(
+        authService.login({ phone: off.phone, password: 'nope-nope' }),
+      ).rejects.not.toThrow('deactivated');
+      expect(jwtTokenService.generateAccessToken).not.toHaveBeenCalled();
+    });
+
+    it('marks the token and the user while the default password is in use', async () => {
+      userSystemRepo.findLoginCandidates.mockResolvedValue([
+        { ...mockUser, mustChangePassword: true },
+      ] as any);
+
+      const result = await authService.login({
+        phone: mockUser.phone,
+        password: 'Password123!',
+      });
+
+      expect(jwtTokenService.generateAccessToken).toHaveBeenCalledWith(
+        expect.objectContaining({ mcp: true }),
+      );
+      expect(result.user.mustChangePassword).toBe(true);
+    });
+
+    it('does not mark the token once the password was changed', async () => {
+      userSystemRepo.findLoginCandidates.mockResolvedValue([mockUser] as any);
+      await authService.login({ phone: mockUser.phone, password: 'Password123!' });
+      expect(jwtTokenService.generateAccessToken).toHaveBeenCalledWith({
+        sub: 1,
+        instituteId: 10,
+        role: 'INSTITUTE_ADMIN',
+      });
+    });
+  });
+
+  describe('changePassword', () => {
+    const forced = () => ({ ...mockUser, mustChangePassword: true });
+
+    it('sets the new password, revokes every session and issues fresh tokens', async () => {
+      userSystemRepo.findByIdWithInstitute.mockResolvedValue(forced() as any);
+      userSystemRepo.setPassword.mockResolvedValue({
+        ...mockUser,
+        mustChangePassword: false,
+      } as any);
+
+      const result = await authService.changePassword(1, {
+        currentPassword: 'Password123!',
+        newPassword: 'brand-new-pass',
+      });
+
+      expect(userSystemRepo.setPassword).toHaveBeenCalledWith(
+        1,
+        expect.not.stringContaining('brand-new-pass'),
+      );
+      expect(prismaService.refreshToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 1 },
+      });
+      expect(result.accessToken).toBe('mock-access-token');
+      expect(result.user.mustChangePassword).toBe(false);
+    });
+
+    it('refuses a wrong current password', async () => {
+      userSystemRepo.findByIdWithInstitute.mockResolvedValue(forced() as any);
+      await expect(
+        authService.changePassword(1, {
+          currentPassword: 'wrong-wrong',
+          newPassword: 'brand-new-pass',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(userSystemRepo.setPassword).not.toHaveBeenCalled();
+    });
+
+    it('refuses the default password as the new one', async () => {
+      userSystemRepo.findByIdWithInstitute.mockResolvedValue(forced() as any);
+      await expect(
+        authService.changePassword(1, {
+          currentPassword: 'Password123!',
+          newPassword: '12345678',
+        }),
+      ).rejects.toThrow(HttpException);
+      expect(userSystemRepo.setPassword).not.toHaveBeenCalled();
+    });
+  });
+
   describe('login with phones shared across institutes', () => {
     it('logs into the only institute whose password matches', async () => {
       const other = {
@@ -162,6 +257,50 @@ describe('AuthService', () => {
         '+966500000001',
         'INS0002',
       );
+    });
+  });
+
+  describe('deactivated teachers', () => {
+    const makeTeacher = () => ({ ...mockUser, id: 7, role: 'TEACHER' });
+
+    it('refuses to sign in a teacher whose account is deactivated', async () => {
+      userSystemRepo.findLoginCandidates.mockResolvedValue([makeTeacher()] as any);
+      userSystemRepo.isInactiveTeacher.mockResolvedValue(true as never);
+      await expect(
+        authService.login({ phone: '+966500000001', password: 'Password123!' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(userSystemRepo.isInactiveTeacher).toHaveBeenCalledWith(7);
+      expect(prismaService.refreshToken.create).not.toHaveBeenCalled();
+    });
+
+    it('still signs in an active teacher', async () => {
+      userSystemRepo.findLoginCandidates.mockResolvedValue([makeTeacher()] as any);
+      const result = await authService.login({
+        phone: '+966500000001',
+        password: 'Password123!',
+      });
+      expect(result.accessToken).toBe('mock-access-token');
+    });
+
+    it('does not even look up the flag for other roles', async () => {
+      userSystemRepo.findLoginCandidates.mockResolvedValue([mockUser] as any);
+      await authService.login({ phone: '+966500000001', password: 'Password123!' });
+      expect(userSystemRepo.isInactiveTeacher).not.toHaveBeenCalled();
+    });
+
+    it('refuses to refresh the session of a deactivated teacher', async () => {
+      prismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 1,
+        userId: 7,
+        tokenHash: 'mock-hash-sha256',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as never);
+      userSystemRepo.findByIdWithInstitute.mockResolvedValue(makeTeacher() as any);
+      userSystemRepo.isInactiveTeacher.mockResolvedValue(true as never);
+      await expect(
+        authService.refresh({ refreshToken: 'mock-refresh-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(prismaService.refreshToken.delete).not.toHaveBeenCalled();
     });
   });
 

@@ -3,10 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FamiliesService } from './families.service';
 import { HttpException } from '@nestjs/common';
 import { FamilyRepository } from './family.repository';
+import { FamilyAccountsService } from './family-accounts.service';
 
 describe('FamiliesService', () => {
   let service: FamiliesService;
   let repository: any;
+  let accounts: any;
 
   const mockFamily = {
     id: 1,
@@ -30,11 +32,19 @@ describe('FamiliesService', () => {
       providers: [
         FamiliesService,
         { provide: FamilyRepository, useValue: mockRepo },
+        {
+          provide: FamilyAccountsService,
+          useValue: {
+            ensureAccount: jest.fn().mockResolvedValue('CREATED' as never),
+            rePoint: jest.fn().mockResolvedValue('CREATED' as never),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<FamiliesService>(FamiliesService);
     repository = module.get(FamilyRepository);
+    accounts = module.get(FamilyAccountsService);
   });
 
   it('creates family successfully', async () => {
@@ -47,7 +57,8 @@ describe('FamiliesService', () => {
       phone: '0912345678',
     });
 
-    expect(result).toEqual(mockFamily);
+    expect(result).toEqual({ ...mockFamily, accountStatus: 'CREATED' });
+    expect(accounts.ensureAccount).toHaveBeenCalledWith(mockFamily);
     expect(repository.create).toHaveBeenCalledWith({
       familyName: 'العمر',
       fatherName: 'محمد',
@@ -83,6 +94,29 @@ describe('FamiliesService', () => {
       familyName: 'الأحمد',
       phone: null,
     });
+  });
+
+  it('links the guardian login again when the phone changes', async () => {
+    repository.findFamilyById
+      .mockResolvedValueOnce({ ...mockFamily, _count: { students: 0 } })
+      .mockResolvedValueOnce({ ...mockFamily, phone: '0933', _count: { students: 0 } });
+    repository.update = jest.fn().mockResolvedValue(mockFamily as any);
+
+    await service.update(1, { phone: '0933' });
+
+    expect(accounts.rePoint).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '0933' }),
+      '0912345678',
+    );
+  });
+
+  it('does not touch the guardian login when the phone is not part of the update', async () => {
+    repository.findFamilyById.mockResolvedValue({ ...mockFamily, _count: { students: 0 } });
+    repository.update = jest.fn().mockResolvedValue(mockFamily as any);
+
+    await service.update(1, { familyName: 'الأحمد' });
+
+    expect(accounts.rePoint).not.toHaveBeenCalled();
   });
 
   it('blocks deleting a family that still has students', async () => {

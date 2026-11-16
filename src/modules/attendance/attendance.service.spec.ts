@@ -11,6 +11,7 @@ import { checkInStatus, closeMinutes, countDay } from './attendance.rules';
 import { getLocalParts } from '../../common/time/timezone';
 import { RequestContext } from '../../context/request-context';
 import { TeacherScopeService } from '../sections/teacher-scope.service';
+import { ClosuresService } from '../closures/closures.service';
 
 const config = {
   workingDays: [6, 0, 1, 2, 3, 4], // Saturday → Thursday
@@ -57,6 +58,7 @@ describe('AttendanceService', () => {
   let repo: any;
   let clock: any;
   let scope: any;
+  let closures: any;
 
   beforeEach(async () => {
     jest.useFakeTimers({ now: new Date('2026-11-04T16:00:00+03:00') });
@@ -64,6 +66,7 @@ describe('AttendanceService', () => {
     scope = {
       taughtPairs: jest.fn<any>().mockResolvedValue(null),
       taughtSectionIds: jest.fn<any>().mockResolvedValue(null),
+      isTeacher: jest.fn<any>().mockReturnValue(false),
       assertTeachesSubject: jest.fn<any>().mockResolvedValue(undefined),
       assertTeachesSection: jest.fn<any>().mockResolvedValue(undefined),
     };
@@ -75,6 +78,12 @@ describe('AttendanceService', () => {
         .fn<any>()
         .mockImplementation((id: number, d: any) => ({ id, ...d })),
       markAbsences: jest.fn<any>().mockResolvedValue(3),
+      findActiveSectionIds: jest.fn<any>().mockResolvedValue([5]),
+      deleteAutoAbsences: jest.fn<any>().mockResolvedValue(0),
+    };
+    closures = {
+      findCovering: jest.fn<any>().mockResolvedValue(null),
+      findInfoBetween: jest.fn<any>().mockResolvedValue([]),
     };
     clock = {
       getTimezone: jest.fn<any>().mockResolvedValue('Asia/Damascus'),
@@ -98,6 +107,7 @@ describe('AttendanceService', () => {
           useValue: { getConfig: jest.fn<any>().mockResolvedValue(config) },
         },
         { provide: TeacherScopeService, useValue: scope },
+        { provide: ClosuresService, useValue: closures },
       ],
     }).compile();
     service = moduleRef.get(AttendanceService);
@@ -193,7 +203,84 @@ describe('AttendanceService', () => {
       dayOfWeek: 3,
     });
     expect(await service.markAbsencesIfClosed()).toBe(3);
-    expect(repo.markAbsences).toHaveBeenCalledWith('2026-11-04');
+    expect(repo.markAbsences).toHaveBeenCalledWith('2026-11-04', {
+      all: false,
+      branchIds: [],
+      sectionIds: [],
+    });
+  });
+
+  const closure = (over: object) => ({
+    id: 1,
+    scope: 'INSTITUTE',
+    branchId: null,
+    fromDate: '2026-11-04',
+    toDate: '2026-11-04',
+    reason: 'عطلة',
+    sectionIds: [],
+    ...over,
+  });
+  const afterClose = () =>
+    clock.localParts.mockResolvedValue({
+      date: '2026-11-04',
+      minutesOfDay: 15 * 60,
+      dayOfWeek: 3,
+    });
+
+  it('marks nobody absent on an institute-wide closure day', async () => {
+    afterClose();
+    closures.findInfoBetween.mockResolvedValue([closure({})]);
+    expect(await service.markAbsencesIfClosed()).toBe(0);
+    expect(repo.markAbsences).not.toHaveBeenCalled();
+  });
+
+  it('leaves closed branches and sections out of the absence marking', async () => {
+    afterClose();
+    closures.findInfoBetween.mockResolvedValue([
+      closure({ id: 2, scope: 'BRANCH', branchId: 9 }),
+      closure({ id: 3, scope: 'SECTION', sectionIds: [5, 6] }),
+      closure({ id: 4, fromDate: '2026-11-10', toDate: '2026-11-12' }),
+    ]);
+    await service.markAbsencesIfClosed();
+    expect(repo.markAbsences).toHaveBeenCalledWith('2026-11-04', {
+      all: false,
+      branchIds: [9],
+      sectionIds: [5, 6],
+    });
+  });
+
+  it('removes automatic absences that fall on a closure declared later', async () => {
+    afterClose();
+    const c = closure({ fromDate: '2026-10-30', toDate: '2026-11-20' });
+    closures.findInfoBetween.mockResolvedValue([c]);
+    await service.markAbsencesIfClosed();
+    // clipped to the past (up to today), never future days
+    expect(repo.deleteAutoAbsences).toHaveBeenCalledWith(
+      '2026-10-30',
+      '2026-11-04',
+      c,
+    );
+  });
+
+  it('refuses a check-in on a closure day of the student', async () => {
+    closures.findCovering.mockResolvedValue(closure({ scope: 'SECTION', sectionIds: [5] }));
+    await expect(
+      service.checkIn({ studentId: 7, at: at('08:10') }),
+    ).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+    // asked with the branch and the active sections of the student
+    expect(closures.findCovering).toHaveBeenCalledWith('2026-11-04', {
+      branchId: 2,
+      sectionIds: [5],
+    });
+  });
+
+  it('refuses an excuse on a closure day', async () => {
+    closures.findCovering.mockResolvedValue(closure({}));
+    await expect(service.excuse({ studentId: 7 })).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(repo.create).not.toHaveBeenCalled();
   });
 
   it('corrects times and recomputes the status (audited update)', async () => {
@@ -246,7 +333,13 @@ describe('DailyAttendanceRepository.markAbsences', () => {
       },
     };
     const repository = new DailyAttendanceRepository(prisma);
-    expect(await repository.markAbsences('2026-11-04')).toBe(1);
+    expect(
+      await repository.markAbsences('2026-11-04', {
+        all: false,
+        branchIds: [],
+        sectionIds: [],
+      }),
+    ).toBe(1);
     const args = prisma.dailyAttendance.createMany.mock.calls[0][0];
     expect(args.skipDuplicates).toBe(true);
     expect(args.data[0]).toEqual(

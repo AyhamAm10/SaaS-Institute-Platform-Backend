@@ -269,5 +269,31 @@ describe('ExamsService', () => {
       expect(results.create).not.toHaveBeenCalled();
       expect(scope.assertTeachesSubject).toHaveBeenCalledWith(2, 5);
     });
+
+    it('refuses to create an exam for a subject the teacher does not teach', async () => {
+      scope.assertTeachesSubject.mockRejectedValue(new ForbiddenException());
+      await expect(service.create(createDto)).rejects.toThrow(ForbiddenException);
+      expect(exams.create).not.toHaveBeenCalled();
+      // asked with the section of the request and the subject of the exam
+      expect(scope.assertTeachesSubject).toHaveBeenCalledWith(
+        expect.any(Number),
+        createDto.subjectId,
+      );
+    });
+
+    it('refuses to update or delete an exam of a subject the teacher does not teach', async () => {
+      scope.assertTeachesSubject.mockRejectedValue(new ForbiddenException());
+      await expect(service.update(9, { title: 'جديد' })).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.delete(9, true)).rejects.toThrow(ForbiddenException);
+      expect(exams.update).not.toHaveBeenCalled();
+      expect(exams.delete).not.toHaveBeenCalled();
+    });
+
+    it('lets a teacher create an exam of their own subject', async () => {
+      await service.create(createDto);
+      expect(exams.create).toHaveBeenCalled();
+    });
   });
 });

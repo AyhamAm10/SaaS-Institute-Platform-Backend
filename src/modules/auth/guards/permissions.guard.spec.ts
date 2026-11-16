@@ -33,7 +33,11 @@ describe('permission map', () => {
     expect(hasPermission('ACCOUNTANT', 'attendance.manage')).toBe(false);
     // Teacher: marks + attendance, no exam management, no dashboard
     expect(hasPermission('TEACHER', MARKS_ENTER)).toBe(true);
-    expect(hasPermission('TEACHER', 'exams.manage')).toBe(false);
+    // Attendance is the administration's job: a teacher may read it, not record it
+    expect(hasPermission('TEACHER', 'attendance.view')).toBe(true);
+    expect(hasPermission('TEACHER', 'attendance.manage')).toBe(false);
+    // A teacher manages exams, limited to their own subjects by the service
+    expect(hasPermission('TEACHER', 'exams.manage')).toBe(true);
     expect(hasPermission('TEACHER', 'dashboard.view')).toBe(false);
     // Nobody but admins manages staff
     for (const role of ['REGISTRAR', 'ACCOUNTANT', 'TEACHER']) {

@@ -6,6 +6,7 @@ import { AcademicYearRepository } from '../academic-years/academic-year.reposito
 import { StudentRepository } from './student.repository';
 import { StudentEnrollmentRepository } from './student-enrollment.repository';
 import { FamilyRepository } from '../families/family.repository';
+import { FamilyAccountsService } from '../families/family-accounts.service';
 import { StudentFieldRepository } from '../student-fields/student-field.repository';
 import { SectionRepository } from '../sections/section.repository';
 import { BranchRepository } from '../branches/branch.repository';
@@ -93,6 +94,10 @@ describe('StudentsService', () => {
           useValue: { resolve: jest.fn().mockResolvedValue({} as never) },
         },
         { provide: FamilyRepository, useValue: mockFamilyRepo },
+        {
+          provide: FamilyAccountsService,
+          useValue: { ensureAccount: jest.fn().mockResolvedValue('CREATED' as never) },
+        },
         { provide: StudentFieldRepository, useValue: mockFieldRepo },
         { provide: SectionRepository, useValue: mockSectionRepo },
         { provide: TransactionHelper, useValue: mockTxHelper },
@@ -288,6 +293,7 @@ describe('StudentsService context year', () => {
       {} as never,
       years as never,
       {} as never,
+      {} as never,
     );
     await RequestContext.run(
       { userId: 1, instituteId: 1, role: 'INSTITUTE_ADMIN', language: 'en', academicYearId: 5 },
@@ -316,6 +322,7 @@ describe('StudentsService context year', () => {
       {} as never,
       {} as never,
       years as never,
+      {} as never,
       {} as never,
     );
 

@@ -53,6 +53,7 @@ model Institute {
   examResults           ExamResult[]
   lessonAttendance      LessonAttendance[]
   dailyAttendance       DailyAttendance[]
+  closures              Closure[]
   studentSubscriptions  StudentSubscription[]
   installments          Installment[]
   payments              Payment[]
@@ -78,6 +79,10 @@ model User {
   phone        String
   passwordHash String    @map("password_hash")
   role         String
+  /// Account switch (reversible). Off: cannot sign in or refresh; the row stays and keeps its phone.
+  isActive     Boolean   @default(true) @map("is_active")
+  /// Set when the password is the default one (new or reset account): the app forces a change first.
+  mustChangePassword Boolean @default(false) @map("must_change_password")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
@@ -131,6 +136,7 @@ model Branch {
   payments         Payment[]
   receiptSequences ReceiptSequence[]
   dailyAttendance  DailyAttendance[]
+  closures         Closure[]
 
   @@unique([instituteId, name])
   @@unique([instituteId, id])
@@ -406,6 +412,7 @@ model Section {
   lessons              Lesson[]
   studentSubscriptions StudentSubscription[]
   exams                Exam[]
+  closureSections      ClosureSection[]
 
   @@unique([instituteId, id])
   @@unique([instituteId, branchId, academicYearId, name])
@@ -597,6 +604,46 @@ model InstituteScheduleConfig {
 
   @@unique([instituteId, id])
   @@map("institute_schedule_configs")
+}
+
+/// A closure (holiday / عطلة): a date range on which attendance is not taken.
+/// INSTITUTE = everyone, BRANCH = one branch, SECTION = the listed sections.
+model Closure {
+  id          Int          @id @default(autoincrement())
+  instituteId Int          @map("institute_id")
+  scope       ClosureScope
+  /// Set only when scope = BRANCH.
+  branchId    Int?         @map("branch_id")
+  /// Inclusive local dates (institute time zone).
+  fromDate    DateTime     @map("from_date") @db.Date
+  toDate      DateTime     @map("to_date") @db.Date
+  reason      String
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  createdById Int?         @map("created_by_id")
+  updatedById Int?         @map("updated_by_id")
+
+  institute Institute        @relation(fields: [instituteId], references: [id])
+  branch    Branch?          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  sections  ClosureSection[]
+
+  @@unique([instituteId, id])
+  @@index([instituteId, fromDate, toDate])
+  @@map("closures")
+}
+
+/// Sections covered by a SECTION-scope closure.
+model ClosureSection {
+  closureId   Int @map("closure_id")
+  sectionId   Int @map("section_id")
+  instituteId Int @map("institute_id")
+
+  closure Closure @relation(fields: [closureId], references: [id], onDelete: Cascade)
+  section Section @relation(fields: [sectionId], references: [id])
+
+  @@id([closureId, sectionId])
+  @@index([instituteId, sectionId])
+  @@map("closure_sections")
 }
 
 // ---------------------------------------------------------------------------
@@ -1149,6 +1196,12 @@ enum LessonType {
 enum AttendanceMethod {
   MANUAL
   BULK
+}
+
+enum ClosureScope {
+  INSTITUTE
+  BRANCH
+  SECTION
 }
 
 enum AttendanceStatus {

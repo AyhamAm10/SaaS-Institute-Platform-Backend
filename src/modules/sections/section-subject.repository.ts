@@ -27,6 +27,37 @@ export class SectionSubjectRepository extends TenantAwareRepository<SectionSubje
   }
 
   /**
+   * The (section, subject) pairs a teacher is assigned to, with names, optionally
+   * only the sections of one academic year. Explicit tenant + teacher filter:
+   * it is the teacher's own scope, not the request context's branch / year.
+   */
+  async findTaughtBy(teacherId: number, academicYearId?: number) {
+    return this.findMany({
+      where: {
+        teacherId,
+        section: {
+          deletedAt: null,
+          ...(academicYearId !== undefined && { academicYearId }),
+        },
+      },
+      include: {
+        subject: { select: { id: true, name: true } },
+        section: {
+          select: {
+            id: true,
+            name: true,
+            grade: true,
+            branchId: true,
+            academicYearId: true,
+            branch: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: [{ section: { name: 'asc' } }, { createdAt: 'asc' }],
+    }) as unknown as Promise<TaughtRow[]>;
+  }
+
+  /**
    * List all subjects assigned to a section including subject and assigned teacher details.
    */
   async findSubjectsBySection(sectionId: number): Promise<SectionSubject[]> {
@@ -86,4 +117,20 @@ export class SectionSubjectRepository extends TenantAwareRepository<SectionSubje
       await this.delete(existing.id);
     }
   }
+}
+
+/** Row of {@link SectionSubjectRepository.findTaughtBy}. */
+export interface TaughtRow {
+  sectionId: number;
+  subjectId: number;
+  weeklyPeriods: number;
+  subject: { id: number; name: string };
+  section: {
+    id: number;
+    name: string;
+    grade: string | null;
+    branchId: number;
+    academicYearId: number;
+    branch: { name: string } | null;
+  };
 }

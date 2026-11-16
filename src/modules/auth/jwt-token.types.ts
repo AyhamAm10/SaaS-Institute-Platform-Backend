@@ -9,6 +9,8 @@ export interface AccessTokenPayload {
   instituteId: number;
   /** User role for authorization */
   role: string;
+  /** Still on the default password: only the allow-listed routes work. */
+  mcp?: boolean;
 }
 
 /**

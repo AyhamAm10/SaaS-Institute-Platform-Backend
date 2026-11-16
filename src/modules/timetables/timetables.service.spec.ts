@@ -2,6 +2,8 @@ import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TimetablesService } from './timetables.service';
 import { LockService } from '../../infrastructure/lock/lock.service';
+import { TeacherScopeService } from '../sections/teacher-scope.service';
+import { ForbiddenException } from '@nestjs/common';
 import { TimetableRepository } from './timetable.repository';
 import { TimetableEntryRepository } from './timetable-entry.repository';
 import { TimetableConflictService } from './services/timetable-conflict.service';
@@ -58,6 +60,7 @@ describe('TimetablesService', () => {
     }),
   };
 
+  const scope = { assertTeachesSection: jest.fn<any>() };
   const mockSectionRepo: Record<string, any> = {
     findById: jest.fn(),
   };
@@ -130,6 +133,7 @@ describe('TimetablesService', () => {
         },
         { provide: AcademicYearRepository, useValue: mockAcademicYearRepo },
         { provide: TransactionHelper, useValue: mockTransactionHelper },
+        { provide: TeacherScopeService, useValue: scope },
         {
           provide: LockService,
           useValue: {
@@ -141,6 +145,17 @@ describe('TimetablesService', () => {
     }).compile();
 
     service = module.get<TimetablesService>(TimetablesService);
+  });
+
+  it('refuses a teacher reading the timetable of a section they do not teach', async () => {
+    mockSectionRepo.findById.mockResolvedValue({ id: 9, name: 'Class Z' });
+    scope.assertTeachesSection.mockRejectedValueOnce(new ForbiddenException());
+    await expect(service.getTimetable(100, 9)).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(scope.assertTeachesSection).toHaveBeenCalledWith(9);
+    // nothing is created for a refused teacher (a read has a write side effect)
+    expect(mockTimetableRepo.upsertTimetable).not.toHaveBeenCalled();
   });
 
   it('retrieves or creates a timetable for section and academic year', async () => {

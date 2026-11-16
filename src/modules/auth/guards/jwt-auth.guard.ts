@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -8,9 +9,12 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { JwtTokenService } from '../jwt-token.service';
+import type { AccessTokenPayload } from '../jwt-token.types';
 import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
 import { RequestContext } from '../../../context/request-context';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user';
+import { ALLOW_PASSWORD_CHANGE_KEY } from '../../../common/decorators/allow-password-change.decorator';
+import { ErrorMessages } from '../../../common/errors/error-messages';
 
 /**
  * Global JWT authentication guard.
@@ -58,33 +62,47 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('No authentication token provided');
     }
 
+    let payload: AccessTokenPayload;
     try {
-      const payload = this.jwtTokenService.verifyAccessToken(token);
-
-      // Set the authenticated user on the request (for @CurrentUser() decorator)
-      const authenticatedUser: AuthenticatedUser = {
-        id: payload.sub,
-        instituteId: payload.instituteId,
-        role: payload.role,
-      };
-
-      // Attach user to request
-      (request as Request & { user: AuthenticatedUser }).user =
-        authenticatedUser;
-
-      // Update the AsyncLocalStorage context (for repositories and services)
-      const ctx = RequestContext.get();
-      if (ctx) {
-        ctx.userId = payload.sub;
-        ctx.instituteId = payload.instituteId;
-        ctx.role = payload.role;
-      }
-
-      return true;
+      payload = this.jwtTokenService.verifyAccessToken(token);
     } catch (err) {
       console.error('JwtAuthGuard error:', err);
       throw new UnauthorizedException('Invalid or expired token');
     }
+
+    // Default password still in use: only change-password / profile / logout
+    if (payload.mcp) {
+      const allowed = this.reflector.getAllAndOverride<boolean>(
+        ALLOW_PASSWORD_CHANGE_KEY,
+        [context.getHandler(), context.getClass()],
+      );
+      if (!allowed) {
+        throw new ForbiddenException(
+          ErrorMessages.get('password_change_required'),
+        );
+      }
+    }
+
+    // Set the authenticated user on the request (for @CurrentUser() decorator)
+    const authenticatedUser: AuthenticatedUser = {
+      id: payload.sub,
+      instituteId: payload.instituteId,
+      role: payload.role,
+    };
+
+    // Attach user to request
+    (request as Request & { user: AuthenticatedUser }).user =
+      authenticatedUser;
+
+    // Update the AsyncLocalStorage context (for repositories and services)
+    const ctx = RequestContext.get();
+    if (ctx) {
+      ctx.userId = payload.sub;
+      ctx.instituteId = payload.instituteId;
+      ctx.role = payload.role;
+    }
+
+    return true;
   }
 
   private extractToken(request: Request): string | undefined {

@@ -173,6 +173,13 @@ const messages: Record<string, Record<string, string>> = {
     attendance_not_enrolled:
       'Only students with an active enrollment can check in',
     attendance_not_working_day: 'This day is not a working day',
+    attendance_closed_day: 'This day is a holiday for the student: attendance cannot be recorded',
+    closure_invalid_range: 'The end date must not be before the start date',
+    closure_range_too_long: 'A closure cannot be longer than 366 days',
+    closure_branch_required: 'Select the branch of the closure',
+    closure_sections_required: 'Select at least one section',
+    closure_sections_invalid: 'Some selected sections do not exist in the current branch and academic year',
+    closure_scope_invalid: 'The branch or sections do not match the closure type',
     attendance_already_checked_in: 'The student already checked in today',
     attendance_check_out_before_in: 'The student has not checked in yet',
     attendance_already_checked_out: 'The student already checked out today',
@@ -215,7 +222,16 @@ const messages: Record<string, Record<string, string>> = {
     mobile_account_invalid_role:
       'Target user is not a mobile account (family or student)',
     mobile_account_inactive: 'This account is deactivated or no longer exists',
+    account_deactivated:
+      'This account is deactivated. Please contact the institute administration',
     mobile_finance_family_only: 'Financial data is available to guardians only',
+    teacher_inactive: 'This teacher is deactivated and cannot be assigned',
+    password_change_required: 'You must change your password before continuing',
+    current_password_wrong: 'The current password is incorrect',
+    password_same_as_default: 'Choose a password different from the default one',
+    account_self_change: 'You cannot reset or deactivate your own account here',
+    account_phone_required: 'A phone number is required to create an account',
+    account_wrong_type: 'This account does not belong to the selected type',
   },
   ar: {
     not_found: '{resource} غير موجود',
@@ -358,6 +374,13 @@ const messages: Record<string, Record<string, string>> = {
     attendance_not_enrolled:
       'لا يمكن تسجيل الدخول إلا لطالب مسجل بشعبة بحالة فعّال',
     attendance_not_working_day: 'هذا اليوم ليس يوم دوام',
+    attendance_closed_day: 'هذا اليوم عطلة للطالب: لا يمكن تسجيل الحضور',
+    closure_invalid_range: 'تاريخ النهاية يجب ألا يسبق تاريخ البداية',
+    closure_range_too_long: 'لا يمكن أن تتجاوز العطلة 366 يوماً',
+    closure_branch_required: 'اختر فرع العطلة',
+    closure_sections_required: 'اختر شعبة واحدة على الأقل',
+    closure_sections_invalid: 'بعض الشعب المختارة غير موجودة في الفرع والعام الدراسي الحاليين',
+    closure_scope_invalid: 'الفرع أو الشعب لا يتوافق مع نوع العطلة',
     attendance_already_checked_in: 'الطالب سجّل دخوله اليوم مسبقاً',
     attendance_check_out_before_in: 'الطالب لم يسجّل دخوله بعد',
     attendance_already_checked_out: 'الطالب سجّل انصرافه اليوم مسبقاً',
@@ -395,7 +418,16 @@ const messages: Record<string, Record<string, string>> = {
     mobile_account_invalid_role:
       'المستخدم المحدد ليس حساب تطبيق (ولي أمر أو طالب)',
     mobile_account_inactive: 'هذا الحساب معطّل أو لم يعد موجودًا',
+    account_deactivated:
+      'هذا الحساب معطّل. يرجى التواصل مع إدارة المعهد',
     mobile_finance_family_only: 'البيانات المالية متاحة لولي الأمر فقط',
+    teacher_inactive: 'هذا المعلم معطّل ولا يمكن إسناد مهام إليه',
+    password_change_required: 'يجب تغيير كلمة المرور قبل المتابعة',
+    current_password_wrong: 'كلمة المرور الحالية غير صحيحة',
+    password_same_as_default: 'اختر كلمة مرور مختلفة عن الافتراضية',
+    account_self_change: 'لا يمكنك إعادة تعيين حسابك أو تعطيله من هنا',
+    account_phone_required: 'رقم الهاتف مطلوب لإنشاء الحساب',
+    account_wrong_type: 'هذا الحساب لا ينتمي إلى النوع المحدد',
   },
 };
 

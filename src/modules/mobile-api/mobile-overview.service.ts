@@ -48,7 +48,7 @@ export class MobileOverviewService {
             shiftLocalDate(today, -(ATTENDANCE_WINDOW_DAYS - 1)),
             today,
           ),
-          this.attendance.isWorkingDate(today),
+          this.attendance.isSchoolDayFor(today, child.id),
           this.todayLessons(scope, local.dayOfWeek),
           scope.academicYearId === null
             ? { averagePercent: null, subjects: [] }

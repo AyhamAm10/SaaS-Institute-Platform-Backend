@@ -10,6 +10,8 @@ import { SectionRepository } from '../sections/section.repository';
 import { TeacherScopeService } from '../sections/teacher-scope.service';
 import { InstituteClockService } from '../institutes/institute-clock.service';
 import { InstituteScheduleConfigService } from '../institute-schedule-config/institute-schedule-config.service';
+import { ClosuresService } from '../closures/closures.service';
+import { ClosureInfo, closedGroupsOn } from '../closures/closures.rules';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
 import {
@@ -41,6 +43,9 @@ const fail = (key: string): never => {
   throw new BadRequestException(ErrorMessages.get(key));
 };
 
+/** How many past days the absence job re-checks against closures. */
+const RECONCILE_DAYS = 31;
+
 /** A few minutes of tolerance for client clocks. */
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
 
@@ -65,6 +70,8 @@ export class AttendanceService {
     private readonly scheduleConfig: InstituteScheduleConfigService,
     @Inject(TeacherScopeService)
     private readonly teacherScope: TeacherScopeService,
+    @Inject(ClosuresService)
+    private readonly closures: ClosuresService,
   ) {}
 
   async checkIn(
@@ -94,6 +101,8 @@ export class AttendanceService {
     const local = getLocalParts(at, await this.clock.getTimezone());
     if (!isWorkingDay(config, local.dayOfWeek))
       fail('attendance_not_working_day');
+    if (await this.closureFor(local.date, student.id, student.branchId))
+      fail('attendance_closed_day');
 
     const existing = await this.repository.findForDay(student.id, local.date);
     if (existing?.checkInAt) fail('attendance_already_checked_in');
@@ -163,6 +172,8 @@ export class AttendanceService {
     const student = await this.studentRepository.findById(dto.studentId);
     Ensure.exists(student, 'Student');
     const date = dto.date ?? (await this.clock.today());
+    if (await this.closureFor(date, student.id, student.branchId))
+      fail('attendance_closed_day');
     const existing = await this.repository.findForDay(student.id, date);
     const data = {
       status: AttendanceStatus.EXCUSED,
@@ -220,6 +231,10 @@ export class AttendanceService {
       date,
     );
     const byStudent = new Map(records.map((r) => [r.studentId, r]));
+    const closure = await this.closures.findCovering(date, {
+      branchId: section.branchId,
+      sectionIds: [section.id],
+    });
     const rows = roster.map(({ student }) => ({
       student: {
         id: student.id,
@@ -231,10 +246,13 @@ export class AttendanceService {
 
     return {
       date,
-      isWorkingDay: isWorkingDay(
-        config,
-        new Date(`${date}T12:00:00.000Z`).getUTCDay(),
-      ),
+      isWorkingDay:
+        !closure &&
+        isWorkingDay(config, new Date(`${date}T12:00:00.000Z`).getUTCDay()),
+      /** The closure (holiday) covering this section on the day, if any. */
+      closure: closure
+        ? { id: closure.id, scope: closure.scope, reason: closure.reason }
+        : null,
       counts: countDay(rows.map((r) => r.record?.status ?? null)),
       rows,
     };
@@ -274,6 +292,17 @@ export class AttendanceService {
     return isWorkingDay(await this.dayConfig(), dayOfWeekOf(date));
   }
 
+  /**
+   * Whether `date` is a school day for this student: a working day of the
+   * schedule that is not a closure (institute, branch or section) for them.
+   */
+  async isSchoolDayFor(date: string, studentId: number): Promise<boolean> {
+    if (!(await this.isWorkingDate(date))) return false;
+    const student = await this.studentRepository.findById(studentId);
+    Ensure.exists(student, 'Student');
+    return !(await this.closureFor(date, student.id, student.branchId));
+  }
+
   /** Records of a local period for reports (D3): some students or one branch. */
   async getRecordsBetween(
     from: string,
@@ -294,7 +323,13 @@ export class AttendanceService {
    */
   async getOverview(today: string, branchId?: number) {
     const config = await this.dayConfig();
-    const days = lastWorkingDays(today, 7, config.workingDays);
+    // Institute-wide closures drop out of the series (branch / section ones are partial)
+    const closures = await this.closures.findInfoBetween(
+      shiftLocalDate(today, -49),
+      today,
+    );
+    const closedAll = (date: string) => closedGroupsOn(closures, date).all;
+    const days = lastWorkingDays(today, 7, config.workingDays, closedAll);
     const [rows, todayRecords] = await Promise.all([
       days.length > 0
         ? this.repository.countByDayAndStatus(days[0], today, branchId)
@@ -302,7 +337,8 @@ export class AttendanceService {
       this.repository.findDayStatuses(today, branchId),
     ]);
     return {
-      isWorkingDay: isWorkingDay(config, dayOfWeekOf(today)),
+      isWorkingDay:
+        isWorkingDay(config, dayOfWeekOf(today)) && !closedAll(today),
       week: attendanceSeries(rows, days),
       todayRecords,
     };
@@ -315,9 +351,44 @@ export class AttendanceService {
   async markAbsencesIfClosed(): Promise<number> {
     const config = await this.dayConfig();
     const local = await this.clock.localParts();
+    const closures = await this.closures.findInfoBetween(
+      shiftLocalDate(local.date, -RECONCILE_DAYS),
+      local.date,
+    );
+    await this.removeAbsencesOnClosures(closures, local.date);
     if (!isWorkingDay(config, local.dayOfWeek)) return 0;
     if (local.minutesOfDay < closeMinutes(config)) return 0;
-    return this.repository.markAbsences(local.date);
+    const closed = closedGroupsOn(closures, local.date);
+    if (closed.all) return 0;
+    return this.repository.markAbsences(local.date, closed);
+  }
+
+  /**
+   * A closure declared (or widened) after the absence job ran: drop the
+   * automatic absences that now fall on closed days (last RECONCILE_DAYS).
+   * Runs inside the same hourly job, so it is corrected within the hour.
+   */
+  private async removeAbsencesOnClosures(
+    closures: ClosureInfo[],
+    today: string,
+  ): Promise<void> {
+    const earliest = shiftLocalDate(today, -RECONCILE_DAYS);
+    for (const closure of closures) {
+      const from = closure.fromDate > earliest ? closure.fromDate : earliest;
+      const to = closure.toDate < today ? closure.toDate : today;
+      if (from <= to)
+        await this.repository.deleteAutoAbsences(from, to, closure);
+    }
+  }
+
+  /** The closure covering `date` for a student (their branch and active sections). */
+  private async closureFor(
+    date: string,
+    studentId: number,
+    branchId: number,
+  ): Promise<ClosureInfo | null> {
+    const sectionIds = await this.repository.findActiveSectionIds(studentId);
+    return this.closures.findCovering(date, { branchId, sectionIds });
   }
 
   /**

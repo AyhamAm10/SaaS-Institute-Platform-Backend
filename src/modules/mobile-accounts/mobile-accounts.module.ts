@@ -1,15 +1,11 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
-import { AuthModule } from '../auth/auth.module';
-import { FamiliesModule } from '../families/families.module';
-import { StudentsModule } from '../students/students.module';
-import { MobileAccountsController } from './mobile-accounts.controller';
 import { MobileAccountsService } from './mobile-accounts.service';
 import { MobileAccountsRepository } from './mobile-accounts.repository';
 
+/** Live-account checks behind the mobile API. Account management: `accounts`. */
 @Module({
-  imports: [PrismaModule, AuthModule, FamiliesModule, StudentsModule],
-  controllers: [MobileAccountsController],
+  imports: [PrismaModule],
   providers: [MobileAccountsService, MobileAccountsRepository],
   exports: [MobileAccountsService, MobileAccountsRepository],
 })

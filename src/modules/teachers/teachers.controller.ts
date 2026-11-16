@@ -18,7 +18,6 @@ import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { TeacherQueryDto } from './dto/teacher-query.dto';
 import { TeacherQualificationDto } from './dto/teacher-assignment.dto';
 import { SetTeacherAvailabilityDto } from './dto/teacher-availability.dto';
-import { ResetStaffPasswordDto } from '../staff/dto/staff.dto';
 import { RequireResource } from '../../common/decorators/permissions.decorator';
 import { Resource } from '../../common/types/permissions';
 
@@ -92,14 +91,5 @@ export class TeachersController {
   @Get(':id/availability')
   async getAvailability(@Param('id', ParseIntPipe) id: number) {
     return this.teachersService.getAvailability(id);
-  }
-
-  @Post(':id/reset-password')
-  @HttpCode(HttpStatus.OK)
-  async resetPassword(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: ResetStaffPasswordDto,
-  ) {
-    return this.teachersService.resetPassword(id, dto);
   }
 }

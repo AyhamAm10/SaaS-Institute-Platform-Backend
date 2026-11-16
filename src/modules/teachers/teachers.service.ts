@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import bcrypt from 'bcryptjs';
 import { TeacherRepository } from './teacher.repository';
 import { TeacherAssignmentRepository } from './teacher-assignment.repository';
 import { TeacherAvailabilityRepository } from './teacher-availability.repository';
@@ -17,7 +16,7 @@ import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { TeacherQueryDto } from './dto/teacher-query.dto';
 import { TeacherQualificationDto } from './dto/teacher-assignment.dto';
 import { TeacherAvailabilityItemDto } from './dto/teacher-availability.dto';
-import { ResetStaffPasswordDto } from '../staff/dto/staff.dto';
+import { AccountProvisioningService } from '../users/account-provisioning.service';
 import { RequestContext } from '../../context/request-context';
 
 function parseTimeToMinutes(timeStr: string): number {
@@ -25,7 +24,6 @@ function parseTimeToMinutes(timeStr: string): number {
   return (hours ?? 0) * 60 + (minutes ?? 0);
 }
 
-const HASH_ROUNDS = 12;
 
 @Injectable()
 export class TeachersService {
@@ -38,6 +36,8 @@ export class TeachersService {
     private readonly availabilityRepository: TeacherAvailabilityRepository,
     @Inject(UserRepository)
     private readonly userRepository: UserRepository,
+    @Inject(AccountProvisioningService)
+    private readonly provisioning: AccountProvisioningService,
     @Inject(AcademicBranchRepository)
     private readonly academicBranchRepository: AcademicBranchRepository,
     @Inject(SubjectRepository)
@@ -119,21 +119,16 @@ export class TeachersService {
       this.validateAvailabilityWindows(dto.availabilities);
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, HASH_ROUNDS);
     const instituteId = this.teacherRepository.getInstituteId();
 
     return this.transactionHelper.executeInTransaction(async () => {
       const client = (this.teacherRepository as any).client;
 
-      // 3. Create User with role TEACHER
-      const user = await client.user.create({
-        data: {
-          instituteId,
-          fullName: trimmedName,
-          phone: trimmedPhone,
-          passwordHash,
-          role: UserRole.TEACHER,
-        },
+      // 3. Create the login account (default password, forced change at first sign-in)
+      const user = await this.provisioning.provision({
+        fullName: trimmedName,
+        phone: trimmedPhone,
+        role: UserRole.TEACHER,
       });
 
       // 4. Create Teacher record
@@ -145,6 +140,12 @@ export class TeachersService {
           isActive: dto.isActive ?? true,
         },
       });
+      if (dto.isActive === false) {
+        await client.user.update({
+          where: { id: user.id },
+          data: { isActive: false },
+        });
+      }
 
       // 5. Connect institute branches (priority: DTO branchIds > RequestContext header > Default branch)
       const branchIdsToAssign = [...(dto.branchIds ?? [])];
@@ -222,6 +223,8 @@ export class TeachersService {
       where: { id: teacher.userId },
     });
     Ensure.exists(user, 'User');
+    // Deactivating a teacher also ends their sessions (login is blocked too)
+    if (dto.isActive === false) await this.authService.logout(teacher.userId);
 
     // Phone uniqueness check if changed
     if (dto.phone !== undefined) {
@@ -258,6 +261,11 @@ export class TeachersService {
       }
       if (dto.isActive !== undefined) {
         teacherUpdate['isActive'] = dto.isActive;
+        // The login switch follows the teacher switch
+        await client.user.update({
+          where: { id: user.id },
+          data: { isActive: dto.isActive },
+        });
       }
 
       if (Object.keys(teacherUpdate).length > 0) {
@@ -295,20 +303,44 @@ export class TeachersService {
     const teacher = await this.teacherRepository.findById(id);
     Ensure.exists(teacher, 'Teacher');
     await this.ensureTeacherAssignedToContextBranch(id);
-    return this.teacherRepository.update(id, { isActive });
+    const updated = await this.teacherRepository.update(id, { isActive });
+    await this.userRepository.update(teacher.userId, { isActive });
+    if (!isActive) await this.authService.logout(teacher.userId);
+    return updated;
+  }
+
+  /** Teacher id of the caller when the caller is a TEACHER, else null (staff). */
+  private async ownTeacherId(): Promise<number | null> {
+    if (RequestContext.get()?.role !== UserRole.TEACHER) return null;
+    const own = await this.teacherRepository.findByUserId(
+      RequestContext.getUserId(),
+    );
+    Ensure.forbidden(!own, ErrorMessages.get('teacher_not_linked'));
+    return own!.id;
+  }
+
+  /** A teacher may read only themselves: another teacher answers 404 (never revealed). */
+  private async assertOwnOrStaff(teacherId: number): Promise<void> {
+    const own = await this.ownTeacherId();
+    if (own !== null) Ensure.exists(own === teacherId ? own : null, 'Teacher');
   }
 
   /**
    * Find paginated teachers list with filters.
    */
+  /** A TEACHER only reaches their own record (role.md §8.6); others get everyone. */
   async findAll(query: TeacherQueryDto) {
-    return this.teacherRepository.findAllFiltered(query);
+    return this.teacherRepository.findAllFiltered(
+      query,
+      (await this.ownTeacherId()) ?? undefined,
+    );
   }
 
   /**
    * Retrieve single teacher details by ID.
    */
   async findById(id: number) {
+    await this.assertOwnOrStaff(id);
     const teacher = await this.teacherRepository.findByIdWithDetails(id);
     Ensure.exists(teacher, 'Teacher');
     return teacher;
@@ -403,24 +435,11 @@ export class TeachersService {
    * Retrieve availability windows for a teacher.
    */
   async getAvailability(teacherId: number) {
+    await this.assertOwnOrStaff(teacherId);
     const teacher = await this.teacherRepository.findById(teacherId);
     Ensure.exists(teacher, 'Teacher');
     await this.ensureTeacherAssignedToContextBranch(teacherId);
     return this.availabilityRepository.findByTeacher(teacherId);
-  }
-
-  /**
-   * Reset teacher password and revoke sessions (role.md §8.6).
-   */
-  async resetPassword(id: number, dto: ResetStaffPasswordDto) {
-    const teacher = await this.teacherRepository.findById(id);
-    Ensure.exists(teacher, 'Teacher');
-    await this.ensureTeacherAssignedToContextBranch(id);
-
-    const passwordHash = await bcrypt.hash(dto.password, HASH_ROUNDS);
-    await this.userRepository.update(teacher.userId, { passwordHash });
-    await this.authService.logout(teacher.userId);
-    return { updated: true };
   }
 
   /**

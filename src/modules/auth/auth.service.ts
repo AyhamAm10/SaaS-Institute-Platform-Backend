@@ -1,5 +1,6 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { User } from '@prisma/client';
+import { UserRole } from '../../common/types/user-role.enum';
 import bcrypt from 'bcryptjs';
 import { UserSystemRepository } from '../users/user-system.repository';
 import { JwtTokenService } from './jwt-token.service';
@@ -7,6 +8,11 @@ import { PrismaService } from '../../database/prisma.service';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import {
+  DEFAULT_ACCOUNT_PASSWORD,
+  PASSWORD_HASH_ROUNDS,
+} from '../users/default-password';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { normalizeInstituteCode } from '../../common/types/institute-code';
 import {
@@ -91,6 +97,12 @@ export class AuthService {
       400,
     );
     const user = matches[0];
+    // Said only after the password matched, so it reveals nothing to a guesser
+    Ensure.unauthorized(
+      !user.isActive,
+      ErrorMessages.get('account_deactivated'),
+    );
+    await this.assertTeacherActive(user);
 
     // 3. Generate tokens
     const tokens = this.generateTokenPair(user);
@@ -103,6 +115,15 @@ export class AuthService {
       ...tokens,
       user: this.toSafeUser(user),
     };
+  }
+
+  /** A deactivated teacher (Teacher.isActive = false) cannot sign in or refresh. */
+  private async assertTeacherActive(user: User): Promise<void> {
+    if (user.role !== UserRole.TEACHER) return;
+    Ensure.unauthorized(
+      await this.userSystemRepository.isInactiveTeacher(user.id),
+      ErrorMessages.get('account_deactivated'),
+    );
   }
 
   /**
@@ -152,6 +173,11 @@ export class AuthService {
     );
     Ensure.unauthorized(!user, ErrorMessages.get('token_invalid'));
     const validUser = user!;
+    Ensure.unauthorized(
+      !validUser.isActive,
+      ErrorMessages.get('account_deactivated'),
+    );
+    await this.assertTeacherActive(validUser);
 
     // 4. Delete old token and rotate
     await this.prisma.refreshToken.delete({
@@ -162,6 +188,37 @@ export class AuthService {
     await this.persistRefreshToken(validUser.id, tokens.refreshToken);
 
     return tokens;
+  }
+
+  /**
+   * The user picks a new password (the forced first step on a default
+   * password). All sessions are revoked and a fresh pair is issued so the
+   * caller stays signed in.
+   */
+  async changePassword(
+    userId: number,
+    dto: ChangePasswordDto,
+  ): Promise<AuthResponse> {
+    const user = await this.userSystemRepository.findByIdWithInstitute(userId);
+    Ensure.unauthorized(!user, ErrorMessages.get('token_invalid'));
+    Ensure.unauthorized(
+      !(await bcrypt.compare(dto.currentPassword, user.passwordHash)),
+      ErrorMessages.get('current_password_wrong'),
+    );
+    Ensure.custom(
+      dto.newPassword === DEFAULT_ACCOUNT_PASSWORD,
+      ErrorMessages.get('password_same_as_default'),
+      400,
+    );
+
+    const updated = await this.userSystemRepository.setPassword(
+      userId,
+      await bcrypt.hash(dto.newPassword, PASSWORD_HASH_ROUNDS),
+    );
+    await this.logout(userId);
+    const tokens = this.generateTokenPair(updated);
+    await this.persistRefreshToken(userId, tokens.refreshToken);
+    return { ...tokens, user: this.toSafeUser(updated) };
   }
 
   /**
@@ -186,6 +243,7 @@ export class AuthService {
       sub: user.id,
       instituteId: user.instituteId,
       role: user.role,
+      ...(user.mustChangePassword && { mcp: true }),
     });
 
     const refreshToken = this.jwtTokenService.generateRefreshToken({
@@ -218,6 +276,7 @@ export class AuthService {
       fullName: user.fullName,
       phone: user.phone,
       role: user.role,
+      mustChangePassword: user.mustChangePassword,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

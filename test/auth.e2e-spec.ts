@@ -23,6 +23,8 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
     phone: '+966511111111',
     passwordHash: '',
     role: 'INSTITUTE_ADMIN',
+    isActive: true,
+    mustChangePassword: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     institute: {
@@ -38,6 +40,8 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
     phone: '+966522222222',
     passwordHash: '',
     role: 'INSTITUTE_ADMIN',
+    isActive: true,
+    mustChangePassword: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     institute: {

@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Inject,
   Param,
@@ -13,7 +12,6 @@ import {
 import { StaffService } from './staff.service';
 import {
   CreateStaffDto,
-  ResetStaffPasswordDto,
   StaffQueryDto,
   UpdateStaffDto,
 } from './dto/staff.dto';
@@ -42,19 +40,5 @@ export class StaffController {
     @Body() dto: UpdateStaffDto,
   ) {
     return this.staff.update(id, dto);
-  }
-
-  @Post(':id/reset-password')
-  async resetPassword(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: ResetStaffPasswordDto,
-  ) {
-    return this.staff.resetPassword(id, dto);
-  }
-
-  /** Deactivate (soft delete); history and audit entries are kept. */
-  @Delete(':id')
-  async deactivate(@Param('id', ParseIntPipe) id: number) {
-    return this.staff.deactivate(id);
   }
 }

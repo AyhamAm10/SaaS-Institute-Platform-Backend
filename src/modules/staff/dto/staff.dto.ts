@@ -4,14 +4,10 @@ import {
   IsOptional,
   IsString,
   MaxLength,
-  MinLength,
 } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination.dto';
 import { STAFF_ROLES } from '../../../common/types/user-role.enum';
 import type { StaffRole } from '../../../common/types/user-role.enum';
-
-/** Minimum password length of staff accounts. */
-export const STAFF_PASSWORD_MIN = 8;
 
 export class CreateStaffDto {
   @IsString()
@@ -26,11 +22,6 @@ export class CreateStaffDto {
 
   @IsIn(STAFF_ROLES)
   role!: StaffRole;
-
-  @IsString()
-  @MinLength(STAFF_PASSWORD_MIN)
-  @MaxLength(100)
-  password!: string;
 }
 
 /** Name and / or role (the phone is the login and does not change here). */
@@ -44,13 +35,6 @@ export class UpdateStaffDto {
   @IsOptional()
   @IsIn(STAFF_ROLES)
   role?: StaffRole;
-}
-
-export class ResetStaffPasswordDto {
-  @IsString()
-  @MinLength(STAFF_PASSWORD_MIN)
-  @MaxLength(100)
-  password!: string;
 }
 
 export class StaffQueryDto extends PaginationQueryDto {

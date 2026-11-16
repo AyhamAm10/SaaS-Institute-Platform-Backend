@@ -8,6 +8,7 @@ import {
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { StudentEnrollmentRepository } from './student-enrollment.repository';
 import { FamilyRepository } from '../families/family.repository';
+import { FamilyAccountsService } from '../families/family-accounts.service';
 import { StudentFieldRepository } from '../student-fields/student-field.repository';
 import { SectionRepository } from '../sections/section.repository';
 import { BranchRepository } from '../branches/branch.repository';
@@ -43,6 +44,8 @@ export class StudentsService {
     private readonly academicYearRepository: AcademicYearRepository,
     @Inject(StudentReferencesResolver)
     private readonly referencesResolver: StudentReferencesResolver,
+    @Inject(FamilyAccountsService)
+    private readonly familyAccounts: FamilyAccountsService,
   ) {}
 
   async create(dto: CreateStudentDto): Promise<Student> {
@@ -74,6 +77,7 @@ export class StudentsService {
           phone: dto.newFamily.phone?.trim() || null,
         });
         familyId = family.id;
+        await this.familyAccounts.ensureAccount(family);
       } else if (familyId) {
         const existingFamily =
           await this.familyRepository.findFamilyById(familyId);

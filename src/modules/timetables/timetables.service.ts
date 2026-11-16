@@ -6,6 +6,7 @@ import { TimetableConflictService } from './services/timetable-conflict.service'
 import { TimetableSchedulerService } from './services/timetable-scheduler.service';
 import { InstituteScheduleConfigService } from '../institute-schedule-config/institute-schedule-config.service';
 import { SectionRepository } from '../sections/section.repository';
+import { TeacherScopeService } from '../sections/teacher-scope.service';
 import { SectionSubjectRepository } from '../sections/section-subject.repository';
 import { TeacherRepository } from '../teachers/teacher.repository';
 import { TeacherAssignmentRepository } from '../teachers/teacher-assignment.repository';
@@ -55,6 +56,8 @@ export class TimetablesService {
     private readonly transactionHelper: TransactionHelper,
     @Inject(LockService)
     private readonly lockService: LockService,
+    @Inject(TeacherScopeService)
+    private readonly teacherScope: TeacherScopeService,
   ) {}
 
   /**
@@ -79,6 +82,8 @@ export class TimetablesService {
 
     const section = await this.sectionRepository.findById(sectionId || 0);
     Ensure.exists(section, 'Section');
+    // A teacher reads only the timetables of the sections they teach in (role.md §8.6)
+    await this.teacherScope.assertTeachesSection(section.id);
 
     const contextBranchId = RequestContext.getBranchId();
     Ensure.custom(
@@ -271,7 +276,9 @@ export class TimetablesService {
         await this.sectionSubjectRepository.findSubjectsBySection(secId);
 
       // Load all teachers, assignments, availabilities, rooms
-      const teachers = await this.teacherRepository.findMany({});
+      const teachers = await this.teacherRepository.findMany({
+        where: { isActive: true },
+      });
       const teacherAssignments =
         await this.teacherAssignmentRepository.findMany({});
       const teacherAvailabilities =
@@ -433,6 +440,11 @@ export class TimetablesService {
 
     const teacher = await this.teacherRepository.findById(dto.teacherId);
     Ensure.exists(teacher, 'Teacher');
+    Ensure.custom(
+      !teacher.isActive,
+      ErrorMessages.get('teacher_inactive'),
+      400,
+    );
 
     // Verify teacher is assigned to this section's branch
     const client = (this.timetableRepository as any).client;

@@ -20,6 +20,23 @@ export class UserRepository extends TenantAwareRepository<User> {
     super(prisma, 'user');
   }
 
+  /** New account with the default-password rules (see AccountProvisioningService). */
+  async createAccount(data: {
+    fullName: string;
+    phone: string;
+    role: string;
+    passwordHash: string;
+  }): Promise<User> {
+    return this.client.user.create({
+      data: {
+        ...data,
+        instituteId: this.getInstituteId(),
+        isActive: true,
+        mustChangePassword: true,
+      },
+    });
+  }
+
   /** Find a user by phone within the current institute. */
   async findByPhone(phone: string): Promise<User | null> {
     return this.findOne({ phone });
@@ -29,7 +46,11 @@ export class UserRepository extends TenantAwareRepository<User> {
   async findByIdWithInstitute(id: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.client as any).user.findFirst({
-      where: this.notDeleted({ id, instituteId: this.getInstituteId() }),
+      where: this.notDeleted({
+        id,
+        instituteId: this.getInstituteId(),
+        isActive: true,
+      }),
       include: { institute: true },
     });
   }

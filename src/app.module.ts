@@ -30,6 +30,8 @@ import { ReferenceDataModule } from './modules/reference-data/reference-data.mod
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { FeesModule } from './modules/fees/fees.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { ClosuresModule } from './modules/closures/closures.module';
+import { TeacherApiModule } from './modules/teacher-api/teacher-api.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { StaffModule } from './modules/staff/staff.module';
@@ -37,6 +39,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { InstituteProfileModule } from './modules/institute-profile/institute-profile.module';
 import { MobileAccountsModule } from './modules/mobile-accounts/mobile-accounts.module';
+import { AccountsModule } from './modules/accounts/accounts.module';
 import { MobileApiModule } from './modules/mobile-api/mobile-api.module';
 
 @Module({
@@ -81,6 +84,8 @@ import { MobileApiModule } from './modules/mobile-api/mobile-api.module';
     ReferenceDataModule,
     EnrollmentsModule,
     FeesModule,
+    ClosuresModule,
+    TeacherApiModule,
     AttendanceModule,
     ExamsModule,
     DashboardModule,
@@ -89,6 +94,7 @@ import { MobileApiModule } from './modules/mobile-api/mobile-api.module';
     JobsModule,
     InstituteProfileModule,
     MobileAccountsModule,
+    AccountsModule,
     MobileApiModule,
   ],
 })

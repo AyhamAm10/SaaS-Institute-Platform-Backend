@@ -75,15 +75,18 @@ export class TeacherRepository extends ContextScopedRepository<Teacher> {
   /**
    * Paginated list of teachers with dynamic filters.
    */
-  async findAllFiltered(query: TeacherQueryDto): Promise<PaginatedResult<any>> {
+  async findAllFiltered(
+    query: TeacherQueryDto,
+    onlyId?: number,
+  ): Promise<PaginatedResult<any>> {
     const instituteId = this.getInstituteId();
     const where: Prisma.TeacherWhereInput = {
       instituteId,
+      ...(onlyId !== undefined && { id: onlyId }),
     };
 
-    if (query.isActive !== undefined) {
-      where.isActive = query.isActive;
-    }
+    // Active teachers only, unless the caller asks for the inactive ones
+    where.isActive = query.isActive ?? true;
 
     if (query.search && query.search.trim()) {
       const s = query.search.trim();

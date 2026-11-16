@@ -34,6 +34,7 @@ export class StaffRepository extends TenantAwareRepository<User> {
 
   async findStaff(query: StaffQueryDto) {
     const where: Prisma.UserWhereInput = {
+      isActive: true,
       role: query.role ? query.role : { in: [...STAFF_ROLES] },
       ...(query.search?.trim() && {
         OR: [
@@ -59,7 +60,11 @@ export class StaffRepository extends TenantAwareRepository<User> {
   /** Staff member by id (null when not staff, deleted or another institute). */
   async findStaffById(id: number): Promise<StaffMember | null> {
     return this.client.user.findFirst({
-      where: this.scopeWhere({ id, role: { in: [...STAFF_ROLES] } }),
+      where: this.scopeWhere({
+        id,
+        isActive: true,
+        role: { in: [...STAFF_ROLES] },
+      }),
       select: STAFF_SELECT,
     });
   }
@@ -70,7 +75,7 @@ export class StaffRepository extends TenantAwareRepository<User> {
   }
 
   async countActiveAdmins(): Promise<number> {
-    return this.count({ role: UserRole.INSTITUTE_ADMIN });
+    return this.count({ role: UserRole.INSTITUTE_ADMIN, isActive: true });
   }
 
   /** Names of any users of the institute (deleted ones included). */

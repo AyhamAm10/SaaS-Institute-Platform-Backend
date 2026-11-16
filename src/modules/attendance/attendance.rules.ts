@@ -80,12 +80,14 @@ export function lastWorkingDays(
   today: string,
   count: number,
   workingDays: number[],
+  isClosed: (date: string) => boolean = () => false,
 ): string[] {
   const days: string[] = [];
   // Bounded lookback: a config without working days returns an empty series
   for (let i = 0; i < count * 7 && days.length < count; i++) {
     const date = shiftLocalDate(today, -i);
-    if (workingDays.includes(dayOfWeekOf(date))) days.unshift(date);
+    if (workingDays.includes(dayOfWeekOf(date)) && !isClosed(date))
+      days.unshift(date);
   }
   return days;
 }

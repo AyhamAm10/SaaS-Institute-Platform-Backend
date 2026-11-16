@@ -2,7 +2,12 @@ import { jest } from '@jest/globals';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { JwtTokenService } from '../jwt-token.service';
 import { Reflector } from '@nestjs/core';
-import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ALLOW_PASSWORD_CHANGE_KEY } from '../../../common/decorators/allow-password-change.decorator';
 
 describe('JwtAuthGuard — Dual Token Extraction (Header & Cookie)', () => {
   let guard: JwtAuthGuard;
@@ -148,5 +153,40 @@ describe('JwtAuthGuard — Dual Token Extraction (Header & Cookie)', () => {
     const context = createMockContext(request);
 
     expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+  });
+
+  describe('default password still in use (mcp claim)', () => {
+    const asForced = (allowed: boolean) => {
+      reflector.getAllAndOverride.mockImplementation(((key: string) =>
+        key === ALLOW_PASSWORD_CHANGE_KEY ? allowed : false) as never);
+      jwtTokenService.verifyAccessToken.mockReturnValue({
+        sub: 9,
+        instituteId: 10,
+        role: 'FAMILY',
+        mcp: true,
+      });
+      return createMockContext({ headers: { authorization: 'Bearer t' } });
+    };
+
+    it('blocks every route that is not allow-listed with 403', () => {
+      expect(() => guard.canActivate(asForced(false))).toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('lets the allow-listed routes through (change password, profile, logout)', () => {
+      expect(guard.canActivate(asForced(true))).toBe(true);
+    });
+
+    it('does not restrict a token without the claim', () => {
+      reflector.getAllAndOverride.mockReturnValue(false);
+      jwtTokenService.verifyAccessToken.mockReturnValue({
+        sub: 9,
+        instituteId: 10,
+        role: 'FAMILY',
+      });
+      const ctx = createMockContext({ headers: { authorization: 'Bearer t' } });
+      expect(guard.canActivate(ctx)).toBe(true);
+    });
   });
 });

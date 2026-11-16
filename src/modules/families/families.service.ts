@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Family } from '@prisma/client';
 import { FamilyRepository } from './family.repository';
+import {
+  FamilyAccountsService,
+  FamilyAccountStatus,
+} from './family-accounts.service';
 import { CreateFamilyDto } from './dto/create-family.dto';
 import { UpdateFamilyDto } from './dto/update-family.dto';
 import { ErrorMessages } from '../../common/errors/error-messages';
@@ -11,17 +15,24 @@ export class FamiliesService {
   constructor(
     @Inject(FamilyRepository)
     private readonly familyRepository: FamilyRepository,
+    @Inject(FamilyAccountsService)
+    private readonly familyAccounts: FamilyAccountsService,
   ) {}
 
-  async create(dto: CreateFamilyDto): Promise<Family> {
+  /** The family and what happened to its guardian login (see FamilyAccountsService). */
+  async create(
+    dto: CreateFamilyDto,
+  ): Promise<Family & { accountStatus: FamilyAccountStatus }> {
     Ensure.required(dto.familyName?.trim(), 'familyName');
 
-    return this.familyRepository.create({
+    const family = await this.familyRepository.create({
       familyName: dto.familyName.trim(),
       fatherName: dto.fatherName?.trim() || null,
       motherName: dto.motherName?.trim() || null,
       phone: dto.phone?.trim() || null,
     });
+    const accountStatus = await this.familyAccounts.ensureAccount(family);
+    return { ...family, accountStatus };
   }
 
   async search(query?: string): Promise<Family[]> {
@@ -35,7 +46,7 @@ export class FamiliesService {
   }
 
   async update(id: number, dto: UpdateFamilyDto): Promise<Family> {
-    await this.findById(id);
+    const before = await this.findById(id);
 
     const data: Record<string, unknown> = {};
     if (dto.familyName !== undefined) {
@@ -51,7 +62,12 @@ export class FamiliesService {
     if (Object.keys(data).length > 0) {
       await this.familyRepository.update(id, data);
     }
-    return this.findById(id);
+    const family = await this.findById(id);
+    // A new phone (or a first one) gives the family its guardian login
+    if (dto.phone !== undefined || before.phone !== family.phone) {
+      await this.familyAccounts.rePoint(family, before.phone);
+    }
+    return family;
   }
 
   /** Soft-delete a family. Blocked while it still has (non-deleted) students. */

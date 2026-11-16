@@ -22,7 +22,11 @@ export enum Resource {
 
 export type Action = 'view' | 'manage';
 
-/** Entering marks is separate from managing exams (teachers do the former only). */
+/**
+ * Entering marks is a separate permission. A TEACHER also manages exams, but only
+ * for the (section, subject) pairs they teach: the service enforces it
+ * (`TeacherScopeService.assertTeachesSubject`), the guard alone is not enough.
+ */
 export const MARKS_ENTER = 'marks.enter';
 
 export type Permission = `${Resource}.${Action}` | typeof MARKS_ENTER;
@@ -70,7 +74,8 @@ const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
   // Teacher scope (own sections / subjects) is enforced in the services
   [UserRole.TEACHER]: [
     ...view(Resource.Attendance, Resource.Exams, Resource.Academic),
-    ...manage(Resource.Attendance),
+    // Attendance is recorded by the administration, not by teachers (owner decision 2026-11-15)
+    ...manage(Resource.Exams),
     MARKS_ENTER,
   ],
 };

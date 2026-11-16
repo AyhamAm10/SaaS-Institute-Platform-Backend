@@ -9,6 +9,7 @@ import { AcademicBranchRepository } from '../academic-branches/academic-branch.r
 import { SubjectRepository } from '../subjects/subject.repository';
 import { BranchRepository } from '../branches/branch.repository';
 import { AuthService } from '../auth/auth.service';
+import { AccountProvisioningService } from '../users/account-provisioning.service';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { RequestContext } from '../../context/request-context';
 
@@ -23,6 +24,7 @@ describe('TeachersService', () => {
   let mockBranchRepo: any;
   let mockAuthService: any;
   let mockTransactionHelper: any;
+  let mockProvisioning: any;
 
   beforeEach(async () => {
     mockTeacherRepo = {
@@ -30,6 +32,8 @@ describe('TeachersService', () => {
       findById: jest.fn(),
       findByIdWithDetails: jest.fn(),
       findAllFiltered: jest.fn(),
+      findByUserId: jest.fn(),
+      findByUser: jest.fn(),
       update: jest.fn(),
       client: {
         user: { create: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
@@ -54,6 +58,7 @@ describe('TeachersService', () => {
 
     mockUserSystemRepo = {
       findByPhone: jest.fn(),
+      update: jest.fn(),
     };
 
     mockAcademicBranchRepo = {
@@ -69,6 +74,10 @@ describe('TeachersService', () => {
     mockBranchRepo = {
       findById: jest.fn().mockResolvedValue({ id: 5 } as any),
       getOrCreateDefaultBranch: jest.fn().mockResolvedValue({ id: 5 } as any),
+    };
+
+    mockProvisioning = {
+      provision: jest.fn(),
     };
 
     mockAuthService = {
@@ -95,6 +104,7 @@ describe('TeachersService', () => {
         { provide: SubjectRepository, useValue: mockSubjectRepo },
         { provide: BranchRepository, useValue: mockBranchRepo },
         { provide: AuthService, useValue: mockAuthService },
+        { provide: AccountProvisioningService, useValue: mockProvisioning },
         { provide: TransactionHelper, useValue: mockTransactionHelper },
       ],
     }).compile();
@@ -113,7 +123,6 @@ describe('TeachersService', () => {
         service.create({
           fullName: 'Ahmed Teacher',
           phone: '+966512345678',
-          password: 'Password123!',
         }),
       ).rejects.toThrow();
     });
@@ -125,7 +134,6 @@ describe('TeachersService', () => {
         service.create({
           fullName: 'Ahmed Teacher',
           phone: '+966512345678',
-          password: 'Password123!',
           availabilities: [
             { dayOfWeek: 0, startTime: '12:00', endTime: '08:00' },
           ],
@@ -140,7 +148,6 @@ describe('TeachersService', () => {
         service.create({
           fullName: 'Ahmed Teacher',
           phone: '+966512345678',
-          password: 'Password123!',
           availabilities: [
             { dayOfWeek: 0, startTime: '08:00', endTime: '11:00' },
             { dayOfWeek: 0, startTime: '10:30', endTime: '13:00' },
@@ -151,7 +158,7 @@ describe('TeachersService', () => {
 
     it('should create user and teacher successfully', async () => {
       mockUserSystemRepo.findByPhone.mockResolvedValue(null);
-      mockTeacherRepo.client.user.create.mockResolvedValue({
+      mockProvisioning.provision.mockResolvedValue({
         id: 10,
         fullName: 'Ahmed Teacher',
       });
@@ -168,11 +175,14 @@ describe('TeachersService', () => {
       const result = await service.create({
         fullName: 'Ahmed Teacher',
         phone: '+966512345678',
-        password: 'Password123!',
       });
 
       expect(result).toBeDefined();
-      expect(mockTeacherRepo.client.user.create).toHaveBeenCalled();
+      expect(mockProvisioning.provision).toHaveBeenCalledWith({
+        fullName: 'Ahmed Teacher',
+        phone: '+966512345678',
+        role: 'TEACHER',
+      });
       expect(mockTeacherRepo.client.teacher.create).toHaveBeenCalled();
       expect(mockBranchRepo.getOrCreateDefaultBranch).toHaveBeenCalled();
       expect(mockTeacherRepo.client.branchTeacher.create).toHaveBeenCalledWith(
@@ -184,7 +194,7 @@ describe('TeachersService', () => {
 
     it('should assign context branchId from RequestContext when dto.branchIds is omitted', async () => {
       mockUserSystemRepo.findByPhone.mockResolvedValue(null);
-      mockTeacherRepo.client.user.create.mockResolvedValue({
+      mockProvisioning.provision.mockResolvedValue({
         id: 10,
         fullName: 'Branch Teacher',
       });
@@ -211,8 +221,7 @@ describe('TeachersService', () => {
           await service.create({
             fullName: 'Branch Teacher',
             phone: '+966512345679',
-            password: 'Password123!',
-          });
+            });
           expect(mockBranchRepo.findById).toHaveBeenCalledWith(77);
           expect(
             mockTeacherRepo.client.branchTeacher.create,
@@ -260,32 +269,66 @@ describe('TeachersService', () => {
     });
   });
 
-  describe('resetPassword', () => {
-    it('should throw 404 if teacher not found', async () => {
-      mockTeacherRepo.findById.mockResolvedValue(null);
+  describe('teacher privacy (a TEACHER reaches only their own record)', () => {
+    const asTeacher = <T>(fn: () => Promise<T>) =>
+      RequestContext.run(
+        { userId: 42, instituteId: 1, role: 'TEACHER', language: 'ar' },
+        fn,
+      );
+    const asAdmin = <T>(fn: () => Promise<T>) =>
+      RequestContext.run(
+        { userId: 1, instituteId: 1, role: 'INSTITUTE_ADMIN', language: 'ar' },
+        fn,
+      );
 
-      await expect(
-        service.resetPassword(999, { password: 'NewPassword123!' }),
-      ).rejects.toThrow();
+    beforeEach(() => {
+      mockTeacherRepo.findByUserId.mockResolvedValue({ id: 5, userId: 42 });
+      mockTeacherRepo.findByIdWithDetails.mockResolvedValue({ id: 5 });
+      mockTeacherRepo.findAllFiltered.mockResolvedValue({ data: [] });
     });
 
-    it('should update password and invoke authService.logout', async () => {
+    it('lists only the teacher themself', async () => {
+      await asTeacher(() => service.findAll({} as any));
+      expect(mockTeacherRepo.findAllFiltered).toHaveBeenCalledWith({}, 5);
+    });
+
+    it('lists everyone for staff', async () => {
+      await asAdmin(() => service.findAll({} as any));
+      expect(mockTeacherRepo.findAllFiltered).toHaveBeenCalledWith({}, undefined);
+    });
+
+    it('lets a teacher read their own record', async () => {
+      expect(await asTeacher(() => service.findById(5))).toEqual({ id: 5 });
+    });
+
+    it('answers 404 when a teacher asks for a colleague', async () => {
+      await expect(asTeacher(() => service.findById(6))).rejects.toThrow();
+      expect(mockTeacherRepo.findByIdWithDetails).not.toHaveBeenCalled();
+      await expect(asTeacher(() => service.getAvailability(6))).rejects.toThrow();
+    });
+
+    it('lets staff read any teacher', async () => {
+      await asAdmin(() => service.findById(6));
+      expect(mockTeacherRepo.findByIdWithDetails).toHaveBeenCalledWith(6);
+    });
+  });
+
+  describe('deactivation', () => {
+    it('ends the sessions of a deactivated teacher', async () => {
       mockTeacherRepo.findById.mockResolvedValue({ id: 5, userId: 42 });
-      mockTeacherRepo.getInstituteId.mockReturnValue(1);
-      mockUserSystemRepo.update = jest.fn().mockResolvedValue({ id: 42 });
-
-      const result = await service.resetPassword(5, {
-        password: 'NewPassword123!',
-      });
-
-      expect(result).toEqual({ updated: true });
-      expect(mockUserSystemRepo.update).toHaveBeenCalledWith(
-        42,
-        expect.objectContaining({
-          passwordHash: expect.any(String),
-        }),
-      );
+      mockTeacherRepo.update.mockResolvedValue({ id: 5, isActive: false });
+      await service.toggleActive(5, false);
       expect(mockAuthService.logout).toHaveBeenCalledWith(42);
+      // the login switch follows the teacher switch
+      expect(mockUserSystemRepo.update).toHaveBeenCalledWith(42, { isActive: false });
+    });
+
+    it('keeps the sessions when a teacher is activated', async () => {
+      mockAuthService.logout.mockClear();
+      mockTeacherRepo.findById.mockResolvedValue({ id: 5, userId: 42 });
+      mockTeacherRepo.update.mockResolvedValue({ id: 5, isActive: true });
+      await service.toggleActive(5, true);
+      expect(mockAuthService.logout).not.toHaveBeenCalled();
     });
   });
 });

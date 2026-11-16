@@ -26,6 +26,19 @@ import { TeacherAssignmentRepository } from '../teachers/teacher-assignment.repo
 import { AssignSubjectDto } from './dto/assign-subject.dto';
 import { UpdateSectionSubjectDto } from './dto/update-section-subject.dto';
 
+/** A (section, subject) pair a teacher teaches, flattened for the teacher app. */
+export interface TaughtAssignment {
+  sectionId: number;
+  sectionName: string;
+  grade: string | null;
+  branchId: number;
+  branchName: string | null;
+  academicYearId: number;
+  subjectId: number;
+  subjectName: string;
+  weeklyPeriods: number;
+}
+
 @Injectable()
 export class SectionsService {
   constructor(
@@ -50,6 +63,28 @@ export class SectionsService {
     @Inject(TeacherScopeService)
     private readonly teacherScope: TeacherScopeService,
   ) {}
+
+  /** Pairs a teacher teaches (optionally in one year), by teacher id; no request-context scoping. */
+  async getTaughtAssignments(
+    teacherId: number,
+    academicYearId?: number,
+  ): Promise<TaughtAssignment[]> {
+    const rows = await this.sectionSubjectRepository.findTaughtBy(
+      teacherId,
+      academicYearId,
+    );
+    return rows.map((r) => ({
+      sectionId: r.sectionId,
+      sectionName: r.section.name,
+      grade: r.section.grade ?? null,
+      branchId: r.section.branchId,
+      branchName: r.section.branch?.name ?? null,
+      academicYearId: r.section.academicYearId,
+      subjectId: r.subjectId,
+      subjectName: r.subject.name,
+      weeklyPeriods: r.weeklyPeriods,
+    }));
+  }
 
   /**
    * Create a new section.
@@ -435,6 +470,11 @@ export class SectionsService {
         );
         Ensure.exists(null, 'Teacher');
       }
+      Ensure.custom(
+        !teacher!.isActive,
+        ErrorMessages.get('teacher_inactive'),
+        400,
+      );
 
       // Validate teacher is assigned to this section's branch
       const client = (this.sectionRepository as any).client;
@@ -542,6 +582,11 @@ export class SectionsService {
         );
         Ensure.exists(null, 'Teacher');
       }
+      Ensure.custom(
+        !teacher!.isActive,
+        ErrorMessages.get('teacher_inactive'),
+        400,
+      );
 
       // Validate teacher is assigned to this section's branch
       const client = (this.sectionRepository as any).client;

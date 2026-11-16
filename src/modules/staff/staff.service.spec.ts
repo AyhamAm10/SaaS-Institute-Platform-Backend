@@ -4,6 +4,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { StaffService } from './staff.service';
 import { StaffRepository } from './staff.repository';
 import { AuthService } from '../auth/auth.service';
+import { AccountProvisioningService } from '../users/account-provisioning.service';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { RequestContext } from '../../context/request-context';
 import { TeacherScopeService } from '../sections/teacher-scope.service';
@@ -22,6 +23,7 @@ describe('StaffService', () => {
   let service: StaffService;
   let repo: any;
   let auth: any;
+  let provisioning: any;
 
   beforeEach(async () => {
     repo = {
@@ -29,18 +31,20 @@ describe('StaffService', () => {
         .fn<any>()
         .mockImplementation(async (id: number) => member(id)),
       findByPhone: jest.fn<any>().mockResolvedValue(null),
-      create: jest.fn<any>().mockResolvedValue({ id: 5 }),
       update: jest.fn(),
-      delete: jest.fn(),
       countActiveAdmins: jest.fn<any>().mockResolvedValue(2),
       syncAdminLink: jest.fn(),
     };
     auth = { logout: jest.fn() };
+    provisioning = {
+      provision: jest.fn<any>().mockResolvedValue({ id: 5 }),
+    };
     const moduleRef = await Test.createTestingModule({
       providers: [
         StaffService,
         { provide: StaffRepository, useValue: repo },
         { provide: AuthService, useValue: auth },
+        { provide: AccountProvisioningService, useValue: provisioning },
         {
           provide: TransactionHelper,
           useValue: { executeInTransaction: (fn: () => unknown) => fn() },
@@ -53,17 +57,17 @@ describe('StaffService', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('creates an account with a hashed password and the admin link', async () => {
+  it('creates the account through the provisioning service (no password is chosen here)', async () => {
     await service.create({
       fullName: ' مدير ',
       phone: ' 0911 ',
       role: 'INSTITUTE_ADMIN' as never,
-      password: 'secret-123',
     });
-    const data = repo.create.mock.calls[0][0];
-    expect(data.fullName).toBe('مدير');
-    expect(data.phone).toBe('0911');
-    expect(data.passwordHash).not.toBe('secret-123');
+    expect(provisioning.provision).toHaveBeenCalledWith({
+      fullName: 'مدير',
+      phone: '0911',
+      role: 'INSTITUTE_ADMIN',
+    });
     expect(repo.syncAdminLink).toHaveBeenCalledWith(5, true);
   });
 
@@ -74,35 +78,29 @@ describe('StaffService', () => {
         fullName: 'x',
         phone: '0911',
         role: 'ACCOUNTANT' as never,
-        password: 'secret-123',
       }),
     ).rejects.toThrow(ConflictException);
+    expect(provisioning.provision).not.toHaveBeenCalled();
   });
 
-  it('refuses changing your own role or deactivating yourself', async () => {
+  it('refuses changing your own role', async () => {
     await expect(
       service.update(1, { role: 'ACCOUNTANT' as never }),
     ).rejects.toThrow(BadRequestException);
-    await expect(service.deactivate(1)).rejects.toThrow(BadRequestException);
   });
 
-  it('keeps at least one active admin', async () => {
+  it('keeps at least one active admin when demoting', async () => {
     repo.findStaffById.mockResolvedValue(member(7, 'INSTITUTE_ADMIN'));
     repo.countActiveAdmins.mockResolvedValue(1);
-    await expect(service.deactivate(7)).rejects.toThrow(BadRequestException);
     await expect(
       service.update(7, { role: 'REGISTRAR' as never }),
     ).rejects.toThrow(BadRequestException);
-    expect(repo.delete).not.toHaveBeenCalled();
   });
 
-  it('signs the person out after a role change, a password reset or deactivation', async () => {
+  it('signs the person out after a role change', async () => {
     await service.update(7, { role: 'ACCOUNTANT' as never });
     expect(repo.syncAdminLink).toHaveBeenCalledWith(7, false);
-    await service.resetPassword(7, { password: 'new-secret-1' });
-    await service.deactivate(7);
-    expect(auth.logout).toHaveBeenCalledTimes(3);
-    expect(repo.delete).toHaveBeenCalledWith(7);
+    expect(auth.logout).toHaveBeenCalledWith(7);
   });
 
   it('does not sign out on a name-only change', async () => {

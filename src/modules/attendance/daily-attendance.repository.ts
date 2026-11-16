@@ -8,6 +8,7 @@ import { ContextScopedRepository } from '../../database/context-scoped.repositor
 import { PrismaService } from '../../database/prisma.service';
 import { dateOnly } from '../../common/time/timezone';
 import { DayStatusCount } from './attendance.rules';
+import { ClosedGroups, ClosureInfo } from '../closures/closures.rules';
 
 /**
  * Daily check-in / check-out records (one per student per local day).
@@ -155,17 +156,29 @@ export class DailyAttendanceRepository extends ContextScopedRepository<DailyAtte
   }
 
   /**
-   * Marks ABSENT every actively enrolled student without a record on `date`.
+   * Marks ABSENT every actively enrolled student without a record on `date`,
+   * except the students of closed branches / sections (`closed`).
    * Never touches an existing record (skipDuplicates on the unique key).
    */
-  async markAbsences(date: string): Promise<number> {
+  async markAbsences(date: string, closed: ClosedGroups): Promise<number> {
     const instituteId = this.getInstituteId();
     const students: { id: number; branchId: number }[] =
       await this.client.student.findMany({
         where: {
           instituteId,
           deletedAt: null,
-          studentEnrollments: { some: { status: EnrollmentStatus.ACTIVE } },
+          ...(closed.branchIds.length > 0 && {
+            branchId: { notIn: closed.branchIds },
+          }),
+          studentEnrollments: {
+            some: { status: EnrollmentStatus.ACTIVE },
+            ...(closed.sectionIds.length > 0 && {
+              none: {
+                status: EnrollmentStatus.ACTIVE,
+                sectionId: { in: closed.sectionIds },
+              },
+            }),
+          },
         },
         select: { id: true, branchId: true },
       });
@@ -179,6 +192,43 @@ export class DailyAttendanceRepository extends ContextScopedRepository<DailyAtte
         status: AttendanceStatus.ABSENT,
       })),
       skipDuplicates: true,
+    });
+    return result.count as number;
+  }
+
+  /**
+   * Removes the AUTOMATIC absences (created by the absence job and never
+   * edited: no actor, no times) of a closure between two local dates. Records
+   * made or touched by a person (check-ins, excuses, corrections) are never
+   * removed. The only place attendance rows are deleted: a closure declared
+   * after the job already ran must not leave system-made absences behind.
+   */
+  async deleteAutoAbsences(
+    from: string,
+    to: string,
+    closure: ClosureInfo,
+  ): Promise<number> {
+    const result = await this.client.dailyAttendance.deleteMany({
+      where: {
+        instituteId: this.getInstituteId(),
+        date: { gte: dateOnly(from), lte: dateOnly(to) },
+        status: AttendanceStatus.ABSENT,
+        checkInAt: null,
+        checkOutAt: null,
+        createdById: null,
+        updatedById: null,
+        ...(closure.scope === 'BRANCH' && { branchId: closure.branchId! }),
+        ...(closure.scope === 'SECTION' && {
+          student: {
+            studentEnrollments: {
+              some: {
+                status: EnrollmentStatus.ACTIVE,
+                sectionId: { in: closure.sectionIds },
+              },
+            },
+          },
+        }),
+      },
     });
     return result.count as number;
   }

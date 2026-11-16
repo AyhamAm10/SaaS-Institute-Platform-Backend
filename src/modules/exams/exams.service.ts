@@ -79,6 +79,8 @@ export class ExamsService {
   async create(dto: CreateExamDto) {
     const section = await this.sectionRepository.findById(dto.sectionId);
     Ensure.exists(section, 'Section');
+    // A teacher creates exams only for the subjects they teach in this section
+    await this.teacherScope.assertTeachesSubject(section.id, dto.subjectId);
     const inPlan = await this.sectionSubjectRepository.findBySectionAndSubject(
       section.id,
       dto.subjectId,
@@ -101,6 +103,7 @@ export class ExamsService {
   /** Changing the marks bounds re-computes the status of existing results. */
   async update(id: number, dto: UpdateExamDto) {
     const exam = await this.getExam(id);
+    await this.teacherScope.assertTeachesSubject(exam.sectionId, exam.subjectId);
     const section = await this.sectionRepository.findById(exam.sectionId);
     Ensure.exists(section, 'Section');
     const merged = {
@@ -143,7 +146,8 @@ export class ExamsService {
 
   /** Refuses an exam with marks unless `force` (both deletions are audited). */
   async delete(id: number, force: boolean): Promise<{ deleted: true }> {
-    await this.getExam(id);
+    const exam = await this.getExam(id);
+    await this.teacherScope.assertTeachesSubject(exam.sectionId, exam.subjectId);
     const count = await this.resultRepository.countByExam(id);
     if (count > 0 && !force) {
       throw new ConflictException(

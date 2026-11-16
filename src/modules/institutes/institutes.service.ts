@@ -209,6 +209,7 @@ export class InstitutesService {
       fullName: user.fullName,
       phone: user.phone,
       role: user.role,
+      mustChangePassword: user.mustChangePassword,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

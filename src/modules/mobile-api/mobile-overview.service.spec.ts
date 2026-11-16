@@ -30,7 +30,7 @@ describe('MobileOverviewService', () => {
         ratePercent: null,
         records: [],
       })),
-      isWorkingDate: jest.fn(async () => true),
+      isSchoolDayFor: jest.fn(async () => true),
     };
     timetables = { getEntriesForReport: jest.fn(async () => []) };
     exams = {

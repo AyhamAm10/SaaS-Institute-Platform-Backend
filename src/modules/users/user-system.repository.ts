@@ -52,6 +52,15 @@ export class UserSystemRepository extends SystemRepository<User> {
     });
   }
 
+  /** The user chose a new password: the default-password flag is cleared. */
+  async setPassword(id: number, passwordHash: string): Promise<User> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (this.client as any).user.update({
+      where: { id },
+      data: { passwordHash, mustChangePassword: false },
+    });
+  }
+
   /** Find super admin user by phone and role. */
   async findSuperAdminByPhone(phone: string): Promise<User | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,9 +76,21 @@ export class UserSystemRepository extends SystemRepository<User> {
   async findByIdWithInstitute(id: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this.client as any).user.findUnique({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, isActive: true },
       include: { institute: true },
     });
+  }
+
+  /**
+   * A teacher account whose `Teacher.isActive` flag is off. Used by login and
+   * refresh so deactivating a teacher also blocks the sign-in.
+   */
+  async isInactiveTeacher(userId: number): Promise<boolean> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const count: number = await (this.client as any).teacher.count({
+      where: { userId, isActive: false },
+    });
+    return count > 0;
   }
 
   /** Create a Super Admin user. */

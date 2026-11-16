@@ -9,6 +9,7 @@ import { join } from 'path';
  */
 const CONTEXT_EXEMPT: Record<string, string> = {
   ReceiptSequence: 'internal counter, always addressed by explicit (branch, year) keys inside a payment',
+  Closure: 'institute-wide settings listed in full on the closures tab (institute, branch and section closures), so the branch header must not filter it',
   BranchTeacher: 'link table of a teacher to its branches; read through TeacherRepository (branch-scoped)',
 };
 

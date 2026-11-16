@@ -20,6 +20,8 @@ export interface SafeUser {
   fullName: string;
   phone: string;
   role: string;
+  /** True while the password is the default one: the app asks for a new one first. */
+  mustChangePassword: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

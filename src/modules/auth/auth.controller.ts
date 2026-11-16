@@ -18,6 +18,8 @@ import {
   REFRESH_TOKEN_COOKIE,
 } from './auth-cookies.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { AllowPasswordChange } from '../../common/decorators/allow-password-change.decorator';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -65,6 +67,7 @@ export class AuthController {
     return result;
   }
 
+  @AllowPasswordChange()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
@@ -113,6 +116,28 @@ export class AuthController {
     return { message: 'Tokens refreshed successfully' };
   }
 
+  /** The forced first step on a default password; also open to any signed-in user. */
+  @AllowPasswordChange()
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+    @ClientTypeHeader() clientType: ClientType,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.changePassword(user.id, dto);
+    if (clientType === ClientType.WEB) {
+      this.authCookiesService.setAuthCookies(res, {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      });
+      return { user: result.user };
+    }
+    return result;
+  }
+
+  @AllowPasswordChange()
   @Get('me')
   async me(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getProfile(user.id);

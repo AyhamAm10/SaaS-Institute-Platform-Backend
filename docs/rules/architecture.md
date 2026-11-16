@@ -194,7 +194,8 @@ src/
     │   ├── user-system.repository.ts   # System-level repository (cross-tenant)
     │   └── users.module.ts
     ├── institute-profile/      # Current institute profile management (settings.view/manage)
-    └── mobile-accounts/        # Family & student mobile app accounts (students.view/manage)
+    ├── accounts/               # Unified accounts: list, reset to default password, activate / deactivate (staff.manage)
+    └── mobile-accounts/        # Live-account checks behind the mobile guards
 ```
 
 ### Future Module Creation Rules:
