@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { GlobalExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { UserSystemRepository } from '../src/modules/users/user-system.repository';
+import { PrismaService } from '../src/database/prisma.service';
 import bcrypt from 'bcryptjs';
 
 // These tests log in repeatedly with the same phones: lift the login rate limit.
@@ -95,6 +96,31 @@ describe('Auth & Multi-Tenancy Architecture (e2e)', () => {
     app.useGlobalFilters(new GlobalExceptionFilter());
 
     await app.init();
+
+    // Refresh tokens live in memory: the mocked users have no rows in the
+    // database, so a real insert would break on its foreign key (CI starts
+    // from an empty database).
+    const tokens = new Map<string, any>();
+    let sequence = 0;
+    Object.defineProperty(app.get(PrismaService), 'refreshToken', {
+      configurable: true,
+      value: {
+        create: async ({ data }: any) => {
+          const row = { id: ++sequence, ...data };
+          tokens.set(data.tokenHash, row);
+          return row;
+        },
+        findUnique: async ({ where }: any) => tokens.get(where.tokenHash) ?? null,
+        delete: async ({ where }: any) => {
+          for (const [key, row] of tokens) if (row.id === where.id) tokens.delete(key);
+          return {};
+        },
+        deleteMany: async ({ where }: any) => {
+          for (const [key, row] of tokens) if (row.userId === where.userId) tokens.delete(key);
+          return { count: 0 };
+        },
+      },
+    });
   });
 
   afterAll(async () => {
