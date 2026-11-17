@@ -45,6 +45,23 @@ describe('permission map', () => {
     }
   });
 
+  it('gives data entry the entry work only: no delete, finance, settings or staff', () => {
+    for (const p of ['students.manage', 'attendance.manage', MARKS_ENTER, 'exams.view', 'dashboard.view']) {
+      expect(hasPermission('DATA_ENTRY', p as never)).toBe(true);
+    }
+    for (const p of ['records.delete', 'fees.view', 'fees.manage', 'settings.manage', 'staff.view', 'academic.manage', 'exams.manage']) {
+      expect(hasPermission('DATA_ENTRY', p as never)).toBe(false);
+    }
+    expect(DASHBOARD_ROLES).toContain('DATA_ENTRY');
+  });
+
+  it('keeps deleting students and families to admins and registrars', () => {
+    expect(hasPermission('INSTITUTE_ADMIN', 'records.delete')).toBe(true);
+    expect(hasPermission('REGISTRAR', 'records.delete')).toBe(true);
+    expect(hasPermission('ACCOUNTANT', 'records.delete')).toBe(false);
+    expect(hasPermission('TEACHER', 'records.delete')).toBe(false);
+  });
+
   it('has no permission for unknown roles or families / students', () => {
     expect(permissionsOf('FAMILY')).toEqual([]);
     expect(permissionsOf(undefined)).toEqual([]);

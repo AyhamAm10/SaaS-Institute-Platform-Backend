@@ -26,7 +26,7 @@ import {
 } from '../document/report-format';
 import { average, percent, REPORT_ROW_LIMIT, resolvePeriod } from '../reports.rules';
 import { ReportBuilderGroup, ReportContext } from './report-context';
-import { CURRENCY_ORDER, num, openAmount } from './report-helpers';
+import { CURRENCY_ORDER, groupBy, num, openAmount } from './report-helpers';
 import { dayOfWeekOf } from '../../attendance/attendance.rules';
 
 /** Student reports (D3): one student, everything the caller may see. */
@@ -46,6 +46,8 @@ export class StudentReports implements ReportBuilderGroup {
     'student-statement': (ctx: ReportContext) => this.statement(ctx),
     'student-transcript': (ctx: ReportContext) => this.transcript(ctx),
     'student-attendance': (ctx: ReportContext) => this.attendanceLog(ctx),
+    'student-monthly': (ctx: ReportContext) => this.monthly(ctx),
+    'bus-roster': (ctx: ReportContext) => this.busRoster(ctx),
     'student-card': (ctx: ReportContext) => this.card(ctx),
     'students-directory': (ctx: ReportContext) => this.directory(ctx),
   };
@@ -237,6 +239,84 @@ export class StudentReports implements ReportBuilderGroup {
     };
   }
 
+  /**
+   * One-page monthly report to hand to the family: attendance rate and the
+   * days missed, plus the marks average when the caller may see exams. The
+   * period defaults to the last 30 days like the other student reports.
+   */
+  private async monthly(ctx: ReportContext): Promise<ReportBody> {
+    const id = ctx.query.studentId!;
+    const period = resolvePeriod(ctx.today, ctx.query.from, ctx.query.to);
+    const withMarks = hasPermission(RequestContext.getRole(), 'exams.view');
+    const [student, history, all] = await Promise.all([
+      this.students.findById(id),
+      this.attendance.getStudentHistory(id, period),
+      withMarks ? this.exams.getStudentResults(id) : Promise.resolve(null),
+    ]);
+    const c = history.counts;
+    const recorded = c.present + c.late + c.absent + c.excused;
+    const rate = attendanceRate(c.present + c.late, recorded);
+    const results = (all?.results ?? []).filter((r) => {
+      const d = isoDate(r.exam.examDate);
+      return d >= period.from && d <= period.to;
+    });
+    const bySubject = new Map<string, number[]>();
+    for (const r of results) {
+      if (r.mark === null) continue;
+      const list = bySubject.get(r.exam.subject.name) ?? [];
+      list.push((r.mark / Number(r.exam.maxMark)) * 100);
+      bySubject.set(r.exam.subject.name, list);
+    }
+    const subjects = [...bySubject].map(([name, list]) => ({ name, avg: average(list) ?? 0, count: list.length }));
+    const overall = average(subjects.map((s) => s.avg));
+    const missed = history.records.filter((r) => r.status !== 'PRESENT');
+
+    const stats: StatItem[] = [
+      { label: 'نسبة الحضور', kind: 'percent', value: rate, tone: rateTone(rate) },
+      { label: 'حاضر', value: c.present, tone: 'success' },
+      { label: 'متأخر', value: c.late, tone: 'warning' },
+      { label: 'غائب', value: c.absent, tone: 'danger' },
+      { label: 'بعذر', value: c.excused, tone: 'info' },
+    ];
+    if (withMarks) stats.push({ label: 'معدل العلامات', kind: 'percent', value: overall, tone: gradeTone(overall) });
+
+    const blocks: ReportBlock[] = [studentFields(student), { type: 'stats', items: stats }];
+    if (subjects.length > 0) {
+      blocks.push({
+        type: 'bars',
+        title: 'معدل المواد',
+        items: subjects.map((s) => ({ label: s.name, value: s.avg, caption: `${s.avg}% (${s.count})`, tone: gradeTone(s.avg) })),
+      });
+    }
+    blocks.push({
+      type: 'table',
+      title: 'أيام التأخر والغياب',
+      columns: [
+        { key: 'date', title: 'التاريخ', kind: 'date' },
+        { key: 'day', title: 'اليوم', kind: 'text', width: 0.8 },
+        { key: 'status', title: 'الحالة', kind: 'badge', width: 0.8 },
+        { key: 'note', title: 'ملاحظة', kind: 'text', width: 2 },
+      ],
+      rows: [...missed].reverse().map((r) => {
+        const date = isoDate(r.date);
+        return { date, day: WEEKDAY_LABELS[dayOfWeekOf(date)], status: attendanceBadge(r.status), note: r.note ?? '' };
+      }),
+      emptyText: 'لا تأخر ولا غياب في هذه الفترة',
+    });
+    blocks.push({ type: 'signatures', items: ['المرشد', 'المدير', 'ختم المعهد'] });
+
+    return {
+      title: 'التقرير الشهري للطالب',
+      subtitle: 'الحضور والعلامات خلال الفترة',
+      orientation: 'portrait',
+      meta: [
+        { label: 'الطالب', value: student.fullName },
+        { label: 'الفترة', value: periodText(history.from, history.to) },
+      ],
+      blocks,
+    };
+  }
+
   private async attendanceLog(ctx: ReportContext): Promise<ReportBody> {
     const id = ctx.query.studentId!;
     const period = resolvePeriod(ctx.today, ctx.query.from, ctx.query.to);
@@ -401,6 +481,74 @@ export class StudentReports implements ReportBuilderGroup {
           emptyText: 'لا توجد تسجيلات',
         },
       ],
+    };
+  }
+
+  /** Students of each bus (all buses, or the one chosen) with the driver and the head count. */
+  private async busRoster(ctx: ReportContext): Promise<ReportBody> {
+    const paginated = await this.students.findAll(
+      Object.assign(new StudentQueryDto(), {
+        sectionId: ctx.query.sectionId,
+        busId: ctx.query.busId,
+        page: 1,
+        limit: REPORT_ROW_LIMIT,
+      }),
+    );
+    type Row = {
+      fullName: string;
+      family?: { familyName: string; phone?: string | null } | null;
+      bus?: { id: number; name: string; plateNumber?: string | null; driverName?: string | null; driverPhone?: string | null } | null;
+      studentEnrollments?: { section?: { name: string } | null }[];
+    };
+    const students = ((paginated.data || []) as unknown as Row[]).filter((s) => s.bus);
+    const byBus = groupBy(students, (s) => s.bus!.id);
+
+    const blocks: ReportBlock[] = [
+      {
+        type: 'stats',
+        items: [
+          { label: 'عدد الباصات', value: byBus.size },
+          { label: 'الطلاب المسجلون بباص', value: students.length, tone: 'brand' },
+        ],
+      },
+    ];
+    for (const list of byBus.values()) {
+      const bus = list[0].bus!;
+      const details = [
+        bus.driverName && `السائق: ${bus.driverName}`,
+        bus.driverPhone && `الهاتف: ${bus.driverPhone}`,
+        bus.plateNumber && `اللوحة: ${bus.plateNumber}`,
+        `الركاب: ${list.length}`,
+      ].filter(Boolean);
+      blocks.push({
+        type: 'table',
+        title: `${bus.name} · ${details.join(' · ')}`,
+        columns: [
+          { key: 'n', title: '#', kind: 'number', width: 0.35 },
+          { key: 'student', title: 'الاسم', kind: 'text', width: 1.5 },
+          { key: 'section', title: 'الشعبة', kind: 'text', width: 1 },
+          { key: 'family', title: 'العائلة', kind: 'text' },
+          { key: 'phone', title: 'الهاتف', kind: 'phone' },
+        ],
+        rows: list
+          .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ar'))
+          .map((s, i) => ({
+            n: i + 1,
+            student: s.fullName,
+            section: s.studentEnrollments?.[0]?.section?.name ?? '—',
+            family: s.family?.familyName ?? '—',
+            phone: s.family?.phone ?? '',
+          })),
+      });
+    }
+    if (byBus.size === 0) blocks.push({ type: 'table', columns: [{ key: 'x', title: '', kind: 'text' }], rows: [], emptyText: 'لا طلاب مسجلون بباص' });
+
+    return {
+      title: 'كشف الباصات',
+      subtitle: 'طلاب كل باص مع السائق والهاتف',
+      orientation: 'portrait',
+      meta: [],
+      blocks,
     };
   }
 

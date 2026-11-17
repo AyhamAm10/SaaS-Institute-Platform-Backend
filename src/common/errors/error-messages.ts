@@ -225,6 +225,9 @@ const messages: Record<string, Record<string, string>> = {
     account_deactivated:
       'This account is deactivated. Please contact the institute administration',
     mobile_finance_family_only: 'Financial data is available to guardians only',
+    mobile_notes_family_only: 'Notes for the family are only available to the guardian account',
+    payment_duplicate_contracts: 'A contract appears more than once in the payment',
+    payment_contract_family_mismatch: 'A contract does not belong to a child of this family',
     teacher_inactive: 'This teacher is deactivated and cannot be assigned',
     password_change_required: 'You must change your password before continuing',
     current_password_wrong: 'The current password is incorrect',
@@ -421,6 +424,9 @@ const messages: Record<string, Record<string, string>> = {
     account_deactivated:
       'هذا الحساب معطّل. يرجى التواصل مع إدارة المعهد',
     mobile_finance_family_only: 'البيانات المالية متاحة لولي الأمر فقط',
+    mobile_notes_family_only: 'ملاحظات الأهل متاحة لحساب ولي الأمر فقط',
+    payment_duplicate_contracts: 'العقد مكرر داخل الدفعة',
+    payment_contract_family_mismatch: 'أحد العقود لا يخص أحد أبناء هذه العائلة',
     teacher_inactive: 'هذا المعلم معطّل ولا يمكن إسناد مهام إليه',
     password_change_required: 'يجب تغيير كلمة المرور قبل المتابعة',
     current_password_wrong: 'كلمة المرور الحالية غير صحيحة',

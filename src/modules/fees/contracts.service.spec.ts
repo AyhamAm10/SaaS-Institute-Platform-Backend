@@ -187,6 +187,15 @@ describe('ContractsService', () => {
       ]);
     });
 
+    it('does not touch the schedule when only the reason changes', async () => {
+      await service.update(9, { discountReason: 'ملاحظة' });
+      expect(installments.deleteUnpaid).not.toHaveBeenCalled();
+      expect(installments.createLines).not.toHaveBeenCalled();
+      expect(subscriptions.update).toHaveBeenCalledWith(9, {
+        discountReason: 'ملاحظة',
+      });
+    });
+
     it('refuses a discount that leaves less than what is locked', async () => {
       await expect(service.update(9, { discountAmount: 400 })).rejects.toThrow(
         BadRequestException,

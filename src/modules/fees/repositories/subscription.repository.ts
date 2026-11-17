@@ -64,6 +64,18 @@ export class SubscriptionRepository extends ContextScopedRepository<StudentSubsc
     });
   }
 
+  /** Every contract of a family's students (whole history, like the student view). */
+  async findByFamily(familyId: number) {
+    return this.client.studentSubscription.findMany({
+      where: this.scopeWhereAllYears({ student: { familyId } }),
+      include: {
+        ...CONTRACT_DETAILS_INCLUDE,
+        student: { select: { id: true, fullName: true } },
+      },
+      orderBy: { startDate: 'desc' },
+    });
+  }
+
   /** Contract currency by contract id. */
   async findCurrencies(ids: number[]): Promise<Map<number, Currency>> {
     if (ids.length === 0) return new Map();

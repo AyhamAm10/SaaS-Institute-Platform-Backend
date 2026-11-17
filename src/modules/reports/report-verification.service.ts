@@ -52,12 +52,16 @@ export class ReportVerificationService {
     private readonly instituteRepository: InstituteRepository,
     @Optional() configService?: ConfigService,
   ) {
-    this.secret =
+    const configured =
       configService?.get<string>('REPORT_SIGNING_SECRET') ??
       process.env['REPORT_SIGNING_SECRET'] ??
       configService?.get<string>('JWT_ACCESS_SECRET') ??
-      process.env['JWT_ACCESS_SECRET'] ??
-      'dev-report-secret-do-not-use-in-production';
+      process.env['JWT_ACCESS_SECRET'];
+    // A built-in secret would let anyone forge a verified document.
+    if (!configured && process.env['NODE_ENV'] === 'production') {
+      throw new Error('REPORT_SIGNING_SECRET must be set in production');
+    }
+    this.secret = configured ?? 'dev-report-secret-do-not-use-in-production';
   }
 
   /** New document number + signed token. */

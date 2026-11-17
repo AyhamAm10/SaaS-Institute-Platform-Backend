@@ -98,6 +98,25 @@ export class SectionSubjectRepository extends TenantAwareRepository<SectionSubje
     });
   }
 
+  /** Where a subject is taught: sections of the context (branch / year) with their teacher. */
+  async findBySubject(subjectId: number) {
+    return this.findMany({
+      where: { subjectId, section: { deletedAt: null } },
+      include: {
+        section: {
+          select: {
+            id: true,
+            name: true,
+            academicYearId: true,
+            branch: { select: { name: true } },
+          },
+        },
+        teacher: { select: { id: true, user: { select: { fullName: true } } } },
+      },
+      orderBy: { section: { name: 'asc' } },
+    }) as unknown as Promise<SubjectPlacementRow[]>;
+  }
+
   /**
    * Update section-subject assignment and quota.
    */
@@ -133,4 +152,17 @@ export interface TaughtRow {
     academicYearId: number;
     branch: { name: string } | null;
   };
+}
+
+/** Row of {@link SectionSubjectRepository.findBySubject}. */
+export interface SubjectPlacementRow {
+  sectionId: number;
+  weeklyPeriods: number;
+  section: {
+    id: number;
+    name: string;
+    academicYearId: number;
+    branch: { name: string } | null;
+  };
+  teacher: { id: number; user: { fullName: string } } | null;
 }

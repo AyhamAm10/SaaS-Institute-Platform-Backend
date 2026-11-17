@@ -6,6 +6,7 @@ import { FeesModule } from '../fees/fees.module';
 import { InstituteProfileModule } from '../institute-profile/institute-profile.module';
 import { InstitutesModule } from '../institutes/institutes.module';
 import { MobileAccountsModule } from '../mobile-accounts/mobile-accounts.module';
+import { StudentNotesModule } from '../student-notes/student-notes.module';
 import { StudentsModule } from '../students/students.module';
 import { TimetablesModule } from '../timetables/timetables.module';
 import { MobileAccessService } from './mobile-access.service';
@@ -25,6 +26,7 @@ import { MobileStudyService } from './mobile-study.service';
     InstituteProfileModule,
     InstitutesModule,
     MobileAccountsModule,
+    StudentNotesModule,
     StudentsModule,
     TimetablesModule,
   ],

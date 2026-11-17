@@ -61,3 +61,25 @@ describe('JwtTokenService', () => {
     expect(hash1.length).toBe(64); // SHA-256 hex length
   });
 });
+
+describe('JwtTokenService secrets in production', () => {
+  const original = { ...process.env };
+  afterEach(() => {
+    process.env = { ...original };
+  });
+
+  it('refuses to start without JWT secrets in production', () => {
+    process.env['NODE_ENV'] = 'production';
+    delete process.env['JWT_ACCESS_SECRET'];
+    delete process.env['JWT_REFRESH_SECRET'];
+    expect(() => new JwtTokenService(new JwtService({}))).toThrow(
+      'JWT_ACCESS_SECRET must be set in production',
+    );
+  });
+
+  it('falls back to the dev secret outside production', () => {
+    process.env['NODE_ENV'] = 'test';
+    delete process.env['JWT_ACCESS_SECRET'];
+    expect(() => new JwtTokenService(new JwtService({}))).not.toThrow();
+  });
+});

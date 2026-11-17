@@ -10,7 +10,7 @@ import { StudentDeletionReport } from './dto/student-deletion-report.dto';
 const STUDENT_REFERENCE_INCLUDE = {
   city: { select: { id: true, name: true } },
   school: { select: { id: true, name: true } },
-  bus: { select: { id: true, name: true } },
+  bus: { select: { id: true, name: true, plateNumber: true, driverName: true, driverPhone: true } },
   knowWay: { select: { id: true, name: true } },
   status: { select: { id: true, name: true, tone: true } },
 } as const;

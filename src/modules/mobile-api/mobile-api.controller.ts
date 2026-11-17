@@ -9,6 +9,7 @@ import { MobileStudyService } from './mobile-study.service';
 import {
   MobileAttendanceMonth,
   MobileFinance,
+  MobileNote,
   MobileMe,
   MobileOverview,
   MobileProfile,
@@ -63,6 +64,12 @@ export class MobileApiController {
   @Get('students/:studentId/finance')
   getFinance(@Param('studentId', ParseIntPipe) studentId: number): Promise<MobileFinance> {
     return this.profile.getFinance(studentId);
+  }
+
+  /** Guardians only: notes the institute wrote for the family. */
+  @Get('students/:studentId/notes')
+  getNotes(@Param('studentId', ParseIntPipe) studentId: number): Promise<MobileNote[]> {
+    return this.profile.getNotes(studentId);
   }
 
   @Get('students/:studentId/profile')

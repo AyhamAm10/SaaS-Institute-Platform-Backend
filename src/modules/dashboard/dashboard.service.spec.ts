@@ -97,6 +97,7 @@ describe('DashboardService', () => {
     }).compile();
     service = moduleRef.get(DashboardService);
     jest.spyOn(RequestContext, 'getBranchId').mockReturnValue(undefined);
+    jest.spyOn(RequestContext, 'getRole').mockReturnValue('INSTITUTE_ADMIN');
     jest.spyOn(RequestContext, 'getAcademicYearId').mockReturnValue(undefined);
   });
 
@@ -124,6 +125,15 @@ describe('DashboardService', () => {
       },
     ]);
     expect(overview.exams.averagePercent30d).toBe(61.5);
+  });
+
+  it('hides the blocks the role has no permission for', async () => {
+    jest.spyOn(RequestContext, 'getRole').mockReturnValue('ACCOUNTANT');
+    const overview = await service.getOverview();
+    expect(overview.exams).toEqual({ upcoming: [], averagePercent30d: null });
+    expect(overview.attendance.today.present).toBe(0);
+    expect(overview.sections.every((s) => s.averagePercent === null)).toBe(true);
+    expect(overview.finance).toBeDefined();
   });
 
   it('uses the header year when it is sent', async () => {

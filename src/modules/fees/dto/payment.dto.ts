@@ -1,5 +1,9 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  ValidateNested,
   IsDateString,
   IsEnum,
   IsInt,
@@ -31,6 +35,57 @@ export class CreatePaymentDto {
   @IsPositive()
   @Type(() => Number)
   exchangeRate?: number;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
+
+  /** ISO instant; default: now. */
+  @IsOptional()
+  @IsDateString()
+  paidAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+/** One line of a family payment: how much goes to which child's contract. */
+export class FamilyPaymentLineDto {
+  @IsInt()
+  @IsPositive()
+  contractId!: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
+  @Type(() => Number)
+  amount!: number;
+
+  /** Default: the contract currency. */
+  @IsOptional()
+  @IsEnum(Currency)
+  currency?: Currency;
+
+  /** SYP per 1 USD, required when `currency` differs from the contract. */
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @IsPositive()
+  @Type(() => Number)
+  exchangeRate?: number;
+}
+
+/**
+ * One visit of a parent paying for several children: each line becomes its
+ * own payment and receipt on that child's contract; all succeed or none.
+ */
+export class CreateFamilyPaymentDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => FamilyPaymentLineDto)
+  payments!: FamilyPaymentLineDto[];
 
   @IsOptional()
   @IsEnum(PaymentMethod)

@@ -10,6 +10,42 @@ export class AuditLogRepository extends TenantAwareRepository<AuditLog> {
     super(prisma, 'auditLog');
   }
 
+  /** Filtered, paged search for the audit viewer (newest first). */
+  async search(filter: {
+    gte?: Date;
+    lt?: Date;
+    entity?: string;
+    entityId?: number;
+    userId?: number;
+    action?: AuditAction;
+    skip: number;
+    take: number;
+  }): Promise<{ rows: AuditLog[]; total: number }> {
+    const where = {
+      instituteId: this.getInstituteId(),
+      ...((filter.gte || filter.lt) && {
+        createdAt: {
+          ...(filter.gte && { gte: filter.gte }),
+          ...(filter.lt && { lt: filter.lt }),
+        },
+      }),
+      ...(filter.entity && { entity: filter.entity }),
+      ...(filter.entityId && { entityId: filter.entityId }),
+      ...(filter.userId && { userId: filter.userId }),
+      ...(filter.action && { action: filter.action }),
+    };
+    const [rows, total] = await Promise.all([
+      this.client.auditLog.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: filter.skip,
+        take: filter.take,
+      }),
+      this.client.auditLog.count({ where }),
+    ]);
+    return { rows, total };
+  }
+
   /** Entries in [gte, lt), newest first. */
   async findBetween(
     gte: Date,

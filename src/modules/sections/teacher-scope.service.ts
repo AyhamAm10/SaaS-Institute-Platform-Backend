@@ -64,6 +64,19 @@ export class TeacherScopeService {
     );
   }
 
+  /** A teacher may only ask about themself (e.g. their own timetable report). */
+  async assertIsSelf(teacherId: number) {
+    if (!this.isTeacher()) return;
+    const teacher = await this.teacherRepository.findByUserId(
+      RequestContext.getUserId(),
+    );
+    Ensure.forbidden(!teacher, ErrorMessages.get('teacher_not_linked'));
+    Ensure.forbidden(
+      teacher!.id !== teacherId,
+      ErrorMessages.get('teacher_scope_section'),
+    );
+  }
+
   async assertTeachesSection(sectionId: number) {
     const sections = await this.taughtSectionIds();
     if (!sections) return;

@@ -190,4 +190,69 @@ describe('PaymentsService', () => {
       BadRequestException,
     );
   });
+
+  describe('createForFamily', () => {
+    beforeEach(() => {
+      (service as any).studentRepository.findById = jest
+        .fn<any>()
+        .mockResolvedValue({ id: 1, branchId: 4, familyId: 9 });
+    });
+
+    it('creates one payment per child contract with the shared method and note', async () => {
+      const create = jest
+        .spyOn(service, 'create')
+        .mockResolvedValueOnce({ id: 61 } as never)
+        .mockResolvedValueOnce({ id: 62 } as never);
+      payments.findDetails.mockImplementation(async (id: number) => ({ id }));
+      const result = await service.createForFamily(9, {
+        paymentMethod: 'CASH' as never,
+        note: 'دفعة العائلة',
+        payments: [
+          { contractId: 7, amount: 50_000 },
+          { contractId: 8, amount: 30_000 },
+        ],
+      });
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(create).toHaveBeenNthCalledWith(1, 7, expect.objectContaining({ amount: 50_000, note: 'دفعة العائلة' }));
+      expect(create).toHaveBeenNthCalledWith(2, 8, expect.objectContaining({ amount: 30_000 }));
+      expect(result.map((p: any) => p.id)).toEqual([61, 62]);
+    });
+
+    it('refuses a contract of another family before creating anything', async () => {
+      (service as any).studentRepository.findById.mockResolvedValue({ id: 1, branchId: 4, familyId: 55 });
+      const create = jest.spyOn(service, 'create');
+      await expect(
+        service.createForFamily(9, { payments: [{ contractId: 7, amount: 10 }] }),
+      ).rejects.toThrow(BadRequestException);
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it('refuses the same contract twice', async () => {
+      const create = jest.spyOn(service, 'create');
+      await expect(
+        service.createForFamily(9, {
+          payments: [
+            { contractId: 7, amount: 10 },
+            { contractId: 7, amount: 20 },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it('stops at the first failing line (the transaction rolls the rest back)', async () => {
+      jest
+        .spyOn(service, 'create')
+        .mockResolvedValueOnce({ id: 61 } as never)
+        .mockRejectedValueOnce(new BadRequestException('payment_exceeds_remaining'));
+      await expect(
+        service.createForFamily(9, {
+          payments: [
+            { contractId: 7, amount: 10 },
+            { contractId: 8, amount: 9_999_999 },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });

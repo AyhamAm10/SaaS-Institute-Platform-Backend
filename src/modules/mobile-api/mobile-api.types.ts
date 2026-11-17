@@ -162,6 +162,16 @@ export interface MobileResults {
   upcoming: MobileUpcomingExam[];
 }
 
+/** A note the institute wrote for the family (guardians only). */
+export interface MobileNote {
+  id: number;
+  body: string;
+  /** ISO instant. */
+  createdAt: string;
+  /** Who wrote it, null when unknown. */
+  author: string | null;
+}
+
 export interface MobileFinance {
   totals: MobileCurrencyTotals[];
   contracts: {

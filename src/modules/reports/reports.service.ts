@@ -91,6 +91,7 @@ export class ReportsService {
   async build(key: string, query: ReportQueryDto): Promise<ReportDocument> {
     const definition = this.resolve(key, query);
     if (query.sectionId) await this.scope.assertTeachesSection(query.sectionId);
+    if (query.teacherId) await this.scope.assertIsSelf(query.teacherId);
 
     const [today, timeZone, year] = await Promise.all([
       this.clock.today(),

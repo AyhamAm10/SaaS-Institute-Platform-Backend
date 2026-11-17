@@ -11,6 +11,11 @@ import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { FeesReportsService } from '../fees/fees-reports.service';
 import { ExamsService } from '../exams/exams.service';
+import {
+  hasPermission,
+  permission,
+  Resource,
+} from '../../common/types/permissions';
 import { sectionRows, todayAttendance } from './dashboard.rules';
 import { DashboardOverview } from './dto/dashboard-overview.dto';
 
@@ -39,6 +44,17 @@ export class DashboardService {
   ) {}
 
   async getOverview(): Promise<DashboardOverview> {
+    // Every block is filtered by the caller's own permission: the dashboard
+    // permission alone must not reveal students, fees, exams or attendance.
+    const role = RequestContext.getRole();
+    const can = (resource: Resource) =>
+      hasPermission(role, permission(resource, 'view'));
+    const seeStudents = can(Resource.Students);
+    const seeAttendance = can(Resource.Attendance);
+    const seeFees = can(Resource.Fees);
+    const seeExams = can(Resource.Exams);
+    const seeAcademic = can(Resource.Academic);
+
     const [today, timeZone] = await Promise.all([
       this.clock.today(),
       this.clock.getTimezone(),
@@ -48,22 +64,37 @@ export class DashboardService {
     const year = await this.resolveYear();
 
     const [studentCounts, teachers, attendance] = await Promise.all([
-      this.students.getOverview(year?.id ?? null, monthStart),
-      this.teacherRepository.count({ isActive: true }),
-      this.attendance.getOverview(today, branchId),
+      seeStudents
+        ? this.students.getOverview(year?.id ?? null, monthStart)
+        : { unassigned: 0, newSince: 0 },
+      seeAcademic ? this.teacherRepository.count({ isActive: true }) : 0,
+      seeAttendance
+        ? this.attendance.getOverview(today, branchId)
+        : { isWorkingDay: true, week: [], todayRecords: [] },
     ]);
     if (!year) {
       return emptyOverview(today, attendance, studentCounts, teachers);
     }
 
+    const noExams = {
+      upcoming: [],
+      averagePercent30d: null,
+      sectionAverages: new Map<number, number | null>(),
+    };
     const [enrolled, sections, finance, exams] = await Promise.all([
-      this.enrollments.getActiveStudentSections(year.id, branchId),
-      this.sectionRepository.findMany({
-        where: { academicYearId: year.id },
-        orderBy: { name: 'asc' },
-      }),
-      this.fees.getOverview(year.id, branchId),
-      this.exams.getOverview(year.id, today, branchId),
+      seeStudents || seeAttendance
+        ? this.enrollments.getActiveStudentSections(year.id, branchId)
+        : [],
+      seeAcademic
+        ? this.sectionRepository.findMany({
+            where: { academicYearId: year.id },
+            orderBy: { name: 'asc' },
+          })
+        : [],
+      seeFees
+        ? this.fees.getOverview(year.id, branchId)
+        : { currencies: [], monthly: [] },
+      seeExams ? this.exams.getOverview(year.id, today, branchId) : noExams,
     ]);
 
     return {
@@ -71,20 +102,20 @@ export class DashboardService {
       isWorkingDay: attendance.isWorkingDay,
       academicYear: { id: year.id, name: year.name },
       students: {
-        active: enrolled.length,
+        active: seeStudents ? enrolled.length : 0,
         unassigned: studentCounts.unassigned,
         newThisMonth: studentCounts.newSince,
       },
       teachers,
       sections: sectionRows(
         sections,
-        enrolled,
+        seeStudents ? enrolled : [],
         attendance.todayRecords,
         exams.sectionAverages,
       ),
       attendance: {
         today: todayAttendance(
-          enrolled.map((e) => e.studentId),
+          seeAttendance ? enrolled.map((e) => e.studentId) : [],
           attendance.todayRecords,
           attendance.isWorkingDay,
         ),

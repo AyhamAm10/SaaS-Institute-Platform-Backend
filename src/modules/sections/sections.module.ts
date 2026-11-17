@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SectionsController } from './sections.controller';
+import { SubjectSectionsController } from './subject-sections.controller';
+import { TeacherSectionsController } from './teacher-sections.controller';
 import { SectionsService } from './sections.service';
 import { SectionRepository } from './section.repository';
 import { SectionSubjectRepository } from './section-subject.repository';
@@ -18,7 +20,11 @@ import { TeachersModule } from '../teachers/teachers.module';
     SubjectsModule,
     TeachersModule,
   ],
-  controllers: [SectionsController],
+  controllers: [
+    SectionsController,
+    TeacherSectionsController,
+    SubjectSectionsController,
+  ],
   providers: [
     SectionsService,
     SectionRepository,

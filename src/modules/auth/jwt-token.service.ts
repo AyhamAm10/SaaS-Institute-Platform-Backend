@@ -24,18 +24,27 @@ export class JwtTokenService {
     @Inject(JwtService) private readonly jwtService: JwtService,
     private readonly configService?: ConfigService,
   ) {
-    this.accessSecret =
-      this.configService?.get<string>('JWT_ACCESS_SECRET') ??
-      process.env['JWT_ACCESS_SECRET'] ??
-      'dev-access-secret-do-not-use-in-production';
+    const isProduction = process.env['NODE_ENV'] === 'production';
+    const required = (name: string, devFallback: string): string => {
+      const value =
+        this.configService?.get<string>(name) ?? process.env[name];
+      if (value) return value;
+      // A built-in secret would let anyone forge tokens: refuse to start.
+      if (isProduction) throw new Error(`${name} must be set in production`);
+      return devFallback;
+    };
+    this.accessSecret = required(
+      'JWT_ACCESS_SECRET',
+      'dev-access-secret-do-not-use-in-production',
+    );
     this.accessExpiresIn =
       this.configService?.get<string>('JWT_ACCESS_EXPIRES_IN') ??
       process.env['JWT_ACCESS_EXPIRES_IN'] ??
       '15m';
-    this.refreshSecret =
-      this.configService?.get<string>('JWT_REFRESH_SECRET') ??
-      process.env['JWT_REFRESH_SECRET'] ??
-      'dev-refresh-secret-do-not-use-in-production';
+    this.refreshSecret = required(
+      'JWT_REFRESH_SECRET',
+      'dev-refresh-secret-do-not-use-in-production',
+    );
     this.refreshExpiresIn =
       this.configService?.get<string>('JWT_REFRESH_EXPIRES_IN') ??
       process.env['JWT_REFRESH_EXPIRES_IN'] ??

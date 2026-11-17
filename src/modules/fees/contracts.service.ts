@@ -166,6 +166,22 @@ export class ContractsService {
     if (discountMinor > grossMinor) fail('contract_discount_exceeds');
     const totalMinor = grossMinor - discountMinor;
 
+    // Saving a note only (same discount, no new count or date) must not
+    // regenerate the schedule: the old system re-spread the balance on every
+    // save and inflated the installments (its "partial reset" bug).
+    const scheduleChanged =
+      dto.numberOfInstallments !== undefined ||
+      dto.startDate !== undefined ||
+      discountMinor !== toMinor(contract.discountAmount, currency);
+    if (!scheduleChanged) {
+      if (dto.discountReason !== undefined) {
+        await this.subscriptionRepository.update(id, {
+          discountReason: dto.discountReason.trim() || null,
+        });
+      }
+      return this.findDetails(id);
+    }
+
     const installments =
       await this.installmentRepository.findBySubscription(id);
     const locked = installments.filter(

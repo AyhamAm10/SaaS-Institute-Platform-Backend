@@ -32,6 +32,14 @@ export function checkInStatus(
     : AttendanceStatus.PRESENT;
 }
 
+/** True when the student left before the end of the school day (local minutes). */
+export function isEarlyExit(
+  config: AttendanceDayConfig,
+  checkOutMinutes: number,
+): boolean {
+  return checkOutMinutes < timeToMinutes(config.dayEndTime);
+}
+
 /** Local time after which students without a check-in are marked ABSENT. */
 export function closeMinutes(config: AttendanceDayConfig): number {
   return timeToMinutes(config.attendanceCloseTime ?? config.dayEndTime);

@@ -57,7 +57,9 @@ async function bootstrap() {
   }
 
   const port = process.env['PORT'] ?? 3000;
-  await app.listen(port);
+  // HOST=127.0.0.1 keeps the API behind nginx (default: every interface)
+  const host = process.env['HOST'];
+  await (host ? app.listen(port, host) : app.listen(port));
   logger.log(`🚀 Application running on: http://localhost:${port}/${prefix}`);
   if (process.env['NODE_ENV'] !== 'production') {
     logger.log(`📚 API docs: http://localhost:${port}/${prefix}/docs`);

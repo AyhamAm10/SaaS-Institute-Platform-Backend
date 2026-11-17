@@ -20,6 +20,7 @@ describe('MobileProfileService', () => {
   let access: any;
   let fees: any;
   let institute: any;
+  let notes: any;
   let service: MobileProfileService;
 
   const run = <T>(fn: () => Promise<T>, role = 'FAMILY') =>
@@ -37,8 +38,13 @@ describe('MobileProfileService', () => {
         id: 3, name: 'Inst', logoUrl: '', primaryColor: '#111', secondaryColor: '', phone: '0111', address: '',
       })),
     };
+    notes = {
+      findVisible: jest.fn(async () => [
+        { id: 5, body: 'تأخر عن الدرس', createdAt: new Date('2026-11-10T08:00:00Z'), author: 'الإدارة' },
+      ]),
+    };
     const context = { runFor: jest.fn(async (_c: unknown, fn: any) => fn({})) };
-    service = new MobileProfileService(access, context as any, institute, fees);
+    service = new MobileProfileService(access, context as any, institute, fees, notes);
   });
 
   it('/me: blank institute columns become null, student without section has section null', async () => {
@@ -60,6 +66,21 @@ describe('MobileProfileService', () => {
   it('finance: a guardian gets the empty shape for a child without contracts', async () => {
     const finance = await run(() => service.getFinance(1));
     expect(finance).toEqual({ totals: [], contracts: [], payments: [] });
+  });
+
+  it('notes: a guardian gets the visible notes of the child as ISO strings', async () => {
+    const result = await run(() => service.getNotes(1));
+    expect(notes.findVisible).toHaveBeenCalledWith(1);
+    expect(result).toEqual([
+      { id: 5, body: 'تأخر عن الدرس', createdAt: '2026-11-10T08:00:00.000Z', author: 'الإدارة' },
+    ]);
+  });
+
+  it('notes: a STUDENT is refused before any lookup', async () => {
+    access.caller.mockResolvedValue({ userId: 7, role: 'STUDENT', fullName: 'S', phone: '1' });
+    await expect(run(() => service.getNotes(1), 'STUDENT')).rejects.toThrow(ForbiddenException);
+    expect(access.child).not.toHaveBeenCalled();
+    expect(notes.findVisible).not.toHaveBeenCalled();
   });
 
   it('profile: family block only for guardians, blank values null', async () => {

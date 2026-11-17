@@ -321,6 +321,43 @@ export class SectionsService {
   }
 
   /**
+   * Sections and subjects assigned to a teacher (every year, newest context
+   * first by section name). A TEACHER may only ask about themself.
+   */
+  async findTaughtBy(teacherId: number) {
+    await this.teacherScope.assertIsSelf(teacherId);
+    const teacher = await this.teacherRepository.findById(teacherId);
+    Ensure.exists(teacher, 'Teacher');
+    const rows = await this.sectionSubjectRepository.findTaughtBy(teacherId);
+    return rows.map((r) => ({
+      sectionId: r.sectionId,
+      sectionName: r.section.name,
+      grade: r.section.grade,
+      branchName: r.section.branch?.name ?? null,
+      academicYearId: r.section.academicYearId,
+      subjectId: r.subjectId,
+      subjectName: r.subject.name,
+      weeklyPeriods: r.weeklyPeriods,
+    }));
+  }
+
+  /** Sections teaching a subject, with the weekly periods and the teacher. */
+  async findBySubject(subjectId: number) {
+    const subject = await this.subjectRepository.findById(subjectId);
+    Ensure.exists(subject, 'Subject');
+    const rows = await this.sectionSubjectRepository.findBySubject(subjectId);
+    return rows.map((r) => ({
+      sectionId: r.sectionId,
+      sectionName: r.section.name,
+      branchName: r.section.branch?.name ?? null,
+      academicYearId: r.section.academicYearId,
+      weeklyPeriods: r.weeklyPeriods,
+      teacherId: r.teacher?.id ?? null,
+      teacherName: r.teacher?.user.fullName ?? null,
+    }));
+  }
+
+  /**
    * Retrieve complete section details for the admin dashboard.
    */
   async getDetails(id: number): Promise<Record<string, unknown>> {

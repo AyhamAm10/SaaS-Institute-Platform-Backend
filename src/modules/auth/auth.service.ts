@@ -23,8 +23,12 @@ import {
 } from './dto/auth-response.dto';
 import { permissionsOf } from '../../common/types/permissions';
 
-/** Refresh token TTL: 7 days in milliseconds */
-const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * Refresh token TTL in the database: 7 days in milliseconds. It matches the
+ * JWT's own default `JWT_REFRESH_EXPIRES_IN=7d`, which is what really ends a
+ * session (the old 30 days here never took effect).
+ */
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Constant dummy bcrypt hash with cost factor 12.

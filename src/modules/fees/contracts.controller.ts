@@ -15,7 +15,7 @@ import { ContractsService } from './contracts.service';
 import { PaymentsService } from './payments.service';
 import { FeesReportsService } from './fees-reports.service';
 import { CreateContractDto, UpdateContractDto } from './dto/contract.dto';
-import { CreatePaymentDto } from './dto/payment.dto';
+import { CreateFamilyPaymentDto, CreatePaymentDto } from './dto/payment.dto';
 import { OverdueQueryDto } from './dto/overdue-query.dto';
 import { RequireResource } from '../../common/decorators/permissions.decorator';
 import { Resource } from '../../common/types/permissions';
@@ -57,6 +57,21 @@ export class ContractsController {
   @Get('students/:id/financial-summary')
   async summary(@Param('id', ParseIntPipe) studentId: number) {
     return this.reports.getStudentSummary(studentId);
+  }
+
+  /** One visit, several children: one payment and receipt per contract, all or none. */
+  @Post('families/:id/payments')
+  async familyPayment(
+    @Param('id', ParseIntPipe) familyId: number,
+    @Body() dto: CreateFamilyPaymentDto,
+  ) {
+    return this.payments.createForFamily(familyId, dto);
+  }
+
+  /** Family totals per currency and per student (every child, every year). */
+  @Get('families/:id/financial-summary')
+  async familySummary(@Param('id', ParseIntPipe) familyId: number) {
+    return this.reports.getFamilySummary(familyId);
   }
 
   @Get('contracts/:id')

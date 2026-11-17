@@ -7,15 +7,18 @@ import { StaffService } from './staff.service';
 import { StaffRepository } from './staff.repository';
 import { StaffActivityService } from './staff-activity.service';
 import { AuditLogRepository } from './audit-log.repository';
+import { AuditController } from './audit.controller';
+import { AuditViewService } from './audit-view.service';
 
 /** Staff accounts: admins, registrars, accountants (phase 3 D2) + activity (D3). */
 @Module({
   imports: [AuthModule, InstitutesModule, UsersModule],
-  controllers: [StaffController],
+  controllers: [StaffController, AuditController],
   providers: [
     StaffService,
     StaffRepository,
     StaffActivityService,
+    AuditViewService,
     AuditLogRepository,
   ],
   exports: [StaffActivityService],

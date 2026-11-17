@@ -16,8 +16,11 @@ import { StudentsService } from './students.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentQueryDto } from './dto/student-query.dto';
-import { RequireResource } from '../../common/decorators/permissions.decorator';
-import { Resource } from '../../common/types/permissions';
+import {
+  RequirePermission,
+  RequireResource,
+} from '../../common/decorators/permissions.decorator';
+import { RECORDS_DELETE, Resource } from '../../common/types/permissions';
 
 @Controller('students')
 @RequireResource(Resource.Students)
@@ -58,6 +61,7 @@ export class StudentsController {
 
   /** Soft delete — history (enrollments, marks, payments) is kept. */
   @Delete(':id')
+  @RequirePermission(RECORDS_DELETE)
   @HttpCode(HttpStatus.OK)
   async delete(@Param('id', ParseIntPipe) id: number) {
     await this.studentsService.delete(id);

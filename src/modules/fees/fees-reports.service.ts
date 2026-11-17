@@ -16,6 +16,22 @@ import {
   summarizeContracts,
 } from './student-finance';
 
+/** GET /families/:id/financial-summary */
+export interface FamilyFinanceSummary {
+  totals: CurrencySummary[];
+  /** Active contracts with something left to pay: the lines of a family payment. */
+  openContracts: {
+    contractId: number;
+    studentId: number;
+    fullName: string;
+    sectionName: string;
+    yearName: string;
+    currency: Currency;
+    remaining: number;
+  }[];
+  students: { studentId: number; fullName: string; summary: CurrencySummary[] }[];
+}
+
 export interface OverdueAgingRow {
   currency: Currency;
   bucket: AgingBucket;
@@ -120,6 +136,62 @@ export class FeesReportsService {
     const contracts =
       await this.subscriptionRepository.findByStudent(studentId);
     return summarizeContracts(contracts, today);
+  }
+
+  /** Family finances: totals per currency plus one summary per student. */
+  async getFamilySummary(familyId: number): Promise<FamilyFinanceSummary> {
+    const today = await this.clock.today();
+    const contracts = await this.subscriptionRepository.findByFamily(familyId);
+    const byStudent = new Map<
+      number,
+      { studentId: number; fullName: string; contracts: typeof contracts }
+    >();
+    for (const contract of contracts) {
+      const entry = byStudent.get(contract.student.id) ?? {
+        studentId: contract.student.id,
+        fullName: contract.student.fullName,
+        contracts: [],
+      };
+      entry.contracts.push(contract);
+      byStudent.set(contract.student.id, entry);
+    }
+    type Row = {
+      id: number;
+      status: string;
+      currency: Currency;
+      student: { id: number; fullName: string };
+      section: { name: string };
+      academicYear: { name: string };
+      installments: { amount: Prisma.Decimal; paidAmount: Prisma.Decimal }[];
+    };
+    const openContracts = (contracts as Row[])
+      .filter((c) => c.status === 'ACTIVE')
+      .map((c) => {
+        const remainingMinor = c.installments.reduce(
+          (sum: number, i) =>
+            sum + toMinor(i.amount, c.currency) - toMinor(i.paidAmount, c.currency),
+          0,
+        );
+        return {
+          contractId: c.id,
+          studentId: c.student.id,
+          fullName: c.student.fullName,
+          sectionName: c.section.name,
+          yearName: c.academicYear.name,
+          currency: c.currency,
+          remaining: fromMinor(remainingMinor, c.currency),
+        };
+      })
+      .filter((c) => c.remaining > 0);
+    return {
+      totals: summarizeContracts(contracts, today),
+      openContracts,
+      students: [...byStudent.values()].map((s) => ({
+        studentId: s.studentId,
+        fullName: s.fullName,
+        summary: summarizeContracts(s.contracts, today),
+      })),
+    };
   }
 
   /** Contracts, installments, payments and next due date of one student (guardian view). */

@@ -15,8 +15,11 @@ import {
 import { FamiliesService } from './families.service';
 import { CreateFamilyDto } from './dto/create-family.dto';
 import { UpdateFamilyDto } from './dto/update-family.dto';
-import { RequireResource } from '../../common/decorators/permissions.decorator';
-import { Resource } from '../../common/types/permissions';
+import {
+  RequirePermission,
+  RequireResource,
+} from '../../common/decorators/permissions.decorator';
+import { RECORDS_DELETE, Resource } from '../../common/types/permissions';
 
 @Controller('families')
 @RequireResource(Resource.Students)
@@ -52,6 +55,7 @@ export class FamiliesController {
 
   /** Soft delete — only allowed when the family has no students. */
   @Delete(':id')
+  @RequirePermission(RECORDS_DELETE)
   @HttpCode(HttpStatus.OK)
   async delete(@Param('id', ParseIntPipe) id: number) {
     await this.familiesService.delete(id);

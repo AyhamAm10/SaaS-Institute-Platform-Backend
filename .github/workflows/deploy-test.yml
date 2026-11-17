@@ -1,0 +1,102 @@
+name: CI/CD (test)
+
+# Every push to `test` is verified (lint, unit tests, migrations on an empty
+# database, build, e2e) and, only if all pass, deployed to the test server:
+# rsync of the build, npm ci, prisma migrate deploy, pm2 reload, health check
+# with automatic rollback. Pull requests are verified but never deployed.
+on:
+  push:
+    branches: [test]
+  pull_request:
+    branches: [test, main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      REDIS_URL: redis://localhost:6379
+      REDIS_KEY_PREFIX: ci
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      SUPER_ADMIN_NUMBER: '0900000001'
+      SUPER_ADMIN_PASSWORD: ci-password-1
+      JOBS_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm test
+      # Proves every migration applies on an empty database
+      - run: npx prisma migrate deploy
+      - run: npm run build
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 3
+
+  deploy:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/test'
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: SSH key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+      - name: Upload the build
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key"
+          # deploy scripts go straight in place; the build waits in incoming/
+          rsync -az --delete -e "$SSH" deploy/ "$VPS_USER@$VPS_HOST:/var/www/jil/backend/deploy/"
+          rsync -az --delete -e "$SSH" dist package.json package-lock.json prisma prisma.config.ts \
+            "$VPS_USER@$VPS_HOST:/var/www/jil/backend/incoming/"
+      - name: Install, migrate, reload
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: ssh -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" 'bash /var/www/jil/backend/deploy/remote-deploy.sh'

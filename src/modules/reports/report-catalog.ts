@@ -77,6 +77,22 @@ export const REPORT_CATALOG: readonly ReportDefinition[] = [
     params: [req('student'), ...PERIOD],
   },
   {
+    key: 'student-monthly',
+    category: 'student',
+    title: 'التقرير الشهري للطالب',
+    description: 'نسبة الحضور والغيابات ومعدل العلامات خلال الفترة (للأهل)',
+    permission: 'attendance.view',
+    params: [req('student'), ...PERIOD],
+  },
+  {
+    key: 'bus-roster',
+    category: 'student',
+    title: 'كشف الباصات',
+    description: 'طلاب كل باص مع السائق والهاتف واللوحة وعدد الركاب',
+    permission: 'students.view',
+    params: [opt('bus'), opt('section')],
+  },
+  {
     key: 'student-card',
     category: 'student',
     title: 'بطاقة الطالب الشاملة',

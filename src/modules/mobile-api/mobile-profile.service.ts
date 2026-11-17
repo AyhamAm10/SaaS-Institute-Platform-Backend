@@ -7,7 +7,8 @@ import { InstituteProfileService } from '../institute-profile/institute-profile.
 import { MobileAccessService } from './mobile-access.service';
 import { MobileContextService } from './mobile-context.service';
 import { isoDate, nullIfBlank, sectionOf, toChild, toMobileFinance } from './mobile-mappers';
-import { MobileFinance, MobileMe, MobileProfile } from './mobile-api.types';
+import { MobileFinance, MobileMe, MobileNote, MobileProfile } from './mobile-api.types';
+import { StudentNotesService } from '../student-notes/student-notes.service';
 
 /** Who am I, a child's profile and (guardians only) a child's finances. */
 @Injectable()
@@ -18,6 +19,7 @@ export class MobileProfileService {
     @Inject(InstituteProfileService)
     private readonly institute: InstituteProfileService,
     @Inject(FeesReportsService) private readonly fees: FeesReportsService,
+    @Inject(StudentNotesService) private readonly notes: StudentNotesService,
   ) {}
 
   async getMe(): Promise<MobileMe> {
@@ -80,6 +82,24 @@ export class MobileProfileService {
   }
 
   /** Guardians only: a student account is refused before any lookup. */
+  /** Notes the institute marked visible to the family (guardians only). */
+  async getNotes(studentId: number): Promise<MobileNote[]> {
+    const caller = await this.access.caller();
+    Ensure.forbidden(
+      caller.role !== UserRole.FAMILY,
+      ErrorMessages.get('mobile_notes_family_only'),
+    );
+    const child = await this.access.child(caller, studentId);
+    return this.context.runFor(child, async () =>
+      (await this.notes.findVisible(child.id)).map((n) => ({
+        id: n.id,
+        body: n.body,
+        createdAt: n.createdAt.toISOString(),
+        author: n.author,
+      })),
+    );
+  }
+
   async getFinance(studentId: number): Promise<MobileFinance> {
     const caller = await this.access.caller();
     Ensure.forbidden(

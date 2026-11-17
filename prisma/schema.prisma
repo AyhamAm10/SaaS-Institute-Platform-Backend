@@ -54,6 +54,7 @@ model Institute {
   lessonAttendance      LessonAttendance[]
   dailyAttendance       DailyAttendance[]
   closures              Closure[]
+  studentNotes          StudentNote[]
   studentSubscriptions  StudentSubscription[]
   installments          Installment[]
   payments              Payment[]
@@ -73,19 +74,19 @@ model Institute {
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  instituteId  Int       @map("institute_id")
-  fullName     String    @map("full_name")
-  phone        String
-  passwordHash String    @map("password_hash")
-  role         String
+  id                 Int       @id @default(autoincrement())
+  instituteId        Int       @map("institute_id")
+  fullName           String    @map("full_name")
+  phone              String
+  passwordHash       String    @map("password_hash")
+  role               String
   /// Account switch (reversible). Off: cannot sign in or refresh; the row stays and keeps its phone.
-  isActive     Boolean   @default(true) @map("is_active")
+  isActive           Boolean   @default(true) @map("is_active")
   /// Set when the password is the default one (new or reset account): the app forces a change first.
-  mustChangePassword Boolean @default(false) @map("must_change_password")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
 
   institute      Institute       @relation(fields: [instituteId], references: [id])
   instituteAdmin InstituteAdmin?
@@ -93,6 +94,7 @@ model User {
   familyUsers    FamilyUser[]
   refreshTokens  RefreshToken[]
   student        Student?
+  studentNotes   StudentNote[]   @relation("StudentNoteAuthor")
 
   /// Phone is unique per institute (same parent may belong to several institutes)
   @@unique([instituteId, phone])
@@ -354,9 +356,32 @@ model Student {
   lessonAttendance     LessonAttendance[]
   dailyAttendance      DailyAttendance[]
   studentSubscriptions StudentSubscription[]
+  notes                StudentNote[]
 
   @@unique([instituteId, id])
   @@map("students")
+}
+
+/// A note the institute writes about a student; shown to the family in the
+/// parents app when `visibleToFamily` (internal notes stay in the dashboard).
+model StudentNote {
+  id              Int      @id @default(autoincrement())
+  instituteId     Int      @map("institute_id")
+  studentId       Int      @map("student_id")
+  body            String
+  visibleToFamily Boolean  @default(true) @map("visible_to_family")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdById     Int?     @map("created_by_id")
+  updatedById     Int?     @map("updated_by_id")
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  createdBy User?     @relation("StudentNoteAuthor", fields: [createdById], references: [id])
+
+  @@unique([instituteId, id])
+  @@index([instituteId, studentId, createdAt])
+  @@map("student_notes")
 }
 
 model StudentField {
@@ -817,6 +842,8 @@ model DailyAttendance {
   checkInMethod  AttendanceMethod? @map("check_in_method")
   checkOutMethod AttendanceMethod? @map("check_out_method")
   note           String?
+  /// Why the student left (and who collected them); mostly for early exits.
+  checkOutNote   String?           @map("check_out_note")
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
   createdById    Int?              @map("created_by_id")

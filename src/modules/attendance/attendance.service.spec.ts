@@ -7,7 +7,7 @@ import { StudentRepository } from '../students/student.repository';
 import { SectionRepository } from '../sections/section.repository';
 import { InstituteClockService } from '../institutes/institute-clock.service';
 import { InstituteScheduleConfigService } from '../institute-schedule-config/institute-schedule-config.service';
-import { checkInStatus, closeMinutes, countDay } from './attendance.rules';
+import { checkInStatus, closeMinutes, countDay, isEarlyExit } from './attendance.rules';
 import { getLocalParts } from '../../common/time/timezone';
 import { RequestContext } from '../../context/request-context';
 import { TeacherScopeService } from '../sections/teacher-scope.service';
@@ -28,6 +28,12 @@ describe('attendance rules', () => {
   it('marks LATE only after dayStartTime + lateAfterMinutes', () => {
     expect(checkInStatus(config, 8 * 60 + 15)).toBe('PRESENT');
     expect(checkInStatus(config, 8 * 60 + 16)).toBe('LATE');
+  });
+
+  it('is an early exit only before the end of the day', () => {
+    expect(isEarlyExit(config, 13 * 60 + 59)).toBe(true);
+    expect(isEarlyExit(config, 14 * 60)).toBe(false);
+    expect(isEarlyExit(config, 15 * 60)).toBe(false);
   });
 
   it('closes at attendanceCloseTime, or the end of the day', () => {
@@ -176,6 +182,33 @@ describe('AttendanceService', () => {
       1,
       expect.objectContaining({ checkOutMethod: 'MANUAL' }),
     );
+  });
+
+  it('stores the reason given at check-out (trimmed) and skips a blank one', async () => {
+    repo.findForDay.mockResolvedValue({
+      id: 1,
+      checkInAt: new Date(at('08:00')),
+      checkOutAt: null,
+    });
+    await service.checkOut({ studentId: 7, at: at('11:00'), note: '  استلمه والده  ' });
+    expect(repo.update).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ checkOutNote: 'استلمه والده' }),
+    );
+    repo.update.mockClear();
+    await service.checkOut({ studentId: 7, at: at('11:05'), note: '   ' });
+    expect(repo.update.mock.calls[0][1]).not.toHaveProperty('checkOutNote');
+  });
+
+  it('flags an early exit in the student history, keeping the reason', async () => {
+    repo.findForStudent = jest.fn<any>().mockResolvedValue([
+      { id: 1, status: 'PRESENT', checkInAt: new Date(at('08:00')), checkOutAt: new Date(at('11:00')), checkOutNote: 'موعد طبيب' },
+      { id: 2, status: 'PRESENT', checkInAt: new Date(at('08:00')), checkOutAt: new Date(at('14:10')), checkOutNote: null },
+      { id: 3, status: 'ABSENT', checkInAt: null, checkOutAt: null, checkOutNote: null },
+    ]);
+    const history = await service.getStudentHistory(7, {});
+    expect(history.records.map((r: any) => r.earlyExit)).toEqual([true, false, false]);
+    expect((history.records[0] as any).checkOutNote).toBe('موعد طبيب');
   });
 
   it('refuses times in the future', async () => {

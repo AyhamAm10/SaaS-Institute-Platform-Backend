@@ -27,6 +27,7 @@ import {
   closeMinutes,
   countDay,
   dayOfWeekOf,
+  isEarlyExit,
   isWorkingDay,
   lastWorkingDays,
 } from './attendance.rules';
@@ -130,9 +131,11 @@ export class AttendanceService {
     if (!record?.checkInAt) fail('attendance_check_out_before_in');
     if (record!.checkOutAt) fail('attendance_already_checked_out');
     if (at <= record!.checkInAt!) fail('attendance_invalid_times');
+    const reason = dto.note?.trim();
     return this.repository.update(record!.id, {
       checkOutAt: at,
       checkOutMethod: method,
+      ...(reason && { checkOutNote: reason }),
     });
   }
 
@@ -215,7 +218,22 @@ export class AttendanceService {
       checkOutAt,
       ...(status && { status }),
       ...(dto.note !== undefined && { note: dto.note?.trim() || null }),
+      ...(dto.checkOutNote !== undefined && {
+        checkOutNote: dto.checkOutNote?.trim() || null,
+      }),
     });
+  }
+
+  /** A record plus whether the student left before the end of the day. */
+  private withEarlyExit<R extends { checkOutAt: Date | null }>(
+    record: R,
+    config: AttendanceDayConfig,
+    timeZone: string,
+  ): R & { earlyExit: boolean } {
+    const earlyExit =
+      record.checkOutAt !== null &&
+      isEarlyExit(config, getLocalParts(record.checkOutAt, timeZone).minutesOfDay);
+    return { ...record, earlyExit };
   }
 
   /** Section roster of a day with each student's record (null = not recorded yet). */
@@ -225,6 +243,7 @@ export class AttendanceService {
     await this.teacherScope.assertTeachesSection(section.id);
     const date = query.date ?? (await this.clock.today());
     const config = await this.dayConfig();
+    const timeZone = await this.clock.getTimezone();
     const roster = await this.repository.findSectionStudents(section.id);
     const records = await this.repository.findManyForDay(
       roster.map((r) => r.student.id),
@@ -241,11 +260,15 @@ export class AttendanceService {
         fullName: student.fullName,
         familyName: student.family?.familyName ?? null,
       },
-      record: byStudent.get(student.id) ?? null,
+      record: byStudent.has(student.id)
+        ? this.withEarlyExit(byStudent.get(student.id)!, config, timeZone)
+        : null,
     }));
 
     return {
       date,
+      /** Local end of the school day: a check-out before it is an early exit. */
+      dayEndTime: config.dayEndTime,
       isWorkingDay:
         !closure &&
         isWorkingDay(config, new Date(`${date}T12:00:00.000Z`).getUTCDay()),
@@ -265,7 +288,16 @@ export class AttendanceService {
     const from = query.from ?? shiftLocalDate(to, -30);
     const records = await this.repository.findForStudent(studentId, from, to);
     const counts = countDay(records.map((r) => r.status));
-    return { from, to, counts: { ...counts, notRecorded: undefined }, records };
+    const [config, timeZone] = await Promise.all([
+      this.dayConfig(),
+      this.clock.getTimezone(),
+    ]);
+    return {
+      from,
+      to,
+      counts: { ...counts, notRecorded: undefined },
+      records: records.map((r) => this.withEarlyExit(r, config, timeZone)),
+    };
   }
 
   /**

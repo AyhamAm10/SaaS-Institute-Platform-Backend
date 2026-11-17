@@ -22,6 +22,12 @@ export class AttendanceMarkDto {
   @IsOptional()
   @IsDateString()
   at?: string;
+
+  /** Check-out only: why the student leaves (and who collects them). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  note?: string;
 }
 
 export class BulkAttendanceDto {
@@ -76,6 +82,11 @@ export class UpdateAttendanceDto {
   @IsString()
   @MaxLength(500)
   note?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  checkOutNote?: string | null;
 }
 
 export class DailyQueryDto {

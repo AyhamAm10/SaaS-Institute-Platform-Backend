@@ -103,6 +103,8 @@ describe('SectionsService', () => {
     mockSectionSubjectRepo = {
       findBySectionAndSubject: jest.fn(),
       findSubjectsBySection: jest.fn(),
+      findTaughtBy: jest.fn(),
+      findBySubject: jest.fn(),
       assignSubject: jest.fn(),
       removeSubject: jest.fn(),
     } as any;
@@ -138,7 +140,7 @@ describe('SectionsService', () => {
       mockTeacherAssignmentRepo,
       mockTxHelper as TransactionHelper,
       // Not a teacher: no scope restriction
-      { taughtSectionIds: async () => null } as never,
+      { taughtSectionIds: async () => null, assertIsSelf: async () => undefined } as never,
     );
   });
 
@@ -624,6 +626,61 @@ describe('SectionsService', () => {
         );
         expect(mockSectionSubjectRepo.removeSubject).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('findTaughtBy', () => {
+    it('lists the sections and subjects of a teacher', async () => {
+      mockTeacherRepo.findById.mockResolvedValue({ id: 3 });
+      (mockSectionSubjectRepo.findTaughtBy as any).mockResolvedValue([
+        {
+          sectionId: 12,
+          subjectId: 4,
+          weeklyPeriods: 3,
+          subject: { id: 4, name: 'رياضيات' },
+          section: { id: 12, name: 'ب', grade: 'تاسع', branchId: 1, academicYearId: 2, branch: { name: 'فرع' } },
+        },
+      ]);
+      expect(await service.findTaughtBy(3)).toEqual([
+        {
+          sectionId: 12,
+          sectionName: 'ب',
+          grade: 'تاسع',
+          branchName: 'فرع',
+          academicYearId: 2,
+          subjectId: 4,
+          subjectName: 'رياضيات',
+          weeklyPeriods: 3,
+        },
+      ]);
+    });
+
+    it('answers 404 for an unknown teacher', async () => {
+      mockTeacherRepo.findById.mockResolvedValue(null);
+      await expect(service.findTaughtBy(99)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findBySubject', () => {
+    it('lists the sections teaching the subject with their teacher', async () => {
+      mockSubjectRepo.findById!.mockResolvedValue({ id: 4 } as any);
+      (mockSectionSubjectRepo.findBySubject as any).mockResolvedValue([
+        {
+          sectionId: 12,
+          weeklyPeriods: 3,
+          section: { id: 12, name: 'ب', academicYearId: 2, branch: { name: 'فرع' } },
+          teacher: { id: 5, user: { fullName: 'معلم' } },
+        },
+        { sectionId: 13, weeklyPeriods: 1, section: { id: 13, name: 'ج', academicYearId: 2, branch: null }, teacher: null },
+      ]);
+      const rows = await service.findBySubject(4);
+      expect(rows[0]).toMatchObject({ sectionId: 12, teacherName: 'معلم', branchName: 'فرع' });
+      expect(rows[1]).toMatchObject({ sectionId: 13, teacherId: null, branchName: null });
+    });
+
+    it('answers 404 for an unknown subject', async () => {
+      mockSubjectRepo.findById!.mockResolvedValue(null as any);
+      await expect(service.findBySubject(99)).rejects.toThrow(NotFoundException);
     });
   });
 });

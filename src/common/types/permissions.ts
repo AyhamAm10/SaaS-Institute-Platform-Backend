@@ -29,7 +29,17 @@ export type Action = 'view' | 'manage';
  */
 export const MARKS_ENTER = 'marks.enter';
 
-export type Permission = `${Resource}.${Action}` | typeof MARKS_ENTER;
+/**
+ * Deleting students and families is a separate permission: the data-entry
+ * role may create and edit them but not delete (explicit `@RequirePermission`
+ * on the DELETE routes).
+ */
+export const RECORDS_DELETE = 'records.delete';
+
+export type Permission =
+  | `${Resource}.${Action}`
+  | typeof MARKS_ENTER
+  | typeof RECORDS_DELETE;
 
 export function permission(resource: Resource, action: Action): Permission {
   return `${resource}.${action}`;
@@ -44,6 +54,7 @@ const ALL_PERMISSIONS: readonly Permission[] = [
   ...view(...Object.values(Resource)),
   ...manage(...Object.values(Resource)),
   MARKS_ENTER,
+  RECORDS_DELETE,
 ];
 
 const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
@@ -60,6 +71,21 @@ const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
       Resource.Settings,
     ),
     ...manage(Resource.Students, Resource.Attendance),
+    RECORDS_DELETE,
+  ],
+  // Data entry: students, families, enrollment, attendance and marks; the
+  // settings view is only what the registration wizard needs (fields, lists)
+  [UserRole.DATA_ENTRY]: [
+    ...view(
+      Resource.Dashboard,
+      Resource.Students,
+      Resource.Attendance,
+      Resource.Exams,
+      Resource.Academic,
+      Resource.Settings,
+    ),
+    ...manage(Resource.Students, Resource.Attendance),
+    MARKS_ENTER,
   ],
   [UserRole.ACCOUNTANT]: [
     ...view(
@@ -85,6 +111,7 @@ export const DASHBOARD_ROLES: readonly string[] = [
   UserRole.SUPER_ADMIN,
   UserRole.INSTITUTE_ADMIN,
   UserRole.REGISTRAR,
+  UserRole.DATA_ENTRY,
   UserRole.ACCOUNTANT,
   UserRole.TEACHER,
 ];

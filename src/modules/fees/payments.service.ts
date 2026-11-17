@@ -33,6 +33,7 @@ import {
 } from './fees.rules';
 import {
   CancelPaymentDto,
+  CreateFamilyPaymentDto,
   CreatePaymentDto,
   PaymentQueryDto,
 } from './dto/payment.dto';
@@ -145,6 +146,42 @@ export class PaymentsService {
       },
     );
     return this.findDetails(paymentId);
+  }
+
+  /**
+   * A parent paying for several children at once: one payment (and receipt)
+   * per line, all in one transaction. Every contract must belong to a child
+   * of this family and appear once.
+   */
+  async createForFamily(familyId: number, dto: CreateFamilyPaymentDto) {
+    const ids = dto.payments.map((p) => p.contractId);
+    if (new Set(ids).size !== ids.length) fail('payment_duplicate_contracts');
+    for (const id of ids) {
+      const contract = await this.subscriptionRepository.findById(id);
+      Ensure.exists(contract, 'Contract');
+      const student = await this.studentRepository.findById(contract.studentId);
+      Ensure.exists(student, 'Student');
+      if (student.familyId !== familyId) fail('payment_contract_family_mismatch');
+    }
+    const createdIds = await this.transactionHelper.executeInTransaction(
+      async () => {
+        const created: number[] = [];
+        for (const line of dto.payments) {
+          const payment = await this.create(line.contractId, {
+            amount: line.amount,
+            currency: line.currency,
+            exchangeRate: line.exchangeRate,
+            paymentMethod: dto.paymentMethod,
+            paidAt: dto.paidAt,
+            note: dto.note,
+          });
+          created.push(payment.id);
+        }
+        return created;
+      },
+      { timeout: 20000 },
+    );
+    return Promise.all(createdIds.map((id) => this.findDetails(id)));
   }
 
   async cancel(id: number, dto: CancelPaymentDto) {
