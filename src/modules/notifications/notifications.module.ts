@@ -14,6 +14,8 @@ import { DeviceTokenRepository } from './device-token.repository';
 import { NotificationSettingRepository } from './notification-setting.repository';
 import { NotificationAudienceRepository } from './notification-audience.repository';
 import { NotificationRemindersRepository } from './notification-reminders.repository';
+import { LessonRemindersService } from './lesson-reminders.service';
+import { LessonRemindersRepository } from './lesson-reminders.repository';
 
 /**
  * Notifications: in-app inbox, push (FCM) and the domain events that create
@@ -35,6 +37,8 @@ import { NotificationRemindersRepository } from './notification-reminders.reposi
     NotificationSettingRepository,
     NotificationAudienceRepository,
     NotificationRemindersRepository,
+    LessonRemindersService,
+    LessonRemindersRepository,
   ],
   exports: [NotificationEventsService, StudyNotificationEventsService],
 })

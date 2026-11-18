@@ -1,0 +1,26 @@
+{
+  "preset": "ts-jest/presets/default-esm",
+  "moduleFileExtensions": ["js", "mjs", "json", "ts"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testRegex": "test/scenario/.*\\.scenario-spec\\.ts$",
+  "globalSetup": "<rootDir>/test/scenario/global-setup.mjs",
+  "setupFiles": ["<rootDir>/test/scenario/setup-env.ts"],
+  "testTimeout": 120000,
+  "maxWorkers": 4,
+  "extensionsToTreatAsEsm": [".ts"],
+  "transform": {
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        "useESM": true,
+        "tsconfig": {
+          "module": "ESNext",
+          "moduleResolution": "bundler",
+          "target": "ES2023",
+          "esModuleInterop": true
+        }
+      }
+    ]
+  }
+}

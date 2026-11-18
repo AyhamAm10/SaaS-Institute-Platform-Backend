@@ -9,6 +9,7 @@ import { NotificationRepository } from './notification.repository';
 import { DeviceTokenRepository } from './device-token.repository';
 import { PushSenderService, PushTarget } from './push-sender.service';
 import { NotificationRemindersService } from './notification-reminders.service';
+import { LessonRemindersService } from './lesson-reminders.service';
 
 type PushJob = { notificationIds?: number[] };
 
@@ -48,12 +49,14 @@ export class NotificationsProcessor extends TenantJobProcessor<PushJob> {
     @Inject(DeviceTokenRepository) private readonly devices: DeviceTokenRepository,
     @Inject(PushSenderService) private readonly sender: PushSenderService,
     @Inject(NotificationRemindersService) private readonly reminders: NotificationRemindersService,
+    @Inject(LessonRemindersService) private readonly lessons: LessonRemindersService,
   ) {
     super();
   }
 
   protected async handle(job: Job<PushJob & TenantJobData>): Promise<number> {
     if (job.name === JobNames.sendReminders) return this.reminders.run();
+    if (job.name === JobNames.sendLessonReminders) return this.lessons.run();
     if (job.name !== JobNames.sendPush) return 0;
 
     const rows = await this.notifications.findByIds(job.data.notificationIds ?? []);

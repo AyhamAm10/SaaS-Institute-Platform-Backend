@@ -59,6 +59,16 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm run build
       - run: npm run test:e2e
+      # Scenario tests on a real PostgreSQL database (docs/private/test-plan). Separate
+      # *_test database; the harness refuses any other name. Run twice in two server
+      # time zones: business dates must not depend on the machine's zone.
+      - name: Scenario tests (real database)
+        env:
+          SCENARIO_DATABASE_URL: postgresql://ci:ci@localhost:5432/institute_test
+        run: |
+          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "CREATE DATABASE institute_test"
+          TZ=UTC npm run test:scenario
+          TZ=Asia/Damascus SCENARIO_SKIP_MIGRATE=1 npm run test:scenario
       - uses: actions/upload-artifact@v4
         with:
           name: dist

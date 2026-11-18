@@ -30,6 +30,7 @@ export const NotificationType = {
   TEACHER_ASSIGNED: 'TEACHER_ASSIGNED',
   TEACHER_EXAM_CREATED: 'TEACHER_EXAM_CREATED',
   MARKS_REMINDER: 'MARKS_REMINDER',
+  LESSON_REMINDER: 'LESSON_REMINDER',
 } as const;
 export type NotificationType =
   (typeof NotificationType)[keyof typeof NotificationType];
@@ -54,6 +55,7 @@ export const CATEGORY_OF: Record<NotificationType, NotificationCategory> = {
   [T.TEACHER_ASSIGNED]: C.STUDY,
   [T.TEACHER_EXAM_CREATED]: C.STUDY,
   [T.MARKS_REMINDER]: C.STUDY,
+  [T.LESSON_REMINDER]: C.STUDY,
 };
 
 /** Screen opened in the apps when the notification is tapped. */
@@ -74,6 +76,7 @@ export const PATH_OF: Record<NotificationType, string> = {
   [T.TEACHER_ASSIGNED]: '/sections',
   [T.TEACHER_EXAM_CREATED]: '/notifications',
   [T.MARKS_REMINDER]: '/notifications',
+  [T.LESSON_REMINDER]: '/timetable',
 };
 
 /** What a domain event asks to send (one row per user in the inbox). */

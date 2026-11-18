@@ -45,7 +45,7 @@ describe('NotificationsProcessor', () => {
         t.token === 'dead' ? { sent: 0, deadTokens: ['dead'] } : { sent: 1, deadTokens: [] },
       ),
     };
-    const processor = new NotificationsProcessor(repo as never, devices as never, sender as never, {} as never);
+    const processor = new NotificationsProcessor(repo as never, devices as never, sender as never, {} as never, {} as never);
     const sent = await (processor as unknown as { handle: (j: unknown) => Promise<number> }).handle({
       name: JobNames.sendPush,
       data: { notificationIds: [11, 12], instituteId: 3 },

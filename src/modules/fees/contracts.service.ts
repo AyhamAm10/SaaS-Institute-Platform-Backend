@@ -43,6 +43,12 @@ export interface ContractPlan {
  * remainder on the last one. Only the discount and unpaid installments can
  * change once payments exist.
  */
+/** The part of a contract row the live status needs. */
+export interface ContractWithInstallments {
+  currency: Currency;
+  installments?: { amount: unknown; paidAmount: unknown; dueDate: Date; status: InstallmentStatus }[];
+}
+
 @Injectable()
 export class ContractsService {
   constructor(
@@ -237,11 +243,42 @@ export class ContractsService {
   async findDetails(id: number) {
     const contract = await this.subscriptionRepository.findDetails(id);
     Ensure.exists(contract, 'Contract');
-    return contract;
+    return this.withLiveStatuses(contract, await this.clock.today());
   }
 
   async findByStudent(studentId: number) {
-    return this.subscriptionRepository.findByStudent(studentId);
+    const contracts = await this.subscriptionRepository.findByStudent(studentId);
+    const today = await this.clock.today();
+    return (contracts as ContractWithInstallments[]).map((c) => this.withLiveStatuses(c, today));
+  }
+
+  /**
+   * Installment statuses as of the institute's today (same rule as the mobile app
+   * and the reports). The stored status is only refreshed by payments and the
+   * hourly job, so without this an overdue installment read as PARTIAL/PENDING
+   * for up to an hour. CANCELLED installments keep their status.
+   */
+  private withLiveStatuses<C extends ContractWithInstallments>(
+    contract: C,
+    today: string,
+  ): C {
+    if (!contract.installments) return contract;
+    return {
+      ...contract,
+      installments: contract.installments.map((i) =>
+        i.status === InstallmentStatus.CANCELLED
+          ? i
+          : {
+              ...i,
+              status: installmentStatus(
+                toMinor(Number(i.amount), contract.currency),
+                toMinor(Number(i.paidAmount), contract.currency),
+                i.dueDate.toISOString().slice(0, 10),
+                today,
+              ),
+            },
+      ),
+    };
   }
 
   private toAmounts(lines: ScheduleLine[], currency: Currency) {

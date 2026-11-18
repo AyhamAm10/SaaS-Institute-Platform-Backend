@@ -12,10 +12,13 @@ export const QueueNames = {
 
 export const JobNames = {
   dispatchScheduled: 'dispatch-scheduled',
+  /** Every 5 minutes: only the time-critical per-institute jobs (lesson reminders). */
+  dispatchFrequent: 'dispatch-frequent',
   markOverdueInstallments: 'mark-overdue-installments',
   markAbsences: 'mark-absences',
   sendPush: 'send-push',
   sendReminders: 'send-reminders',
+  sendLessonReminders: 'send-lesson-reminders',
 } as const;
 
 /**

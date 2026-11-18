@@ -10,6 +10,7 @@
 |---|---|
 | Build / lint / format | `npm run build` / `npm run lint` (oxlint) / `npm run format` |
 | Unit tests / e2e | `npm test` / `npm run test:e2e` |
+| Scenario tests (real PostgreSQL, separate `*_test` database) | `npm run test:scenario` (harness and rules: `test/scenario/README.md`) |
 | Migration (dev) | `npm run prisma:migrate` (`prisma:migrate:create` to only create the file) |
 | Seed / reset DB | `npm run prisma:seed` / `npm run db:reset` |
 

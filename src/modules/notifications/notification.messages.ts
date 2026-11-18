@@ -10,6 +10,13 @@ export function moneyText(amount: number, currency: string): string {
   return currency === 'USD' ? `${formatted} $` : `${formatted} ${CURRENCY[currency] ?? currency}`;
 }
 
+/** Minutes with the right Arabic noun form: دقيقة واحدة، دقيقتين، 5 دقائق، 15 دقيقة. */
+export function minutesText(n: number): string {
+  if (n === 1) return 'دقيقة واحدة';
+  if (n === 2) return 'دقيقتين';
+  return n >= 3 && n <= 10 ? `${n} دقائق` : `${n} دقيقة`;
+}
+
 /** `2026-11-17` -> `2026/11/17`. */
 export const dateText = (date: string): string => date.slice(0, 10).replaceAll('-', '/');
 
@@ -92,6 +99,10 @@ export const messages = {
   teacherTimetableChanged: (): Message => ({
     title: 'تعديل في برنامجك',
     body: 'تغيّرت حصص في برنامجك الأسبوعي، اطّلع عليه',
+  }),
+  lessonSoon: (minutes: number, subject: string, section: string, room: string | null, start: string): Message => ({
+    title: `حصتك القادمة بعد ${minutesText(minutes)}`,
+    body: `${subject} - ${section}${room ? ` - ${room}` : ''}، الساعة ${start}`,
   }),
   marksReminder: (title: string, section: string, date: string): Message => ({
     title: 'علامات بانتظار الإدخال',

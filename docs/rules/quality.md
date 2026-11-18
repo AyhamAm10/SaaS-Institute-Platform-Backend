@@ -37,7 +37,7 @@
 
 ### Guidelines for Change Safety:
 * Before modifying shared infrastructure (`src/common/`, `src/context/`, `src/database/`), inspect all consumer modules.
-* Run existing automated unit and e2e test suites (`npm run test`, `npm run test:e2e`) to verify that modifications do not regress system functionality.
+* Run existing automated unit and e2e test suites (`npm run test`, `npm run test:e2e`, `npm run test:scenario`) to verify that modifications do not regress system functionality.
 * Avoid global mutable state or side effects outside the request's `AsyncLocalStorage` scope.
 
 ---

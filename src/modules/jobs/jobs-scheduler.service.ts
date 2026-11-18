@@ -9,6 +9,8 @@ import {
 
 /** Every hour: idempotent per-institute jobs (each one uses the institute's own "today"). */
 const DISPATCH_EVERY_MS = 60 * 60 * 1000;
+/** Every 5 minutes: lesson reminders (a lesson is announced 11-15 minutes before it starts). */
+const FREQUENT_EVERY_MS = 5 * 60 * 1000;
 
 /**
  * Registers the repeatable dispatcher job once the app is up. Never blocks
@@ -31,7 +33,14 @@ export class JobsSchedulerService implements OnApplicationBootstrap {
         { every: DISPATCH_EVERY_MS },
         { name: JobNames.dispatchScheduled },
       )
-      .then(() => this.logger.log('Scheduled dispatcher registered'))
+      .then(() =>
+        this.dispatchQueue.upsertJobScheduler(
+          JobNames.dispatchFrequent,
+          { every: FREQUENT_EVERY_MS },
+          { name: JobNames.dispatchFrequent },
+        ),
+      )
+      .then(() => this.logger.log('Scheduled dispatchers registered'))
       .catch((err: unknown) =>
         this.logger.error(`Could not register scheduled jobs: ${String(err)}`),
       );
