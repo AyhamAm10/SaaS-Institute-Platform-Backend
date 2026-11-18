@@ -48,6 +48,7 @@
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "exceljs": "^4.4.0",
+    "firebase-admin": "^13.10.0",
     "ioredis": "^5.11.1",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",

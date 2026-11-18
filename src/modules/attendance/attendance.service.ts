@@ -1,4 +1,5 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import {
   AttendanceMethod,
   AttendanceStatus,
@@ -47,6 +48,10 @@ const fail = (key: string): never => {
 /** How many past days the absence job re-checks against closures. */
 const RECONCILE_DAYS = 31;
 
+/** Local minutes of the day -> `HH:mm` (notification texts). */
+const hhmm = (minutes: number): string =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
 /** A few minutes of tolerance for client clocks. */
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
 
@@ -73,6 +78,10 @@ export class AttendanceService {
     private readonly teacherScope: TeacherScopeService,
     @Inject(ClosuresService)
     private readonly closures: ClosuresService,
+    /** Optional so unit tests that do not cover notifications need no mock. */
+    @Optional()
+    @Inject(NotificationEventsService)
+    private readonly events?: NotificationEventsService,
   ) {}
 
   async checkIn(
@@ -114,14 +123,24 @@ export class AttendanceService {
       status: checkInStatus(config, local.minutesOfDay),
     };
     // A late arrival replaces an ABSENT / EXCUSED mark of the same day
-    return existing
-      ? this.repository.update(existing.id, data)
-      : this.repository.create({
+    const saved = existing
+      ? await this.repository.update(existing.id, data)
+      : await this.repository.create({
           ...data,
           branchId: student.branchId,
           studentId: student.id,
           date: dateOnly(local.date),
         });
+    // Families hear about today's arrivals only (not corrections of past days)
+    if (local.date === (await this.clock.today())) {
+      void this.events?.attendanceCheckIn({
+        studentId: student.id,
+        late: data.status === AttendanceStatus.LATE,
+        time: hhmm(local.minutesOfDay),
+        date: local.date,
+      });
+    }
+    return saved;
   }
 
   private async markOut(dto: AttendanceMarkDto, method: AttendanceMethod) {
@@ -132,11 +151,24 @@ export class AttendanceService {
     if (record!.checkOutAt) fail('attendance_already_checked_out');
     if (at <= record!.checkInAt!) fail('attendance_invalid_times');
     const reason = dto.note?.trim();
-    return this.repository.update(record!.id, {
+    const saved = await this.repository.update(record!.id, {
       checkOutAt: at,
       checkOutMethod: method,
       ...(reason && { checkOutNote: reason }),
     });
+    const config = await this.dayConfig();
+    if (
+      isEarlyExit(config, local.minutesOfDay) &&
+      local.date === (await this.clock.today())
+    ) {
+      void this.events?.earlyExit({
+        studentId: dto.studentId,
+        time: hhmm(local.minutesOfDay),
+        date: local.date,
+        reason: reason || null,
+      });
+    }
+    return saved;
   }
 
   /** Check in / out a whole section (or the given students); never fails as a whole. */
@@ -182,14 +214,16 @@ export class AttendanceService {
       status: AttendanceStatus.EXCUSED,
       note: dto.note?.trim() || null,
     };
-    return existing
-      ? this.repository.update(existing.id, data)
-      : this.repository.create({
+    const saved = existing
+      ? await this.repository.update(existing.id, data)
+      : await this.repository.create({
           ...data,
           branchId: student.branchId,
           studentId: student.id,
           date: dateOnly(date),
         });
+    void this.events?.excused({ studentId: student.id, date, note: data.note });
+    return saved;
   }
 
   /** Admin correction of times / status / note (audited). */

@@ -4,6 +4,7 @@ import { StudentsModule } from '../students/students.module';
 import { SectionsModule } from '../sections/sections.module';
 import { InstitutesModule } from '../institutes/institutes.module';
 import { ClosuresModule } from '../closures/closures.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { InstituteScheduleConfigModule } from '../institute-schedule-config/institute-schedule-config.module';
 import { QueueNames } from '../../infrastructure/queue/queue-names';
 import { AttendanceController } from './attendance.controller';
@@ -19,6 +20,7 @@ import { AttendanceProcessor } from './jobs/attendance.processor';
     InstitutesModule,
     InstituteScheduleConfigModule,
     ClosuresModule,
+    NotificationsModule,
     BullModule.registerQueue({ name: QueueNames.attendance }),
   ],
   controllers: [AttendanceController],

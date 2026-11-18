@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { StudyNotificationEventsService } from '../notifications/study-notification-events.service';
 import { TeacherAssignment, TeacherAvailability } from '@prisma/client';
 import { TimetableRepository } from './timetable.repository';
 import { TimetableEntryRepository } from './timetable-entry.repository';
@@ -58,6 +59,10 @@ export class TimetablesService {
     private readonly lockService: LockService,
     @Inject(TeacherScopeService)
     private readonly teacherScope: TeacherScopeService,
+    /** Optional so unit tests that do not cover notifications need no mock. */
+    @Optional()
+    @Inject(StudyNotificationEventsService)
+    private readonly events?: StudyNotificationEventsService,
   ) {}
 
   /**
@@ -377,6 +382,13 @@ export class TimetablesService {
       });
 
       const updated = await this.getTimetable(targetYearId, secId);
+      if (sectionGeneratedEntries.length > 0) {
+        this.announceChange(
+          section.id,
+          section.name,
+          sectionSubjects.flatMap((ss: { teacherId?: number | null }) => (ss.teacherId ? [ss.teacherId] : [])),
+        );
+      }
       results.push({
         sectionId: secId,
         sectionName: section.name,
@@ -471,13 +483,16 @@ export class TimetablesService {
       );
     }
 
+    const teacherIds = [dto.teacherId];
     if (entryId) {
       const existing = await this.entryRepository.findById(entryId);
       Ensure.exists(existing, 'Timetable entry');
+      teacherIds.push(existing.teacherId);
       await this.entryRepository.updateEntry(entryId, dto);
     } else {
       await this.entryRepository.createEntry(timetableId, dto);
     }
+    this.announceChange(section.id, section.name, teacherIds);
 
     return this.getTimetable(timetable.academicYearId, timetable.sectionId);
   }
@@ -503,7 +518,18 @@ export class TimetablesService {
     Ensure.exists(entry, 'Timetable entry');
 
     await this.entryRepository.deleteEntry(entryId);
+    this.announceChange(section.id, section.name, [entry.teacherId]);
     return this.getTimetable(timetable.academicYearId, timetable.sectionId);
+  }
+
+  /** Students, families and the teachers concerned hear that the timetable changed (once a day). */
+  private announceChange(sectionId: number, sectionName: string, teacherIds: number[]): void {
+    void this.events?.timetableChanged({
+      sectionId,
+      sectionName,
+      teacherIds: [...new Set(teacherIds)],
+      date: new Date().toISOString().slice(0, 10),
+    });
   }
 
   /**

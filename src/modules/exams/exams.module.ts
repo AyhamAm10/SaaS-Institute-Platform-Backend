@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { SectionsModule } from '../sections/sections.module';
 import { AcademicYearsModule } from '../academic-years/academic-years.module';
 import { ReferenceDataModule } from '../reference-data/reference-data.module';
@@ -14,6 +15,7 @@ import { ExamRepository, ExamResultRepository } from './exam.repository';
     AcademicYearsModule,
     ReferenceDataModule,
     EnrollmentsModule,
+    NotificationsModule,
   ],
   controllers: [ExamsController],
   providers: [ExamsService, ExamRepository, ExamResultRepository],

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { BullModule } from '@nestjs/bullmq';
 import { StudentsModule } from '../students/students.module';
 import { SectionsModule } from '../sections/sections.module';
@@ -22,6 +23,7 @@ import { FeesProcessor } from './jobs/fees.processor';
     StudentsModule,
     SectionsModule,
     InstitutesModule,
+    NotificationsModule,
     BullModule.registerQueue({ name: QueueNames.fees }),
   ],
   controllers: [ContractsController, PaymentsController],

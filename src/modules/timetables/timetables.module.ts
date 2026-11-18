@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TimetablesController } from './timetables.controller';
 import { AcademicYearTimetablesController } from './academic-year-timetables.controller';
 import { TimetablesService } from './timetables.service';
@@ -19,6 +20,7 @@ import { AcademicYearsModule } from '../academic-years/academic-years.module';
     TeachersModule,
     RoomsModule,
     AcademicYearsModule,
+    NotificationsModule,
   ],
   controllers: [TimetablesController, AcademicYearTimetablesController],
   providers: [

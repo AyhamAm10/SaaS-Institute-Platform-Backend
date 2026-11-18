@@ -1,4 +1,6 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
+import { NotificationEventsService } from '../notifications/notification-events.service';
+import { TransactionContext } from '../../database/transaction.context';
 import {
   Currency,
   Installment,
@@ -73,6 +75,10 @@ export class PaymentsService {
     private readonly clock: InstituteClockService,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    /** Optional so unit tests that do not cover notifications need no mock. */
+    @Optional()
+    @Inject(NotificationEventsService)
+    private readonly events?: NotificationEventsService,
   ) {}
 
   async create(contractId: number, dto: CreatePaymentDto) {
@@ -145,7 +151,21 @@ export class PaymentsService {
         return payment.id;
       },
     );
-    return this.findDetails(paymentId);
+    const details = await this.findDetails(paymentId);
+    // Inside a family payment the outer transaction announces after commit
+    if (!TransactionContext.get()) this.announce(details);
+    return details;
+  }
+
+  /** Tells the family a payment was received (after the payment is committed). */
+  private announce(payment: Awaited<ReturnType<PaymentsService['findDetails']>>): void {
+    void this.events?.paymentReceived({
+      paymentId: payment.id,
+      studentId: payment.subscription.student.id,
+      receiptNumber: payment.receiptNumber,
+      amount: Number(payment.amount),
+      currency: payment.currency,
+    });
   }
 
   /**
@@ -181,7 +201,9 @@ export class PaymentsService {
       },
       { timeout: 20000 },
     );
-    return Promise.all(createdIds.map((id) => this.findDetails(id)));
+    const payments = await Promise.all(createdIds.map((id) => this.findDetails(id)));
+    payments.forEach((p) => this.announce(p));
+    return payments;
   }
 
   async cancel(id: number, dto: CancelPaymentDto) {

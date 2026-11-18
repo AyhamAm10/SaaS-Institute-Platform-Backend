@@ -55,6 +55,8 @@ model Institute {
   dailyAttendance       DailyAttendance[]
   closures              Closure[]
   studentNotes          StudentNote[]
+  notifications         Notification[]
+  deviceTokens          DeviceToken[]
   studentSubscriptions  StudentSubscription[]
   installments          Installment[]
   payments              Payment[]
@@ -88,13 +90,16 @@ model User {
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
 
-  institute      Institute       @relation(fields: [instituteId], references: [id])
-  instituteAdmin InstituteAdmin?
-  teacher        Teacher?
-  familyUsers    FamilyUser[]
-  refreshTokens  RefreshToken[]
-  student        Student?
-  studentNotes   StudentNote[]   @relation("StudentNoteAuthor")
+  institute           Institute            @relation(fields: [instituteId], references: [id])
+  instituteAdmin      InstituteAdmin?
+  teacher             Teacher?
+  familyUsers         FamilyUser[]
+  refreshTokens       RefreshToken[]
+  student             Student?
+  studentNotes        StudentNote[]        @relation("StudentNoteAuthor")
+  notifications       Notification[]
+  deviceTokens        DeviceToken[]
+  notificationSetting NotificationSetting?
 
   /// Phone is unique per institute (same parent may belong to several institutes)
   @@unique([instituteId, phone])
@@ -1273,4 +1278,77 @@ enum PaymentMethod {
 enum PaymentStatus {
   ACTIVE
   CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Notifications (push + in-app inbox)
+// ---------------------------------------------------------------------------
+
+enum PushPlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum ClientApp {
+  PARENTS
+  TEACHER
+}
+
+/// A device (phone app or installed web app) that receives push messages
+/// for one user. The FCM token is unique; it moves to the last user who
+/// signed in on that device.
+model DeviceToken {
+  id          Int          @id @default(autoincrement())
+  instituteId Int          @map("institute_id")
+  userId      Int          @map("user_id")
+  token       String       @unique
+  platform    PushPlatform
+  app         ClientApp
+  createdAt   DateTime     @default(now()) @map("created_at")
+  lastSeenAt  DateTime     @updatedAt @map("last_seen_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([instituteId, userId])
+  @@map("device_tokens")
+}
+
+/// The in-app inbox: every notification is stored here first; push is only
+/// the doorbell. `dedupeKey` makes a notification idempotent per user.
+model Notification {
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  userId      Int       @map("user_id")
+  type        String
+  title       String
+  body        String
+  /// Small JSON for the app: screen path, studentId, ids of the source record
+  data        Json?
+  studentId   Int?      @map("student_id")
+  dedupeKey   String?   @map("dedupe_key")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([instituteId, userId, createdAt])
+  @@map("notifications")
+}
+
+/// Per-user switches: the notification categories the user turned off
+/// (everything is on by default, owner decision 2026-11-17).
+model NotificationSetting {
+  userId             Int      @id @map("user_id")
+  instituteId        Int      @map("institute_id")
+  disabledCategories String[] @default([]) @map("disabled_categories")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([instituteId])
+  @@map("notification_settings")
 }

@@ -13,6 +13,7 @@ import { JobsSchedulerService } from './jobs-scheduler.service';
       { name: QueueNames.dispatch },
       { name: QueueNames.fees },
       { name: QueueNames.attendance },
+      { name: QueueNames.notifications },
     ),
   ],
   providers: [ScheduledDispatcherProcessor, JobsSchedulerService],

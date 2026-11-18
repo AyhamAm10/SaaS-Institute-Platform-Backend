@@ -32,6 +32,7 @@ import { FeesModule } from './modules/fees/fees.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { ClosuresModule } from './modules/closures/closures.module';
 import { StudentNotesModule } from './modules/student-notes/student-notes.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { TeacherApiModule } from './modules/teacher-api/teacher-api.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -87,6 +88,7 @@ import { MobileApiModule } from './modules/mobile-api/mobile-api.module';
     FeesModule,
     ClosuresModule,
     StudentNotesModule,
+    NotificationsModule,
     TeacherApiModule,
     AttendanceModule,
     ExamsModule,

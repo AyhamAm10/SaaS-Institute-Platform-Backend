@@ -6,12 +6,16 @@ export const QueueNames = {
   fees: 'fees',
   /** Per-institute attendance jobs (mark absences after the close time). */
   attendance: 'attendance',
+  /** Per-institute notification jobs (push sending, hourly reminders). */
+  notifications: 'notifications',
 } as const;
 
 export const JobNames = {
   dispatchScheduled: 'dispatch-scheduled',
   markOverdueInstallments: 'mark-overdue-installments',
   markAbsences: 'mark-absences',
+  sendPush: 'send-push',
+  sendReminders: 'send-reminders',
 } as const;
 
 /**

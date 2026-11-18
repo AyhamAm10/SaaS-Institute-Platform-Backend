@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { StudyNotificationEventsService } from '../notifications/study-notification-events.service';
 import { AcademicYear, Branch, Prisma, Section } from '@prisma/client';
 import { SectionRepository } from './section.repository';
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
@@ -62,6 +63,10 @@ export class SectionsService {
     private readonly transactionHelper: TransactionHelper,
     @Inject(TeacherScopeService)
     private readonly teacherScope: TeacherScopeService,
+    /** Optional so unit tests that do not cover notifications need no mock. */
+    @Optional()
+    @Inject(StudyNotificationEventsService)
+    private readonly events?: StudyNotificationEventsService,
   ) {}
 
   /** Pairs a teacher teaches (optionally in one year), by teacher id; no request-context scoping. */
@@ -562,12 +567,26 @@ export class SectionsService {
       409,
     );
 
-    return this.sectionSubjectRepository.assignSubject(
+    const assigned = await this.sectionSubjectRepository.assignSubject(
       sectionId,
       dto.subjectId,
       weeklyPeriods,
       dto.teacherId ?? null,
     );
+    if (dto.teacherId) await this.announceAssignment(section!, dto.subjectId, dto.teacherId);
+    return assigned;
+  }
+
+  /** The teacher hears about a new (section, subject) assignment. */
+  private async announceAssignment(section: Section, subjectId: number, teacherId: number) {
+    const subject = await this.subjectRepository.findById(subjectId);
+    void this.events?.teacherAssigned({
+      teacherId,
+      sectionId: section.id,
+      subjectId,
+      sectionName: section.name,
+      subjectName: subject?.name ?? '',
+    });
   }
 
   /**
@@ -668,10 +687,14 @@ export class SectionsService {
       updateData.weeklyPeriods = dto.weeklyPeriods;
     if (dto.teacherId !== undefined) updateData.teacherId = dto.teacherId;
 
-    return this.sectionSubjectRepository.updateAssignment(
+    const updated = await this.sectionSubjectRepository.updateAssignment(
       existing!.id,
       updateData,
     );
+    if (dto.teacherId && dto.teacherId !== existing!.teacherId) {
+      await this.announceAssignment(section!, subjectId, dto.teacherId);
+    }
+    return updated;
   }
 
   /**

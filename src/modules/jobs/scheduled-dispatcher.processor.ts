@@ -24,6 +24,8 @@ export class ScheduledDispatcherProcessor
     @InjectQueue(QueueNames.fees) private readonly feesQueue: Queue,
     @InjectQueue(QueueNames.attendance)
     private readonly attendanceQueue: Queue,
+    @InjectQueue(QueueNames.notifications)
+    private readonly notificationsQueue: Queue,
   ) {
     super();
   }
@@ -48,6 +50,10 @@ export class ScheduledDispatcherProcessor
     // Each attendance job checks its institute's own close time (idempotent)
     await this.attendanceQueue.addBulk(
       tenantJob(JobNames.markAbsences, 'absences'),
+    );
+    // Reminders (absences, installments, marks); each one is sent once
+    await this.notificationsQueue.addBulk(
+      tenantJob(JobNames.sendReminders, 'reminders'),
     );
     this.logger.log(`${job.name}: dispatched ${ids.length} institute job(s)`);
     return ids.length;

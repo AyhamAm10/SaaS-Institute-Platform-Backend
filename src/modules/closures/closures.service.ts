@@ -1,4 +1,5 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
+import { StudyNotificationEventsService } from '../notifications/study-notification-events.service';
 import { ClosureScope } from '@prisma/client';
 import { ClosureRepository, ClosureWithRefs } from './closure.repository';
 import { BranchRepository } from '../branches/branch.repository';
@@ -87,6 +88,10 @@ export class ClosuresService {
     private readonly sectionRepository: SectionRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    /** Optional so unit tests that do not cover notifications need no mock. */
+    @Optional()
+    @Inject(StudyNotificationEventsService)
+    private readonly events?: StudyNotificationEventsService,
   ) {}
 
   async findAll(query: ClosureQueryDto): Promise<ClosureView[]> {
@@ -107,6 +112,14 @@ export class ClosuresService {
       const row = await this.repository.create(this.columns(input));
       await this.repository.replaceSections(row.id, input.sectionIds);
       return row.id;
+    });
+    void this.events?.closureCreated({
+      closureId: id,
+      reason: input.reason,
+      fromDate: input.fromDate,
+      toDate: input.toDate,
+      branchId: input.branchId,
+      sectionIds: input.sectionIds,
     });
     return this.getView(id);
   }

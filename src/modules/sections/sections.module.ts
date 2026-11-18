@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { SectionsController } from './sections.controller';
 import { SubjectSectionsController } from './subject-sections.controller';
 import { TeacherSectionsController } from './teacher-sections.controller';
@@ -19,6 +20,7 @@ import { TeachersModule } from '../teachers/teachers.module';
     AcademicBranchesModule,
     SubjectsModule,
     TeachersModule,
+    NotificationsModule,
   ],
   controllers: [
     SectionsController,

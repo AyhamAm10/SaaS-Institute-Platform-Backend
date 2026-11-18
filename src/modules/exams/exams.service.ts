@@ -3,7 +3,9 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Optional,
 } from '@nestjs/common';
+import { StudyNotificationEventsService } from '../notifications/study-notification-events.service';
 import { Exam, ExamResultStatus, Prisma } from '@prisma/client';
 import { ExamRepository, ExamResultRepository } from './exam.repository';
 import { SectionRepository } from '../sections/section.repository';
@@ -68,6 +70,10 @@ export class ExamsService {
     private readonly transactionHelper: TransactionHelper,
     @Inject(TeacherScopeService)
     private readonly teacherScope: TeacherScopeService,
+    /** Optional so unit tests that do not cover notifications need no mock. */
+    @Optional()
+    @Inject(StudyNotificationEventsService)
+    private readonly events?: StudyNotificationEventsService,
   ) {}
 
   /** Teachers only see the exams of the subjects they teach (role.md §8.6). */
@@ -97,7 +103,18 @@ export class ExamsService {
       maxMark: new Prisma.Decimal(dto.maxMark),
       passMark: new Prisma.Decimal(dto.passMark),
     });
-    return this.findDetails(exam.id);
+    const details = await this.findDetails(exam.id);
+    void this.events?.examCreated({
+      examId: exam.id,
+      sectionId: section.id,
+      subjectId: dto.subjectId,
+      sectionName: details.section.name,
+      subjectName: details.subject.name,
+      title: details.title,
+      examDate: dto.examDate,
+      teacherId: inPlan!.teacherId ?? null,
+    });
+    return details;
   }
 
   /** Changing the marks bounds re-computes the status of existing results. */
@@ -261,6 +278,18 @@ export class ExamsService {
         }
       }
     });
+    // Each student hears about their mark once (the first time it is entered)
+    const entered = dto.results.filter((e) => e.absent || (e.mark !== undefined && e.mark !== null));
+    if (entered.length > 0) {
+      const details = await this.findDetails(id);
+      void this.events?.resultsEntered({
+        examId: id,
+        title: details.title,
+        subjectName: details.subject.name,
+        maxMark,
+        results: entered.map((e) => ({ studentId: e.studentId, mark: e.absent ? null : (e.mark ?? null) })),
+      });
+    }
     return this.getResults(id);
   }
 

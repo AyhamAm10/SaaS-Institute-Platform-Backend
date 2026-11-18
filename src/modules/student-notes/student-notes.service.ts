@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 import { Ensure } from '../../common/errors/ensure';
 import { StudentRepository } from '../students/student.repository';
 import {
@@ -33,6 +34,10 @@ export class StudentNotesService {
     private readonly repository: StudentNoteRepository,
     @Inject(StudentRepository)
     private readonly studentRepository: StudentRepository,
+    /** Optional so unit tests that do not cover notifications need no mock. */
+    @Optional()
+    @Inject(NotificationEventsService)
+    private readonly events?: NotificationEventsService,
   ) {}
 
   async findByStudent(studentId: number): Promise<StudentNoteView[]> {
@@ -55,7 +60,9 @@ export class StudentNotesService {
       body: dto.body,
       visibleToFamily: dto.visibleToFamily ?? true,
     });
-    return this.getView(note.id);
+    const view = await this.getView(note.id);
+    this.announce(view);
+    return view;
   }
 
   async update(
@@ -71,7 +78,16 @@ export class StudentNotesService {
         visibleToFamily: dto.visibleToFamily,
       }),
     });
-    return this.getView(id);
+    const view = await this.getView(id);
+    // A note made visible later reaches the family then (once per note)
+    this.announce(view);
+    return view;
+  }
+
+  /** Families hear about notes meant for them. */
+  private announce(note: StudentNoteView): void {
+    if (!note.visibleToFamily) return;
+    void this.events?.studentNote({ noteId: note.id, studentId: note.studentId, body: note.body });
   }
 
   async remove(id: number): Promise<void> {
