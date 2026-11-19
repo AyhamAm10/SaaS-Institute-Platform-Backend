@@ -74,10 +74,17 @@ export class AttendanceReports implements ReportBuilderGroup {
       take: ctx.take,
     });
     const statusOf = new Map(records.map((r) => [r.studentId, r.status]));
+    // Students on holiday that day (non-working day or a closure of the institute, branch
+    // or section) are neither "not recorded" nor part of the rate.
+    const off = await this.attendance.offStudentIds(
+      day,
+      students.map((s) => ({ studentId: s.student.id, branchId: s.section.branchId, sectionId: s.section.id })),
+    );
+    const expected = (list: typeof students) => list.filter((s) => !off.has(s.student.id));
     const bySection = [...groupBy(students, (s) => s.section.name)];
     const sectionRows: ReportRow[] = bySection.map(([name, list]) => {
       const t = tally(list.flatMap((s) => (statusOf.has(s.student.id) ? [statusOf.get(s.student.id)!] : [])));
-      const notRecorded = list.length - (t.present + t.late + t.absent + t.excused);
+      const due = expected(list);
       return {
         section: name,
         students: list.length,
@@ -85,16 +92,18 @@ export class AttendanceReports implements ReportBuilderGroup {
         late: t.late,
         absent: t.absent,
         excused: t.excused,
-        notRecorded,
-        rate: attendanceRate(t.present + t.late, list.length),
+        notRecorded: due.filter((s) => !statusOf.has(s.student.id)).length,
+        rate: attendanceRate(t.present + t.late, due.length),
       };
     });
     const all = tally(records.map((r) => r.status));
-    const missing = students.filter((s) => {
+    const dueAll = expected(students);
+    const missing = dueAll.filter((s) => {
       const st = statusOf.get(s.student.id);
       return st === undefined || st === 'ABSENT';
     });
     const working = workingDays.includes(dayOfWeekOf(day));
+    const dayRate = attendanceRate(all.present + all.late, dueAll.length);
 
     return {
       title: 'الحضور اليومي',
@@ -103,10 +112,13 @@ export class AttendanceReports implements ReportBuilderGroup {
       meta: [{ label: 'اليوم', value: `${WEEKDAY_LABELS[dayOfWeekOf(day)]} ${dateText(day)}` }],
       blocks: [
         ...(working ? [] : [{ type: 'note' as const, tone: 'warning' as const, text: 'هذا اليوم ليس من أيام الدوام.' }]),
+        ...(working && off.size > 0
+          ? [{ type: 'note' as const, tone: 'info' as const, text: `عطلة لـ ${off.size} من الطلاب في هذا اليوم: لا يُحسبون في النسبة ولا في قائمة من لم يُسجَّل لهم حضور.` }]
+          : []),
         {
           type: 'stats',
           items: [
-            { label: 'نسبة الحضور', kind: 'percent', value: attendanceRate(all.present + all.late, students.length), tone: rateTone(attendanceRate(all.present + all.late, students.length)) },
+            { label: 'نسبة الحضور', kind: 'percent', value: dayRate, tone: rateTone(dayRate) },
             { label: 'الطلاب', value: students.length },
             { label: 'حاضر', value: all.present, tone: 'success' },
             { label: 'متأخر', value: all.late, tone: 'warning' },

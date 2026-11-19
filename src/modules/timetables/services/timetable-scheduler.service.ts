@@ -97,6 +97,10 @@ function parseTimeToMinutes(timeStr: string): number {
   return (hours ?? 0) * 60 + (minutes ?? 0);
 }
 
+/** Search budget of the backtracking solver (it runs synchronously on the API thread). */
+export const SEARCH_STEP_LIMIT = 200_000;
+export const SEARCH_TIME_LIMIT_MS = 10_000;
+
 function isTimeWithinWindow(
   entryStart: string,
   entryEnd: string,
@@ -184,17 +188,30 @@ export class TimetableSchedulerService {
       reason: string;
     }> = [];
 
+    // input.teachers holds the ACTIVE teachers only: a deactivated one gets no lessons.
+    const activeTeacherIds = new Set(input.teachers.map((t) => t.id));
+
     for (const ss of input.sectionSubjects) {
       const section = input.sections.find((s) => s.id === ss.sectionId);
       if (!section) continue;
 
       let teacherId = ss.teacherId;
+      if (teacherId && !activeTeacherIds.has(teacherId)) {
+        unassigned.push({
+          sectionId: ss.sectionId,
+          subjectId: ss.subjectId,
+          periodsRemaining: ss.weeklyPeriods,
+          reason: 'المعلم المسند لهذه المادة غير فعّال',
+        });
+        continue;
+      }
       if (!teacherId) {
         // Find qualified teacher if not explicitly assigned
         const qualified = input.teacherAssignments.find(
           (a) =>
             a.academicBranchId === section.academicBranchId &&
-            a.subjectId === ss.subjectId,
+            a.subjectId === ss.subjectId &&
+            activeTeacherIds.has(a.teacherId),
         );
         teacherId = qualified?.teacherId || null;
       }
@@ -364,21 +381,44 @@ export class TimetableSchedulerService {
     const availableRoomIds: Array<number | null> =
       input.rooms.length > 0 ? input.rooms.map((r) => r.id) : [null];
 
-    // Sort requirements: MRV heuristic (schedule hardest subjects first)
-    requirements.sort((a, b) => {
-      const aTeacherWins = input.teacherAvailabilities.filter(
-        (w) => w.teacherId === a.teacherId,
-      ).length;
-      const bTeacherWins = input.teacherAvailabilities.filter(
-        (w) => w.teacherId === b.teacherId,
-      ).length;
-      return aTeacherWins - bTeacherWins;
-    });
+    // MRV: the lessons with the FEWEST usable slots go first. A teacher without
+    // availability windows is free all week (every slot), not the most constrained
+    // (counting windows put the free teachers first and the constrained ones last).
+    const usableSlots = new Map<number, number>();
+    const teacherSlotCount = (teacherId: number): number => {
+      const cached = usableSlots.get(teacherId);
+      if (cached !== undefined) return cached;
+      const wins = input.teacherAvailabilities.filter((w) => w.teacherId === teacherId);
+      const count =
+        wins.length === 0
+          ? allSlots.length
+          : allSlots.filter((loc) =>
+              wins.some(
+                (w) =>
+                  w.dayOfWeek === loc.dayOfWeek &&
+                  isTimeWithinWindow(loc.slot.startTime, loc.slot.endTime, w.startTime, w.endTime),
+              ),
+            ).length;
+      usableSlots.set(teacherId, count);
+      return count;
+    };
+    requirements.sort((a, b) => teacherSlotCount(a.teacherId) - teacherSlotCount(b.teacherId));
+
+    // Safety budget: the search is synchronous and blocks the whole API while it
+    // runs, so it stops after a fixed number of steps or seconds (then greedy).
+    let steps = 0;
+    let exhausted = false;
+    const deadline = Date.now() + SEARCH_TIME_LIMIT_MS;
 
     // Backtracking search function
     const backtrack = (reqIndex: number): boolean => {
       if (reqIndex >= requirements.length) {
         return true; // All requirements satisfied!
+      }
+      steps++;
+      if (exhausted || steps > SEARCH_STEP_LIMIT || (steps % 500 === 0 && Date.now() > deadline)) {
+        exhausted = true;
+        return false;
       }
 
       const req = requirements[reqIndex]!;
@@ -428,12 +468,50 @@ export class TimetableSchedulerService {
 
         // Backtrack
         currentAssignments.pop();
+        if (exhausted) return false;
       }
 
       return false;
     };
 
     const solved = backtrack(0);
+
+    if (!solved) {
+      // No complete timetable within the budget (or none exists): place greedily
+      // whatever fits without a hard conflict and report the rest as unassigned.
+      currentAssignments.length = 0;
+      currentAssignments.push(...fixedEntries);
+      for (const req of requirements) {
+        let best: { loc: TimeSlotLocation; roomId: number | null; score: number } | null = null;
+        for (const loc of allSlots) {
+          for (const roomId of availableRoomIds) {
+            if (!isSlotAvailable(req, loc, roomId)) continue;
+            const score = calculateSoftScore(req, loc);
+            if (!best || score > best.score) best = { loc, roomId, score };
+          }
+        }
+        if (!best) {
+          unassigned.push({
+            sectionId: req.sectionId,
+            subjectId: req.subjectId,
+            periodsRemaining: 1,
+            reason: 'تعذّر إيجاد حصة متاحة دون تعارض (المعلم أو الشعبة أو القاعات مشغولة)',
+          });
+          continue;
+        }
+        currentAssignments.push({
+          sectionId: req.sectionId,
+          subjectId: req.subjectId,
+          teacherId: req.teacherId,
+          roomId: best.roomId,
+          dayOfWeek: best.loc.dayOfWeek,
+          periodNumber: best.loc.slot.periodNumber,
+          startTime: best.loc.slot.startTime,
+          endTime: best.loc.slot.endTime,
+          isLocked: false,
+        });
+      }
+    }
 
     // Audit generated timetable for conflicts
     const conflicts = this.conflictService.detectConflicts({

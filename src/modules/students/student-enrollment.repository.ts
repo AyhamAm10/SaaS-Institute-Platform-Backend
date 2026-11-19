@@ -159,7 +159,7 @@ const YEAR_ENROLLMENT_INCLUDE = {
       status: { select: { name: true, tone: true } },
     },
   },
-  section: { select: { id: true, name: true } },
+  section: { select: { id: true, name: true, branchId: true } },
   subscription: { select: { id: true } },
 } as const;
 

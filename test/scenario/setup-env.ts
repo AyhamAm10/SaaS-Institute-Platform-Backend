@@ -11,6 +11,9 @@ process.env['DATABASE_URL'] = url;
 process.env['NODE_ENV'] = 'test';
 process.env['JOBS_ENABLED'] = 'false';
 process.env['THROTTLE_LOGIN_LIMIT'] = '100000';
+// All workers share one client IP and one Redis counter: thousands of calls per minute
+// would hit the 300/min production limit. The limiter has its own dedicated test.
+process.env['THROTTLE_DEFAULT_LIMIT'] = '1000000';
 process.env['REDIS_KEY_PREFIX'] = 'scenario';
 // Test-only platform account of the test database (never used anywhere else)
 process.env['SUPER_ADMIN_NUMBER'] = '0900099999';

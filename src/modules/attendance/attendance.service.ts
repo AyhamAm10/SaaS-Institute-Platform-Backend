@@ -15,6 +15,7 @@ import { ClosuresService } from '../closures/closures.service';
 import { ClosureInfo, closedGroupsOn } from '../closures/closures.rules';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
+import { RequestContext } from '../../context/request-context';
 import {
   dateOnly,
   getLocalParts,
@@ -89,6 +90,7 @@ export class AttendanceService {
     method: AttendanceMethod = AttendanceMethod.MANUAL,
   ) {
     await this.assertCanMark(dto.studentId);
+    await this.assertStudentInContext(dto.studentId);
     return this.markIn(dto, method);
   }
 
@@ -97,7 +99,23 @@ export class AttendanceService {
     method: AttendanceMethod = AttendanceMethod.MANUAL,
   ) {
     await this.assertCanMark(dto.studentId);
+    await this.assertStudentInContext(dto.studentId);
     return this.markOut(dto, method);
+  }
+
+  /**
+   * The day's record is read through the header branch: a student of another
+   * branch would look unrecorded and a second insert would fail (500). Refused.
+   */
+  private async assertStudentInContext(studentId: number): Promise<void> {
+    const contextBranchId = RequestContext.getBranchId();
+    if (!contextBranchId) return;
+    const student = await this.studentRepository.findById(studentId);
+    Ensure.custom(
+      Boolean(student && student.branchId !== contextBranchId),
+      ErrorMessages.get('student_branch_mismatch'),
+      400,
+    );
   }
 
   private async markIn(dto: AttendanceMarkDto, method: AttendanceMethod) {
@@ -175,6 +193,12 @@ export class AttendanceService {
   async bulk(dto: BulkAttendanceDto) {
     const section = await this.sectionRepository.findById(dto.sectionId);
     Ensure.exists(section, 'Section');
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
     // Scope checked once for the whole section (role.md §8.6)
     await this.teacherScope.assertTeachesSection(section.id);
     const roster = await this.repository.findSectionStudents(section.id);
@@ -185,6 +209,13 @@ export class AttendanceService {
       done: [] as number[],
       skipped: [] as { studentId: number; reason: string }[],
     };
+    // Listed students who are not active in the section are reported, never silently dropped
+    if (wanted) {
+      const onRoster = new Set(roster.map((r) => r.student.id));
+      for (const id of wanted) {
+        if (!onRoster.has(id)) result.skipped.push({ studentId: id, reason: ErrorMessages.get('attendance_not_in_section') });
+      }
+    }
     for (const { student } of targets) {
       try {
         const mark = { studentId: student.id };
@@ -204,6 +235,7 @@ export class AttendanceService {
 
   async excuse(dto: ExcuseDto) {
     await this.assertCanMark(dto.studentId);
+    await this.assertStudentInContext(dto.studentId);
     const student = await this.studentRepository.findById(dto.studentId);
     Ensure.exists(student, 'Student');
     const date = dto.date ?? (await this.clock.today());
@@ -367,6 +399,31 @@ export class AttendanceService {
     const student = await this.studentRepository.findById(studentId);
     Ensure.exists(student, 'Student');
     return !(await this.closureFor(date, student.id, student.branchId));
+  }
+
+  /**
+   * Of these students, the ones with no school on the date: everyone on a non-working
+   * day, else those covered by a closure of the institute, their branch or section.
+   */
+  async offStudentIds(
+    date: string,
+    students: { studentId: number; branchId: number; sectionId: number }[],
+  ): Promise<Set<number>> {
+    if (!(await this.isWorkingDate(date)))
+      return new Set(students.map((s) => s.studentId));
+    const closures = await this.closures.findInfoBetween(date, date);
+    if (closures.length === 0) return new Set();
+    const groups = closedGroupsOn(closures, date);
+    return new Set(
+      students
+        .filter(
+          (s) =>
+            groups.all ||
+            groups.branchIds.includes(s.branchId) ||
+            groups.sectionIds.includes(s.sectionId),
+        )
+        .map((s) => s.studentId),
+    );
   }
 
   /** Records of a local period for reports (D3): some students or one branch. */

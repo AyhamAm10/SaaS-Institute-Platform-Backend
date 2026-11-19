@@ -23,6 +23,8 @@ Run: `npm run test:scenario` (Jest config `test/jest-scenario.json`, files `*.sc
 | `clock.ts` | `setClock('2026-11-18 08:16')`: institute-local time (Damascus, UTC+3). Only `Date` is faked; timers and I/O stay real. Columns the database fills itself (`createdAt`) use real time |
 | `client.ts` | `Api`: one user's HTTP client; every call asserts the status and returns the body; `fails(method, path, status)` for refusals; renews an expired access token once (the clock moves by hours); `eventually()` waits for background effects (notifications); `uniquePhone()` |
 | `builders.ts` | `InstituteFixture.create(s, label)`: institute + admin + default branch + current year, then `section()`, `student()`, `subject()`, `academicBranch()`; `signIn()` does the forced first password change like a real user |
+| `world.ts` | `buildWorld(inst, marker)`: one record of every kind named with a marker; `tenantFingerprint(inst)`: md5 of every row the institute owns (all tables with `institute_id`) |
+| `money.ts` | `expectPerCurrency` (exact currencies, never mixed), `installmentsInDb`, `expectAllocationsMatchPaid` |
 | `fake-push-sender.ts` | records every push; tokens starting with `dead-` behave like uninstalled apps |
 
 ## Rules for writing scenarios
@@ -32,4 +34,5 @@ Run: `npm run test:scenario` (Jest config `test/jest-scenario.json`, files `*.sc
 4. Money operations check the response AND the database rows.
 5. A refusal checks the status, the error key and that the database did not change.
 6. Tests inside a file are an ordered story; files never depend on each other.
-7. The suite runs in CI twice, with `TZ=UTC` and `TZ=Asia/Damascus`: results must match.
+7. The global rate limit (300/min/IP) and the login limit are raised in `setup-env.ts` (all workers share one IP); `01-tenancy-auth/rate-limit.scenario-spec.ts` restores the real login limit to test it.
+8. The suite runs in CI twice, with `TZ=UTC` and `TZ=Asia/Damascus`: results must match.

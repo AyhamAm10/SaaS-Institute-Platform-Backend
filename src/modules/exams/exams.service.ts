@@ -16,6 +16,7 @@ import { ExamTypesService } from '../reference-data/exam-types/exam-types.servic
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
+import { RequestContext } from '../../context/request-context';
 import { ErrorMessages } from '../../common/errors/error-messages';
 import { dateOnly, shiftLocalDate } from '../../common/time/timezone';
 import { buildMarksView, StudentMarksView } from './student-marks';
@@ -85,6 +86,20 @@ export class ExamsService {
   async create(dto: CreateExamDto) {
     const section = await this.sectionRepository.findById(dto.sectionId);
     Ensure.exists(section, 'Section');
+    // The new exam is read back through the header context: a section outside it
+    // would be stored and then answered "Exam not found" (a hidden duplicate on retry).
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+    const contextYearId = RequestContext.getAcademicYearId();
+    Ensure.custom(
+      Boolean(contextYearId && section.academicYearId !== contextYearId),
+      ErrorMessages.get('section_academic_year_mismatch'),
+      400,
+    );
     // A teacher creates exams only for the subjects they teach in this section
     await this.teacherScope.assertTeachesSubject(section.id, dto.subjectId);
     const inPlan = await this.sectionSubjectRepository.findBySectionAndSubject(

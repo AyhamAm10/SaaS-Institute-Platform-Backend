@@ -279,13 +279,14 @@ export class StudentRepository extends ContextScopedRepository<Student> {
     const [
       enrollments,
       examResults,
-      lessonAttendance,
+      attendance,
       subscriptions,
       payments,
     ] = await Promise.all([
       (this.client as any).studentEnrollment.count({ where }),
       (this.client as any).examResult.count({ where }),
-      (this.client as any).lessonAttendance.count({ where }),
+      // Daily attendance is the attendance the institute records (lesson attendance is unused)
+      (this.client as any).dailyAttendance.count({ where }),
       (this.client as any).studentSubscription.count({ where }),
       (this.client as any).payment.count({
         where: { instituteId, subscription: { studentId } },
@@ -295,7 +296,7 @@ export class StudentRepository extends ContextScopedRepository<Student> {
       studentId,
       enrollments,
       examResults,
-      lessonAttendance,
+      attendance,
       subscriptions,
       payments,
     };

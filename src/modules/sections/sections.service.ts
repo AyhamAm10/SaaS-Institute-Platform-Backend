@@ -1,6 +1,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { StudyNotificationEventsService } from '../notifications/study-notification-events.service';
-import { AcademicYear, Branch, Prisma, Section } from '@prisma/client';
+import { AcademicYear, Branch, Currency, Prisma, Section } from '@prisma/client';
+import { hasValidPrecision } from '../../common/money/money';
 import { SectionRepository } from './section.repository';
 import { AcademicYearRepository } from '../academic-years/academic-year.repository';
 import { BranchRepository } from '../branches/branch.repository';
@@ -102,8 +103,9 @@ export class SectionsService {
    * - No duplicate section with the same name in the same branch & academic year
    */
   async create(dto: CreateSectionDto): Promise<Section> {
-    // 1. Validate non-negative fee
+    // 1. Validate non-negative fee with the currency's precision
     Ensure.custom(dto.feeAmount < 0, ErrorMessages.get('invalid_fee'), 400);
+    this.assertFeePrecision(dto.feeAmount, dto.feeCurrency ?? Currency.SYP);
 
     // 2. Resolve & Validate Branch (priority: DTO > RequestContext header > Default Branch)
     const targetBranchId = dto.branchId ?? RequestContext.getBranchId();
@@ -202,9 +204,12 @@ export class SectionsService {
       400,
     );
 
-    // 2. Validate fee if provided
+    // 2. Validate fee if provided (also when only the currency changes)
     if (dto.feeAmount !== undefined) {
       Ensure.custom(dto.feeAmount < 0, ErrorMessages.get('invalid_fee'), 400);
+    }
+    if (dto.feeAmount !== undefined || dto.feeCurrency !== undefined) {
+      this.assertFeePrecision(dto.feeAmount ?? Number(existing.feeAmount), dto.feeCurrency ?? existing.feeCurrency);
     }
 
     // 3. Validate Branch if changed
@@ -304,6 +309,14 @@ export class SectionsService {
   }
 
   /**
+   * Syrian pounds have no fractions, dollars two decimals. A fee the money rules
+   * cannot represent would make every contract of the section fail later.
+   */
+  private assertFeePrecision(amount: number, currency: Currency): void {
+    Ensure.custom(!hasValidPrecision(amount, currency), ErrorMessages.get('money_invalid_precision'), 400);
+  }
+
+  /**
    * Dedicated method to update the section fee amount.
    */
   async updateFee(id: number, dto: UpdateSectionFeeDto): Promise<Section> {
@@ -318,6 +331,7 @@ export class SectionsService {
       ErrorMessages.get('section_branch_mismatch'),
       400,
     );
+    this.assertFeePrecision(dto.feeAmount, dto.feeCurrency ?? existing.feeCurrency);
 
     return this.sectionRepository.update(id, {
       feeAmount: new Prisma.Decimal(dto.feeAmount),

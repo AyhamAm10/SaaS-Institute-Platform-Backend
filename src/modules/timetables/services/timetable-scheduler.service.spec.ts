@@ -189,4 +189,61 @@ describe('TimetableSchedulerService', () => {
     expect(lockedFound?.dayOfWeek).toBe(0);
     expect(lockedFound?.startTime).toBe('08:00');
   });
+
+  it('places the most constrained teacher first (free teachers do not take her only slots)', async () => {
+    const result = await scheduler.solve({
+      sections: [{ id: 1, name: 'Section 1A', academicBranchId: 1 }],
+      sectionSubjects: [
+        { id: 10, sectionId: 1, subjectId: 101, teacherId: 201, weeklyPeriods: 18 },
+        { id: 11, sectionId: 1, subjectId: 102, teacherId: 202, weeklyPeriods: 2 },
+      ],
+      teachers: [
+        { id: 201, name: 'Free' },
+        { id: 202, name: 'Sunday morning only' },
+      ],
+      teacherAssignments: [],
+      teacherAvailabilities: [{ teacherId: 202, dayOfWeek: 0, startTime: '08:00', endTime: '09:30' }],
+      rooms: [],
+      roomAvailabilities: [],
+      scheduleConfig: sampleConfig,
+    });
+
+    // 5 days x 4 periods = 20 slots, exactly the 20 lessons
+    expect(result.success).toBe(true);
+    expect(result.entries).toHaveLength(20);
+    const constrained = result.entries.filter((e) => e.teacherId === 202);
+    expect(constrained.map((e) => [e.dayOfWeek, e.startTime])).toEqual(
+      expect.arrayContaining([
+        [0, '08:00'],
+        [0, '08:45'],
+      ]),
+    );
+  });
+
+  it('an impossible load ends quickly: what fits is placed, the rest is reported as unassigned', async () => {
+    const started = Date.now();
+    const result = await scheduler.solve({
+      sections: [
+        { id: 1, name: 'A', academicBranchId: 1 },
+        { id: 2, name: 'B', academicBranchId: 1 },
+      ],
+      // one teacher, 2 x 12 lessons, only 20 slots in the week
+      sectionSubjects: [
+        { id: 10, sectionId: 1, subjectId: 101, teacherId: 201, weeklyPeriods: 12 },
+        { id: 11, sectionId: 2, subjectId: 101, teacherId: 201, weeklyPeriods: 12 },
+      ],
+      teachers: [{ id: 201, name: 'Only teacher' }],
+      teacherAssignments: [],
+      teacherAvailabilities: [],
+      rooms: [],
+      roomAvailabilities: [],
+      scheduleConfig: sampleConfig,
+    });
+
+    expect(Date.now() - started).toBeLessThan(15_000);
+    expect(result.success).toBe(false);
+    expect(result.entries).toHaveLength(20);
+    expect(result.unassignedRequirements).toHaveLength(4);
+    expect(result.unassignedRequirements[0].reason).toMatch(/تعذّر/);
+  });
 });

@@ -13,7 +13,12 @@ interface LoginResponse {
 /** Signs a user in; a default-password account changes it first, like a real first sign-in. */
 export async function signIn(s: ScenarioApp, phone: string, password = DEFAULT_PASSWORD): Promise<Api> {
   const anonymous = new Api(s.app);
-  const res = await anonymous.post<LoginResponse>('/auth/login', { phone, password });
+  // A second sign-in of a default-password account: its first sign-in already changed it
+  const res = await anonymous.post<LoginResponse>('/auth/login', { phone, password }).catch(async (err: Error) => {
+    if (password !== DEFAULT_PASSWORD || !/-> 401/.test(err.message)) throw err;
+    password = CHANGED_PASSWORD;
+    return anonymous.post<LoginResponse>('/auth/login', { phone, password });
+  });
   let finalPassword = password;
   let token = res.accessToken;
   if (res.user.mustChangePassword) {

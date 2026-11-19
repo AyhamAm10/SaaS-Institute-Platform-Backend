@@ -12,12 +12,15 @@ export interface SentPush {
  */
 export class FakePushSender {
   readonly sent: SentPush[] = [];
+  /** When true, every send throws like a Firebase outage. */
+  failing = false;
 
   get enabled(): boolean {
     return true;
   }
 
   async send(message: PushMessage, targets: PushTarget[]): Promise<{ sent: number; deadTokens: string[] }> {
+    if (this.failing) throw new Error('FCM unavailable (simulated)');
     const deadTokens = targets.filter((t) => t.token.startsWith('dead-')).map((t) => t.token);
     for (const target of targets) if (!deadTokens.includes(target.token)) this.sent.push({ message, target });
     return { sent: targets.length - deadTokens.length, deadTokens };

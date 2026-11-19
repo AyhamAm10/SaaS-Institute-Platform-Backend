@@ -6,7 +6,8 @@ export interface StudentDeletionReport {
   studentId: number;
   enrollments: number;
   examResults: number;
-  lessonAttendance: number;
+  /** Days of daily attendance (check-ins, absences, excuses). */
+  attendance: number;
   subscriptions: number;
   payments: number;
 }

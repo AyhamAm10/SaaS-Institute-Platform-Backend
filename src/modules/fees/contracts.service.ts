@@ -8,6 +8,7 @@ import { InstallmentRepository } from './repositories/installment.repository';
 import { TransactionHelper } from '../../database/transaction.helper';
 import { Ensure } from '../../common/errors/ensure';
 import { ErrorMessages } from '../../common/errors/error-messages';
+import { RequestContext } from '../../context/request-context';
 import {
   hasValidPrecision,
   minorToDecimal,
@@ -75,6 +76,20 @@ export class ContractsService {
     Ensure.exists(enrollment, 'Enrollment');
     const section = await this.sectionRepository.findById(enrollment.sectionId);
     Ensure.exists(section, 'Section');
+    // The new contract is read back through the header context: a section outside it
+    // would be stored and then answered "not found" (a hidden contract).
+    const contextBranchId = RequestContext.getBranchId();
+    Ensure.custom(
+      Boolean(contextBranchId && section.branchId !== contextBranchId),
+      ErrorMessages.get('section_branch_mismatch'),
+      400,
+    );
+    const contextYearId = RequestContext.getAcademicYearId();
+    Ensure.custom(
+      Boolean(contextYearId && section.academicYearId !== contextYearId),
+      ErrorMessages.get('section_academic_year_mismatch'),
+      400,
+    );
 
     const currency = dto.currency ?? section.feeCurrency;
     const gross = dto.grossAmount ?? Number(section.feeAmount);
