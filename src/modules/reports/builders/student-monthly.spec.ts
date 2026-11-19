@@ -11,7 +11,7 @@ const ctx = {
 const mark = (date: string, subject: string, value: number | null, max = 100) => ({
   mark: value,
   status: value === null ? 'ABSENT' : 'PASSED',
-  exam: { examDate: new Date(`${date}T00:00:00Z`), subject: { name: subject }, title: 't', examType: null, maxMark: max },
+  exam: { examDate: new Date(`${date}T00:00:00Z`), subject: { id: subject === 'رياضيات' ? 1 : 2, name: subject }, title: 't', examType: null, maxMark: max },
 });
 
 describe('StudentReports monthly report', () => {
@@ -51,8 +51,8 @@ describe('StudentReports monthly report', () => {
     const stats = body.blocks.find((b: any) => b.type === 'stats').items;
     // (14 + 2) / 20 = 80%
     expect(stats.find((s: any) => s.label === 'نسبة الحضور').value).toBe(80);
-    // subjects: رياضيات 70, علوم 90 → overall 80; the October mark is ignored
-    expect(stats.find((s: any) => s.label === 'معدل العلامات').value).toBe(80);
+    // the parents-app rule: each exam weighs the same, (80 + 60 + 90) / 3 = 76.7; the October mark is ignored
+    expect(stats.find((s: any) => s.label === 'معدل العلامات').value).toBe(76.7);
     const table = body.blocks.find((b: any) => b.type === 'table');
     expect(table.rows).toHaveLength(1);
     expect(table.rows[0].note).toBe('مرض');

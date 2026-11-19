@@ -6,6 +6,7 @@ import { StudentFieldsService } from '../../student-fields/student-fields.servic
 import { FeesReportDataService } from '../../fees/fees-report-data.service';
 import { FeesReportsService } from '../../fees/fees-reports.service';
 import { ExamsService } from '../../exams/exams.service';
+import { buildMarksView } from '../../exams/student-marks';
 import { AttendanceService } from '../../attendance/attendance.service';
 import { attendanceRate } from '../../attendance/attendance.rules';
 import { hasPermission } from '../../../common/types/permissions';
@@ -24,7 +25,7 @@ import {
   timeText,
   WEEKDAY_LABELS,
 } from '../document/report-format';
-import { average, percent, REPORT_ROW_LIMIT, resolvePeriod } from '../reports.rules';
+import { percent, REPORT_ROW_LIMIT, resolvePeriod } from '../reports.rules';
 import { ReportBuilderGroup, ReportContext } from './report-context';
 import { CURRENCY_ORDER, groupBy, num, openAmount } from './report-helpers';
 import { dayOfWeekOf } from '../../attendance/attendance.rules';
@@ -170,15 +171,8 @@ export class StudentReports implements ReportBuilderGroup {
       const d = isoDate(r.exam.examDate);
       return (!from || d >= from) && (!to || d <= to);
     });
-    const bySubject = new Map<string, number[]>();
-    for (const r of results) {
-      if (r.mark === null) continue;
-      const list = bySubject.get(r.exam.subject.name) ?? [];
-      list.push((r.mark / Number(r.exam.maxMark)) * 100);
-      bySubject.set(r.exam.subject.name, list);
-    }
-    const subjects = [...bySubject].map(([name, list]) => ({ name, avg: average(list) ?? 0, count: list.length }));
-    const overall = average(subjects.map((s) => s.avg));
+    // Same rule and rounding as the parents app (one decimal, each exam weighs the same)
+    const { subjects, overall } = marksSummary(results);
     const passed = results.filter((r) => r.status === 'PASSED').length;
 
     return {
@@ -260,15 +254,8 @@ export class StudentReports implements ReportBuilderGroup {
       const d = isoDate(r.exam.examDate);
       return d >= period.from && d <= period.to;
     });
-    const bySubject = new Map<string, number[]>();
-    for (const r of results) {
-      if (r.mark === null) continue;
-      const list = bySubject.get(r.exam.subject.name) ?? [];
-      list.push((r.mark / Number(r.exam.maxMark)) * 100);
-      bySubject.set(r.exam.subject.name, list);
-    }
-    const subjects = [...bySubject].map(([name, list]) => ({ name, avg: average(list) ?? 0, count: list.length }));
-    const overall = average(subjects.map((s) => s.avg));
+    // Same rule and rounding as the parents app (one decimal, each exam weighs the same)
+    const { subjects, overall } = marksSummary(results);
     const missed = history.records.filter((r) => r.status !== 'PRESENT');
 
     const stats: StatItem[] = [
@@ -394,7 +381,7 @@ export class StudentReports implements ReportBuilderGroup {
     }
     if (hasPermission(role, 'exams.view')) {
       const r = await this.exams.getStudentResults(id);
-      const avg = average(r.subjects.flatMap((s) => (s.averagePercent === null ? [] : [s.averagePercent])));
+      const avg = buildMarksView(r.results).averagePercent;
       stats.push({ label: 'المعدل العام', kind: 'percent', value: avg, tone: gradeTone(avg) });
     }
 
@@ -687,4 +674,15 @@ export function rateTone(value: number | null) {
   if (value >= 90) return 'success' as const;
   if (value >= 75) return 'warning' as const;
   return 'danger' as const;
+}
+
+/** Per-subject and overall averages of a student's results, exactly as the parents app computes them. */
+function marksSummary(results: Parameters<typeof buildMarksView>[0]) {
+  const view = buildMarksView(results);
+  const subjects = view.subjects.flatMap((s) =>
+    s.averagePercent === null
+      ? []
+      : [{ name: s.subject, avg: s.averagePercent, count: s.results.filter((r) => r.percent !== null).length }],
+  );
+  return { subjects, overall: view.averagePercent };
 }

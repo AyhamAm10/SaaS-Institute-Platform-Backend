@@ -96,6 +96,10 @@ describe('[T4] 6.3-6.4 percentages and the teacher views', () => {
     const family = await signIn(s, phones.S1);
     const results = await family.get(`/mobile/students/${S[0]}/results`);
     expect(num(results.averagePercent)).toBe(73.3);
+    // the transcript says the same (before 2026-11-19 it averaged the subject averages: (70 + 80) / 2 = 75)
+    const transcript = await inst.admin.get(`/reports/student-transcript?studentId=${S[0]}&from=2026-09-01&to=2026-11-10`);
+    const overall = transcript.blocks.filter((b: { type: string }) => b.type === 'stats').flatMap((b: { items: { label: string; value: unknown }[] }) => b.items).find((i: { label: string }) => i.label === 'المعدل العام');
+    expect(overall.value).toBe(73.3);
   });
 
   it('[EXM-25] rounding edge 9.75 / 20 = 48.75 % shows 48.8 in the parents app and on the dashboard', async () => {
