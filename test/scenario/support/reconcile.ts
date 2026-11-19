@@ -16,6 +16,11 @@ export interface ReconcileInput {
   students: { id: number; family: Api | null }[];
   /** Sections whose finance report must match the students' summaries. */
   sections: number[];
+  /**
+   * With several academic years: the year (name) the header-scoped places show. Section finance and
+   * the dashboard are per year, while the student summary covers every year (old debt never disappears).
+   */
+  yearName?: string;
   /** Skip the per-student report comparisons (scale scenarios check a sample only). */
   sampleEvery?: number;
 }
@@ -63,10 +68,26 @@ export async function reconcile(input: ReconcileInput): Promise<string[]> {
 
   // ── 1. money, per student, from every place ───────────────────────────────
   const perStudent: Record<number, Record<string, Money>> = {};
+  /** The same, for the header year only (= perStudent when a single year is involved). */
+  const perStudentYear: Record<number, Record<string, Money>> = {};
   for (const [i, { id, family }] of input.students.entries()) {
     const summaryBody = await admin.get(`/students/${id}/financial-summary`);
     const summary = rowsToMoney(Array.isArray(summaryBody) ? summaryBody : summaryBody.currencies ?? summaryBody.totals ?? []);
     perStudent[id] = summary;
+    perStudentYear[id] = summary;
+    if (input.yearName && family) {
+      const app = await family.get(`/mobile/students/${id}/finance`);
+      const year: Record<string, Money> = {};
+      for (const c of app.contracts as { yearName: string; currency: string; total: number; paid: number; remaining: number; installments: { remaining: number; status: string }[] }[]) {
+        if (c.yearName !== input.yearName) continue;
+        const m = (year[c.currency] ??= { total: 0, paid: 0, remaining: 0, overdue: 0 });
+        m.total += n(c.total);
+        m.paid += n(c.paid);
+        m.remaining += n(c.remaining);
+        m.overdue += c.installments.filter((i) => i.status === 'OVERDUE').reduce((sum, i) => sum + n(i.remaining), 0);
+      }
+      perStudentYear[id] = year;
+    }
     if (input.sampleEvery && i % input.sampleEvery !== 0) continue;
     if (family) {
       const mobile = rowsToMoney((await family.get(`/mobile/students/${id}/finance`)).totals);
@@ -85,7 +106,7 @@ export async function reconcile(input: ReconcileInput): Promise<string[]> {
       const name = String(row.student);
       const total = row.total as { amount: number; currency: string };
       const student = await inst.s.prisma.student.findFirst({ where: { instituteId: inst.id, fullName: name } });
-      const mine = student && perStudent[student.id]?.[total.currency];
+      const mine = student && perStudentYear[student.id]?.[total.currency];
       if (!mine) continue;
       const got = { total: total.amount, paid: n((row.paid as { amount: number }).amount), remaining: n((row.remaining as { amount: number }).amount), overdue: n((row.overdue as { amount: number }).amount) };
       if (!same(got, mine)) issues.push(`section-finance ${sectionId} ${name}: ${JSON.stringify(got)} != ${JSON.stringify(mine)}`);
@@ -94,7 +115,7 @@ export async function reconcile(input: ReconcileInput): Promise<string[]> {
   // the dashboard = the sum of the students (remaining and overdue per currency)
   const overview = await admin.get('/dashboard/overview');
   const sums: Record<string, { remaining: number; overdue: number }> = {};
-  for (const m of Object.values(perStudent)) {
+  for (const m of Object.values(perStudentYear)) {
     for (const [c, v] of Object.entries(m)) {
       sums[c] ??= { remaining: 0, overdue: 0 };
       sums[c].remaining += v.remaining;

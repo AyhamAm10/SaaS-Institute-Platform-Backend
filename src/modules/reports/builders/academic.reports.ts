@@ -13,7 +13,7 @@ import { ErrorMessages } from '../../../common/errors/error-messages';
 import { ReportBody, ReportColumn, ReportRow } from '../document/report-document';
 import { dateText, isoDate, periodText, resultBadge, WEEKDAY_LABELS } from '../document/report-format';
 import { average, MARK_BANDS, markDistribution, percent, rankByScore, resolvePeriod } from '../reports.rules';
-import { ReportBuilderGroup, ReportContext, requireYear } from './report-context';
+import { capped, ReportBuilderGroup, ReportContext, requireYear } from './report-context';
 import { groupBy, num } from './report-helpers';
 import { gradeTone } from './student.reports';
 
@@ -115,7 +115,7 @@ export class AcademicReports implements ReportBuilderGroup {
     const [section, roster, exams] = await Promise.all([
       this.sections.findById(sectionId),
       this.enrollments.getSectionRoster(sectionId),
-      this.exams.getExamsWithResults({ sectionId, from: period?.from, to: period?.to, take: ctx.take }),
+      this.exams.getExamsWithResults({ sectionId, from: period?.from, to: period?.to, take: ctx.take }).then((rows) => capped(ctx, rows)),
     ]);
     const subjects = [...new Map(exams.map((e) => [e.subject.id, e.subject.name]))];
     const students = roster.filter((r) => r.status === 'ACTIVE');
@@ -191,14 +191,14 @@ export class AcademicReports implements ReportBuilderGroup {
     const year = requireYear(ctx);
     const period = ctx.query.from || ctx.query.to ? resolvePeriod(ctx.today, ctx.query.from, ctx.query.to) : null;
     const sectionName = ctx.query.sectionId ? (await this.sections.findById(ctx.query.sectionId)).name : null;
-    const exams = await this.exams.getExamsWithResults({
+    const exams = capped(ctx, await this.exams.getExamsWithResults({
       academicYearId: year.id,
       sectionId: ctx.query.sectionId,
       branchId: ctx.branchId,
       from: period?.from,
       to: period?.to,
       take: ctx.take,
-    });
+    }));
     const groups = [...groupBy(exams, (e) => `${e.section.id}|${e.subject.id}`)].map(([, list]) => {
       const graded = list.flatMap((e) =>
         e.results.flatMap((r) => (r.mark === null ? [] : [{ p: (num(r.mark) / num(e.maxMark)) * 100, passed: r.status === 'PASSED' }])),

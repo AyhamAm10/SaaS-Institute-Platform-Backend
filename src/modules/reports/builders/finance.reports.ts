@@ -16,7 +16,7 @@ import {
   timeText,
 } from '../document/report-format';
 import { AGING_BUCKETS, agingBucket, daysBetween, monthKeysBetween, percent, resolvePeriod } from '../reports.rules';
-import { ReportBuilderGroup, ReportContext, requireYear } from './report-context';
+import { capped, ReportBuilderGroup, ReportContext, requireYear } from './report-context';
 import { CURRENCY_ORDER, currencyStats, currencyTotals, groupBy, num, openAmount } from './report-helpers';
 
 const RECEIPT_COLUMNS: ReportColumn[] = [
@@ -55,8 +55,8 @@ export class FinanceReports implements ReportBuilderGroup {
     const day = ctx.query.date ?? ctx.today;
     const period = { from: day, to: day };
     const [paid, cancelled] = await Promise.all([
-      this.fees.getPayments(period, { by: 'paidAt', take: ctx.take }),
-      this.fees.getPayments(period, { by: 'cancelledAt', status: PaymentStatus.CANCELLED, take: ctx.take }),
+      this.fees.getPayments(period, { by: 'paidAt', take: ctx.take }).then((rows) => capped(ctx, rows)),
+      this.fees.getPayments(period, { by: 'cancelledAt', status: PaymentStatus.CANCELLED, take: ctx.take }).then((rows) => capped(ctx, rows)),
     ]);
     const active = paid.filter((p) => p.status === PaymentStatus.ACTIVE);
     const names = await this.staff.getUserNames(ids(paid.map((p) => p.createdById)));
@@ -156,6 +156,7 @@ export class FinanceReports implements ReportBuilderGroup {
         take: ctx.take,
       },
     );
+    capped(ctx, payments);
     const names = await this.staff.getUserNames(ids(payments.map((p) => p.createdById)));
     const meta = [{ label: 'الفترة', value: periodText(from, to) }];
     if (ctx.query.currency) meta.push({ label: 'العملة', value: CURRENCY_LABELS[ctx.query.currency] });
@@ -188,10 +189,10 @@ export class FinanceReports implements ReportBuilderGroup {
 
   private async overdueAging(ctx: ReportContext): Promise<ReportBody> {
     const sectionName = await this.sectionName(ctx);
-    const rows = await this.fees.getOverdueInstallments({
+    const rows = capped(ctx, await this.fees.getOverdueInstallments({
       sectionId: ctx.query.sectionId,
       take: ctx.take,
-    });
+    }));
     const items = rows
       .map((inst) => {
         const currency = inst.subscription.currency;
@@ -283,7 +284,7 @@ export class FinanceReports implements ReportBuilderGroup {
 
   private async upcomingDues(ctx: ReportContext): Promise<ReportBody> {
     const { from, to } = resolvePeriod(ctx.today, ctx.query.from ?? ctx.today, ctx.query.to);
-    const rows = await this.fees.getUpcomingInstallments({ from, to }, { take: ctx.take });
+    const rows = capped(ctx, await this.fees.getUpcomingInstallments({ from, to }, { take: ctx.take }));
     const items = rows.map((inst) => ({
       inst,
       currency: inst.subscription.currency,
@@ -354,11 +355,11 @@ export class FinanceReports implements ReportBuilderGroup {
     const year = requireYear(ctx);
     const last = year.endDate < ctx.today ? year.endDate : ctx.today;
     const [contracts, payments] = await Promise.all([
-      this.fees.getYearContracts({ academicYearId: year.id, take: ctx.take }),
+      this.fees.getYearContracts({ academicYearId: year.id, take: ctx.take }).then((rows) => capped(ctx, rows)),
       this.fees.getPayments(
         { from: year.startDate, to: last < year.startDate ? year.startDate : last },
         { by: 'paidAt', status: PaymentStatus.ACTIVE, take: ctx.take },
-      ),
+      ).then((rows) => capped(ctx, rows)),
     ]);
     const months = monthKeysBetween(year.startDate, year.endDate);
     const rows: ReportRow[] = [];
@@ -432,11 +433,11 @@ export class FinanceReports implements ReportBuilderGroup {
   private async sectionFinance(ctx: ReportContext): Promise<ReportBody> {
     const year = requireYear(ctx);
     const sectionName = await this.sectionName(ctx);
-    const contracts = await this.fees.getYearContracts({
+    const contracts = capped(ctx, await this.fees.getYearContracts({
       academicYearId: year.id,
       sectionId: ctx.query.sectionId,
       take: ctx.take,
-    });
+    }));
     const items = contracts.map((c) => {
       const total = num(c.totalAmount);
       const paid = c.installments.reduce((acc, i) => acc + num(i.paidAmount), 0);
@@ -502,12 +503,12 @@ export class FinanceReports implements ReportBuilderGroup {
   private async discounts(ctx: ReportContext): Promise<ReportBody> {
     const year = requireYear(ctx);
     const sectionName = await this.sectionName(ctx);
-    const contracts = await this.fees.getYearContracts({
+    const contracts = capped(ctx, await this.fees.getYearContracts({
       academicYearId: year.id,
       sectionId: ctx.query.sectionId,
       withDiscount: true,
       take: ctx.take,
-    });
+    }));
 
     return {
       title: 'الحسومات',
@@ -561,10 +562,10 @@ export class FinanceReports implements ReportBuilderGroup {
 
   private async cancelledPayments(ctx: ReportContext): Promise<ReportBody> {
     const { from, to } = resolvePeriod(ctx.today, ctx.query.from, ctx.query.to);
-    const payments = await this.fees.getPayments(
+    const payments = capped(ctx, await this.fees.getPayments(
       { from, to },
       { by: 'cancelledAt', status: PaymentStatus.CANCELLED, take: ctx.take },
-    );
+    ));
     const names = await this.staff.getUserNames(ids(payments.flatMap((p) => [p.createdById, p.updatedById])));
 
     return {
@@ -612,14 +613,14 @@ export class FinanceReports implements ReportBuilderGroup {
   private async withoutContract(ctx: ReportContext): Promise<ReportBody> {
     const year = requireYear(ctx);
     const sectionName = await this.sectionName(ctx);
-    const rows = await this.enrollments.getYearEnrollments({
+    const rows = capped(ctx, await this.enrollments.getYearEnrollments({
       academicYearId: year.id,
       sectionId: ctx.query.sectionId,
       branchId: ctx.branchId,
       activeOnly: true,
       withoutContract: true,
       take: ctx.take,
-    });
+    }));
 
     return {
       title: 'طلاب بدون عقد مالي',

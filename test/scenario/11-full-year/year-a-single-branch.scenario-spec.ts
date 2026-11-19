@@ -19,7 +19,7 @@
  *   late when (i + day) % 7 = 0, else present. Institute closure 11-24, closure of section C on 12-15.
  * Exams: mathematics /20 in every section on the 12th, Oct..May; mark of s_i = 8 + (7i + month) % 13.
  */
-import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { AttendanceProcessor } from '../../../src/modules/attendance/jobs/attendance.processor';
 import { startApp, type ScenarioApp } from '../support/app';
 import { InstituteFixture, signIn } from '../support/builders';
@@ -44,6 +44,9 @@ const schoolDay = (y: number, m: number, d: number) => {
   if (date.getUTCDay() === 5) date.setUTCDate(date.getUTCDate() + 1);
   return date.toISOString().slice(0, 10);
 };
+
+// A whole year (or 2,000 students) per file: far beyond the default 2 minutes per test
+jest.setTimeout(1_800_000);
 
 describe('[T8] YEAR-A one branch, pounds, a whole year', () => {
   let s: ScenarioApp;

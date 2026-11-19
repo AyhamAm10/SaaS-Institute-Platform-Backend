@@ -26,7 +26,7 @@ import {
   WEEKDAY_LABELS,
 } from '../document/report-format';
 import { percent, REPORT_ROW_LIMIT, resolvePeriod } from '../reports.rules';
-import { ReportBuilderGroup, ReportContext } from './report-context';
+import { cappedTotal, ReportBuilderGroup, ReportContext } from './report-context';
 import { CURRENCY_ORDER, groupBy, num, openAmount } from './report-helpers';
 import { dayOfWeekOf } from '../../attendance/attendance.rules';
 
@@ -481,6 +481,7 @@ export class StudentReports implements ReportBuilderGroup {
         limit: REPORT_ROW_LIMIT,
       }),
     );
+    cappedTotal(ctx, paginated.total);
     type Row = {
       fullName: string;
       family?: { familyName: string; phone?: string | null } | null;
@@ -557,6 +558,7 @@ export class StudentReports implements ReportBuilderGroup {
       ),
     ]);
 
+    cappedTotal(ctx, paginated.total);
     const reportFields = allFields
       .filter((f) => f.displayInReport)
       .sort((a, b) => a.sortOrder - b.sortOrder);

@@ -11,7 +11,7 @@
  *   سلمى paid 250, remaining 350, overdue 150 (Sep..Dec due = 400).
  * المالكي is closed on 11-10: its students get no absence that day.
  */
-import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { AttendanceProcessor } from '../../../src/modules/attendance/jobs/attendance.processor';
 import { startApp, type ScenarioApp } from '../support/app';
 import { InstituteFixture, signIn } from '../support/builders';
@@ -19,6 +19,9 @@ import { type Api, uniquePhone } from '../support/client';
 import { realClock, setClock } from '../support/clock';
 import { num } from '../support/money';
 import { reconcile } from '../support/reconcile';
+
+// A whole year (or 2,000 students) per file: far beyond the default 2 minutes per test
+jest.setTimeout(1_800_000);
 
 describe('[T8] YEAR-B two branches, two currencies', () => {
   let s: ScenarioApp;

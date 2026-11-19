@@ -4,7 +4,7 @@ import { StaffActivityService } from '../../staff/staff-activity.service';
 import { badge, ReportBody } from '../document/report-document';
 import { ENROLLMENT_STATUS_LABELS, isoDate, periodText, timeText } from '../document/report-format';
 import { percent, resolvePeriod } from '../reports.rules';
-import { ReportBuilderGroup, ReportContext, requireYear } from './report-context';
+import { capped, ReportBuilderGroup, ReportContext, requireYear } from './report-context';
 import { groupBy } from './report-helpers';
 
 /** Arabic names of audited records. */
@@ -49,7 +49,7 @@ export class AdminReports implements ReportBuilderGroup {
 
   private async enrollmentStats(ctx: ReportContext): Promise<ReportBody> {
     const year = requireYear(ctx);
-    const rows = await this.enrollments.getYearEnrollments({ academicYearId: year.id, branchId: ctx.branchId, take: ctx.take });
+    const rows = capped(ctx, await this.enrollments.getYearEnrollments({ academicYearId: year.id, branchId: ctx.branchId, take: ctx.take }));
     const active = rows.filter((r) => r.status === 'ACTIVE');
     const males = active.filter((r) => r.student.gender === 'MALE').length;
     const bySection = [...groupBy(rows, (r) => r.section.name)].map(([section, list]) => {
@@ -144,7 +144,7 @@ export class AdminReports implements ReportBuilderGroup {
 
   private async staffActivity(ctx: ReportContext): Promise<ReportBody> {
     const { from, to } = resolvePeriod(ctx.today, ctx.query.from, ctx.query.to);
-    const entries = await this.activity.getActivity(from, to, ctx.take);
+    const entries = capped(ctx, await this.activity.getActivity(from, to, ctx.take));
     const names = await this.activity.getUserNames([...new Set(entries.flatMap((e) => (e.userId ? [e.userId] : [])))]);
     const nameOf = (id: number | null) => (id ? (names.get(id) ?? `#${id}`) : 'النظام');
     const byPerson = [...groupBy(entries, (e) => e.userId)].map(([id, list]) => ({

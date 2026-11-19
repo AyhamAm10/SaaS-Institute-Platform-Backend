@@ -1,5 +1,16 @@
 import type { INestApplication } from '@nestjs/common';
+import { Agent } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import request from 'supertest';
+
+/** One keep-alive agent for every scenario request: reuses connections instead of one socket per call. */
+const keepAlive = new Agent({ keepAlive: true, maxSockets: 16 });
+
+/** The address the scenario app listens on (startApp listens once on a free port). */
+function baseUrl(app: INestApplication): string {
+  const { port } = app.getHttpServer().address() as AddressInfo;
+  return `http://127.0.0.1:${port}`;
+}
 
 type Method = 'get' | 'post' | 'patch' | 'put' | 'delete';
 
@@ -42,7 +53,8 @@ export class Api {
   }
 
   private send(method: Method, path: string, body: unknown, headers: Record<string, string> = {}) {
-    let req = request(this.app.getHttpServer())[method](`/api${path}`)
+    let req = request(baseUrl(this.app))[method](`/api${path}`)
+      .agent(keepAlive)
       .set('X-Client-Type', 'mobile')
       .set('Accept-Language', 'en');
     if (this.token) req = req.set('Authorization', `Bearer ${this.token}`);

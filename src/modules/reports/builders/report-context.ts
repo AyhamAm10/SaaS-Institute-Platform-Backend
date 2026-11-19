@@ -13,8 +13,20 @@ export interface ReportContext {
   branchId?: number;
   /** Header (or current) academic year. */
   year: ReportYear | null;
-  /** Row cap of a synchronous report. */
+  /**
+   * What a builder passes as `take`: one more than the row limit, so `capped` can tell
+   * "exactly the limit" from "more than the limit".
+   */
   take: number;
+}
+
+/**
+ * Refuses a report whose data reached the fetch cap (400 `report_too_many_rows`) instead
+ * of building rows and totals from a silently cut list. Wrap EVERY fetch made with `ctx.take`.
+ */
+export function capped<T>(ctx: Pick<ReportContext, 'take'>, rows: T[], take = ctx.take): T[] {
+  Ensure.custom(rows.length >= take, ErrorMessages.get('report_too_many_rows'), 400);
+  return rows;
 }
 
 export type ReportBuilder = (ctx: ReportContext) => Promise<ReportBody>;
@@ -36,4 +48,9 @@ export interface ReportYear {
   /** Local dates (YYYY-MM-DD). */
   startDate: string;
   endDate: string;
+}
+
+/** The same refusal for a paged read whose full `total` is known (students lists). */
+export function cappedTotal(ctx: Pick<ReportContext, 'take'>, total: number): void {
+  Ensure.custom(total >= ctx.take, ErrorMessages.get('report_too_many_rows'), 400);
 }

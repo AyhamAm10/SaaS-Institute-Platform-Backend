@@ -8,7 +8,7 @@ import { TeacherScopeService } from '../../sections/teacher-scope.service';
 import { badge, ReportBody, ReportRow } from '../document/report-document';
 import { dateText, isoDate, periodText, WEEKDAY_LABELS } from '../document/report-format';
 import { resolvePeriod } from '../reports.rules';
-import { ReportBuilderGroup, ReportContext, requireYear } from './report-context';
+import { capped, ReportBuilderGroup, ReportContext, requireYear } from './report-context';
 import { groupBy } from './report-helpers';
 import { rateTone } from './student.reports';
 
@@ -60,7 +60,7 @@ export class AttendanceReports implements ReportBuilderGroup {
         branchId: ctx.branchId,
         activeOnly: true,
         take: ctx.take,
-      }),
+      }).then((list) => capped(ctx, list)),
       this.scope.taughtSectionIds(),
     ]);
     return taught ? rows.filter((r) => taught.includes(r.section.id)) : rows;
@@ -69,10 +69,10 @@ export class AttendanceReports implements ReportBuilderGroup {
   private async daily(ctx: ReportContext): Promise<ReportBody> {
     const day = ctx.query.date ?? ctx.today;
     const [students, workingDays] = await Promise.all([this.activeStudents(ctx), this.attendance.getWorkingDays()]);
-    const records = await this.attendance.getRecordsBetween(day, day, {
+    const records = capped(ctx, await this.attendance.getRecordsBetween(day, day, {
       studentIds: students.map((s) => s.student.id),
       take: ctx.take,
-    });
+    }));
     const statusOf = new Map(records.map((r) => [r.studentId, r.status]));
     // Students on holiday that day (non-working day or a closure of the institute, branch
     // or section) are neither "not recorded" nor part of the rate.
@@ -181,10 +181,10 @@ export class AttendanceReports implements ReportBuilderGroup {
       this.enrollments.getSectionRoster(sectionId),
     ]);
     const active = roster.filter((r) => r.status === 'ACTIVE');
-    const records = await this.attendance.getRecordsBetween(period.from, period.to, {
+    const records = capped(ctx, await this.attendance.getRecordsBetween(period.from, period.to, {
       studentIds: active.map((r) => r.student.id),
       take: ctx.take,
-    });
+    }));
     const byStudent = groupBy(records, (r) => r.studentId);
     const rows = active.map((r) => {
       const t = tally((byStudent.get(r.student.id) ?? []).map((x) => x.status));
@@ -249,10 +249,10 @@ export class AttendanceReports implements ReportBuilderGroup {
     const min = ctx.query.minCount ?? 3;
     const sectionName = ctx.query.sectionId ? (await this.sections.findById(ctx.query.sectionId)).name : null;
     const students = await this.activeStudents(ctx, ctx.query.sectionId);
-    const records = await this.attendance.getRecordsBetween(period.from, period.to, {
+    const records = capped(ctx, await this.attendance.getRecordsBetween(period.from, period.to, {
       studentIds: students.map((s) => s.student.id),
       take: ctx.take * 10,
-    });
+    }), ctx.take * 10);
     const byStudent = groupBy(records, (r) => r.studentId);
     const flagged = students
       .map((s) => {

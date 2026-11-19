@@ -211,6 +211,8 @@ const messages: Record<string, Record<string, string>> = {
     staff_invalid_role: 'This role cannot be managed from the staff screen',
     report_not_found: 'Report not found',
     report_param_required: 'This report needs: {param}',
+    report_too_many_rows:
+      'This report has more than 5000 rows: choose a shorter period or one section',
     report_no_academic_year: 'There is no academic year yet',
     context_branch_invalid: 'The selected branch does not belong to your institute',
     context_year_invalid: 'The selected academic year does not belong to your institute',
@@ -411,6 +413,8 @@ const messages: Record<string, Record<string, string>> = {
     staff_invalid_role: 'لا يمكن إدارة هذا الدور من شاشة الموظفين',
     report_not_found: 'التقرير غير موجود',
     report_param_required: 'هذا التقرير يحتاج: {param}',
+    report_too_many_rows:
+      'التقرير يتجاوز 5000 سطر: اختر فترة أقصر أو شعبة واحدة',
     report_no_academic_year: 'لا توجد سنة دراسية بعد',
     context_branch_invalid: 'الفرع المختار لا يتبع لمعهدك',
     context_year_invalid: 'السنة الدراسية المختارة لا تتبع لمعهدك',

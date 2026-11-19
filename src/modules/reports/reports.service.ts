@@ -109,7 +109,7 @@ export class ReportsService {
         startDate: isoDate(year.startDate),
         endDate: isoDate(year.endDate),
       },
-      take: REPORT_ROW_LIMIT,
+      take: REPORT_ROW_LIMIT + 1,
     };
     const { verify, ...body } = await this.builders[key](ctx);
     const generatedAt = new Date();

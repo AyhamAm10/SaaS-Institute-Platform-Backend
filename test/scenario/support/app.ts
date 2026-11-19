@@ -37,6 +37,9 @@ export async function startApp(): Promise<ScenarioApp> {
   );
   app.useGlobalFilters(new GlobalExceptionFilter());
   await app.init();
+  // Listen once: supertest would otherwise open a new server port for every request, and thousands of
+  // requests exhaust the Windows ephemeral ports (connections, PostgreSQL ones included, get reset).
+  await app.listen(0, '127.0.0.1');
   // main.ts provisions the platform account at boot; do the same here (idempotent)
   await app.get(SuperAdminInitService, { strict: false }).initSuperAdmin();
 
