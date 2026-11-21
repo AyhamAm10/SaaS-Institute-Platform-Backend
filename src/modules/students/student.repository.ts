@@ -13,6 +13,9 @@ const STUDENT_REFERENCE_INCLUDE = {
   bus: { select: { id: true, name: true, plateNumber: true, driverName: true, driverPhone: true } },
   knowWay: { select: { id: true, name: true } },
   status: { select: { id: true, name: true, tone: true } },
+  nationality: { select: { id: true, name: true } },
+  religion: { select: { id: true, name: true } },
+  language: { select: { id: true, name: true } },
 } as const;
 
 /** A student as the mobile apps read it (branch, status, bus, family, current enrollment). */
@@ -78,6 +81,10 @@ export class StudentRepository extends ContextScopedRepository<Student> {
     if (query.cityId !== undefined) where.cityId = query.cityId;
     if (query.schoolId !== undefined) where.schoolId = query.schoolId;
     if (query.knowWayId !== undefined) where.knowWayId = query.knowWayId;
+    if (query.nationalityId !== undefined) where.nationalityId = query.nationalityId;
+    if (query.religionId !== undefined) where.religionId = query.religionId;
+    if (query.languageId !== undefined) where.languageId = query.languageId;
+    if (query.gender !== undefined) where.gender = query.gender;
 
     const andConditions: Prisma.StudentWhereInput[] = [];
     if (query.sectionId !== undefined) {
@@ -96,6 +103,21 @@ export class StudentRepository extends ContextScopedRepository<Student> {
           { studentEnrollments: { some: { academicYearId: contextYearId } } },
           { studentEnrollments: { none: {} } },
         ],
+      });
+    }
+
+    // Per-year enrollment data: in the chosen section, else in the context year
+    if (query.situationId !== undefined || query.examCandidate !== undefined) {
+      andConditions.push({
+        studentEnrollments: {
+          some: {
+            ...(query.sectionId !== undefined
+              ? { sectionId: query.sectionId }
+              : contextYearId !== null && { academicYearId: contextYearId }),
+            ...(query.situationId !== undefined && { situationId: query.situationId }),
+            ...(query.examCandidate !== undefined && { isExamCandidate: query.examCandidate }),
+          },
+        },
       });
     }
 
@@ -152,6 +174,8 @@ export class StudentRepository extends ContextScopedRepository<Student> {
           studentEnrollments: {
             where: { academicYearId: contextYearId ?? -1 },
             include: {
+              situation: { select: { id: true, name: true } },
+              examLanguage: { select: { id: true, name: true } },
               section: {
                 select: {
                   id: true,
@@ -201,6 +225,8 @@ export class StudentRepository extends ContextScopedRepository<Student> {
           include: {
             section: true,
             academicYear: true,
+            situation: { select: { id: true, name: true } },
+            examLanguage: { select: { id: true, name: true } },
           },
         },
         examResults: {

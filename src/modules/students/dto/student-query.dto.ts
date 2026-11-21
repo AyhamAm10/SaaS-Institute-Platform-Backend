@@ -1,5 +1,6 @@
 import { Type, Transform } from 'class-transformer';
-import { IsInt, IsOptional, IsPositive, IsString, IsBoolean } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsPositive, IsString } from 'class-validator';
+import { Gender } from '@prisma/client';
 import { PaginationQueryDto } from '../../../common/pagination/pagination.dto';
 
 export class StudentQueryDto extends PaginationQueryDto {
@@ -48,6 +49,41 @@ export class StudentQueryDto extends PaginationQueryDto {
   @IsPositive()
   @Type(() => Number)
   knowWayId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  nationalityId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  religionId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  languageId?: number;
+
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
+
+  /** Situation of the student's enrollment in the section / context year. */
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  situationId?: number;
+
+  /** Exam candidates (true) or not (false) in the section / context year. */
+  @IsOptional()
+  @Transform(({ value }) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined))
+  @IsBoolean()
+  examCandidate?: boolean;
 
   @IsOptional()
   @IsString()

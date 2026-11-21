@@ -16,6 +16,7 @@ import { PaginatedResult } from '../../common/pagination/paginated-result';
 import { randomInt } from 'node:crypto';
 import { SystemCacheService } from '../../infrastructure/cache/system-cache.service';
 import { StudentStatusesService } from '../reference-data/student-statuses/student-statuses.service';
+import { OfficialListsService } from '../reference-data/official-lists/official-lists.service';
 import { CacheKeys } from '../../infrastructure/cache/cache-keys';
 
 /**
@@ -36,6 +37,8 @@ export class InstitutesService {
     private readonly systemCache: SystemCacheService,
     @Inject(StudentStatusesService)
     private readonly studentStatusesService: StudentStatusesService,
+    @Inject(OfficialListsService)
+    private readonly officialListsService: OfficialListsService,
   ) {}
 
   /**
@@ -98,6 +101,7 @@ export class InstitutesService {
       // Automatically provision standard Arabic Academic Branches
       await this.academicBranchesService.provisionDefaultBranches(institute.id);
       await this.studentStatusesService.provisionDefaults(institute.id);
+      await this.officialListsService.provisionDefaults(institute.id);
 
       return {
         institute,

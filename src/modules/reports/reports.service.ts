@@ -44,6 +44,13 @@ const PARAM_LABELS: Record<ReportParamKind, string> = {
   school: 'المدرسة',
   bus: 'الحافلة',
   knowWay: 'طريقة المعرفة',
+  nationality: 'الجنسية',
+  religion: 'الديانة',
+  language: 'اللغة',
+  situation: 'وضع الطالب',
+  gender: 'الجنس',
+  examCandidate: 'المتقدمون للامتحان',
+  groupBy: 'التجميع حسب',
   customFilters: 'الفلاتر المخصصة',
 };
 

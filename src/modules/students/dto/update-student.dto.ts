@@ -9,13 +9,13 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Gender } from '@prisma/client';
-import { StudentReferencesDto } from './student-references.dto';
+import { StudentIdentityDto } from './student-identity.dto';
 
 /**
  * DTO for updating an existing student. Enrollment changes (section moves)
  * are not handled here.
  */
-export class UpdateStudentDto extends StudentReferencesDto {
+export class UpdateStudentDto extends StudentIdentityDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()

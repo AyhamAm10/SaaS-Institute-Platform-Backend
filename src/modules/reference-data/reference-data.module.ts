@@ -19,10 +19,25 @@ import { StudentStatusesController } from './student-statuses/student-statuses.c
 import { StudentStatusesService } from './student-statuses/student-statuses.service';
 import { StudentStatusRepository } from './student-statuses/student-status.repository';
 import { StudentStatusSystemRepository } from './student-statuses/student-status-system.repository';
+import { NationalitiesController } from './nationalities/nationalities.controller';
+import { NationalitiesService } from './nationalities/nationalities.service';
+import { NationalityRepository } from './nationalities/nationality.repository';
+import { ReligionsController } from './religions/religions.controller';
+import { ReligionsService } from './religions/religions.service';
+import { ReligionRepository } from './religions/religion.repository';
+import { LanguagesController } from './languages/languages.controller';
+import { LanguagesService } from './languages/languages.service';
+import { LanguageRepository } from './languages/language.repository';
+import { EnrollmentSituationsController } from './enrollment-situations/enrollment-situations.controller';
+import { EnrollmentSituationsService } from './enrollment-situations/enrollment-situations.service';
+import { EnrollmentSituationRepository } from './enrollment-situations/enrollment-situation.repository';
+import { OfficialListsService } from './official-lists/official-lists.service';
+import { OfficialListsSystemRepository } from './official-lists/official-lists-system.repository';
 
 /**
  * Reference data (lookup tables) of an institute: cities, schools, referral
- * sources, exam types, buses and student statuses. Shared rules live in
+ * sources, exam types, buses, student statuses and the official lists
+ * (nationalities, religions, languages, enrollment situations). Shared rules live in
  * `lookup/` (LookupRepository / LookupService). Services are exported so other
  * modules validate references through them (role.md §10).
  */
@@ -35,6 +50,10 @@ import { StudentStatusSystemRepository } from './student-statuses/student-status
     ExamTypesController,
     BusesController,
     StudentStatusesController,
+    NationalitiesController,
+    ReligionsController,
+    LanguagesController,
+    EnrollmentSituationsController,
   ],
   providers: [
     CityRepository,
@@ -50,6 +69,16 @@ import { StudentStatusSystemRepository } from './student-statuses/student-status
     StudentStatusRepository,
     StudentStatusSystemRepository,
     StudentStatusesService,
+    NationalityRepository,
+    NationalitiesService,
+    ReligionRepository,
+    ReligionsService,
+    LanguageRepository,
+    LanguagesService,
+    EnrollmentSituationRepository,
+    EnrollmentSituationsService,
+    OfficialListsSystemRepository,
+    OfficialListsService,
   ],
   exports: [
     CitiesService,
@@ -58,6 +87,11 @@ import { StudentStatusSystemRepository } from './student-statuses/student-status
     ExamTypesService,
     BusesService,
     StudentStatusesService,
+    NationalitiesService,
+    ReligionsService,
+    LanguagesService,
+    EnrollmentSituationsService,
+    OfficialListsService,
   ],
 })
 export class ReferenceDataModule {}

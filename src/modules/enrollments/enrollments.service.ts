@@ -1,4 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { EnrollmentSituationsService } from '../reference-data/enrollment-situations/enrollment-situations.service';
+import { LanguagesService } from '../reference-data/languages/languages.service';
+import { enrollmentDetailsData, UpdateEnrollmentDetailsDto } from './dto/update-enrollment-details.dto';
 import { EnrollmentStatus, Section, StudentEnrollment } from '@prisma/client';
 import {
   RosterRow,
@@ -48,6 +51,10 @@ export class EnrollmentsService {
     private readonly sectionSubjectRepository: SectionSubjectRepository,
     @Inject(TransactionHelper)
     private readonly transactionHelper: TransactionHelper,
+    @Inject(EnrollmentSituationsService)
+    private readonly situations: EnrollmentSituationsService,
+    @Inject(LanguagesService)
+    private readonly languages: LanguagesService,
   ) {}
 
   async getSectionRoster(sectionId: number): Promise<SectionRosterItem[]> {
@@ -161,6 +168,34 @@ export class EnrollmentsService {
       statusReason: dto.status === EnrollmentStatus.ACTIVE ? null : reason,
       statusChangedAt: new Date(),
     });
+    return this.getRosterItem(id, enrollment.academicYearId);
+  }
+
+  /**
+   * The yearly data of an enrollment (any status: a withdrawn or completed year keeps its
+   * record). The situation and exam language must be entries of the institute's lists; a
+   * new candidate without an exam language takes the student's foreign language.
+   */
+  async updateDetails(
+    id: number,
+    dto: UpdateEnrollmentDetailsDto,
+  ): Promise<SectionRosterItem> {
+    const enrollment = await this.getEnrollment(id);
+    const data = enrollmentDetailsData(dto);
+    if (dto.situationId !== undefined) {
+      if (dto.situationId) await this.situations.getById(dto.situationId);
+      data['situationId'] = dto.situationId;
+    }
+    let examLanguageId = dto.examLanguageId;
+    if (examLanguageId === undefined && dto.isExamCandidate && !enrollment.examLanguageId) {
+      const student = await this.studentRepository.findById(enrollment.studentId);
+      examLanguageId = student?.languageId ?? undefined;
+    }
+    if (examLanguageId !== undefined) {
+      if (examLanguageId) await this.languages.getById(examLanguageId);
+      data['examLanguageId'] = examLanguageId;
+    }
+    if (Object.keys(data).length > 0) await this.enrollmentRepository.update(id, data);
     return this.getRosterItem(id, enrollment.academicYearId);
   }
 
@@ -310,6 +345,21 @@ export class EnrollmentsService {
         phone: row.student.family?.phone ?? null,
         status: row.student.status,
         customFields: row.student.customFields,
+      },
+      details: {
+        situation: row.situation,
+        previousSchool: row.previousSchool,
+        transferredFrom: row.transferredFrom,
+        isExamCandidate: row.isExamCandidate,
+        examLanguage: row.examLanguage,
+        candidateNumber: row.candidateNumber,
+        certificate: {
+          name: row.certificateName,
+          number: row.certificateNumber,
+          date: row.certificateDate ? row.certificateDate.toISOString().slice(0, 10) : null,
+          source: row.certificateSource,
+          grade: row.certificateGrade,
+        },
       },
       takesAllSubjects,
       subjects: takesAllSubjects ? plan : row.subjects.map((s) => s.subject),

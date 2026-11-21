@@ -16,6 +16,8 @@ const ROSTER_INCLUDE = {
       customFields: true,
     },
   },
+  situation: { select: { id: true, name: true } },
+  examLanguage: { select: { id: true, name: true } },
   subjects: {
     where: { status: 'ACTIVE' },
     select: { subjectId: true, subject: { select: { id: true, name: true } } },
@@ -178,4 +180,6 @@ export interface RosterRow extends StudentEnrollment {
     customFields?: unknown;
   };
   subjects: { subjectId: number; subject: { id: number; name: string } }[];
+  situation: { id: number; name: string } | null;
+  examLanguage: { id: number; name: string } | null;
 }

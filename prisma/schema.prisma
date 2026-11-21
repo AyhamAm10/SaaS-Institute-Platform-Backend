@@ -71,6 +71,10 @@ model Institute {
   knowWays              KnowWay[]
   buses                 Bus[]
   studentStatuses       StudentStatus[]
+  nationalities         Nationality[]
+  religions             Religion[]
+  languages             Language[]
+  enrollmentSituations  EnrollmentSituation[]
 
   @@map("institutes")
 }
@@ -296,6 +300,10 @@ model Family {
   fatherName  String?   @map("father_name")
   motherName  String?   @map("mother_name")
   phone       String?
+  fatherJob   String?   @map("father_job")
+  motherJob   String?   @map("mother_job")
+  fatherPhone String?   @map("father_phone")
+  motherPhone String?   @map("mother_phone")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
@@ -327,25 +335,37 @@ model FamilyUser {
 }
 
 model Student {
-  id           Int       @id @default(autoincrement())
-  instituteId  Int       @map("institute_id")
-  branchId     Int       @map("branch_id")
-  familyId     Int       @map("family_id")
-  userId       Int?      @unique @map("user_id")
-  cityId       Int?      @map("city_id")
-  schoolId     Int?      @map("school_id")
-  busId        Int?      @map("bus_id")
-  knowWayId    Int?      @map("know_way_id")
-  statusId     Int?      @map("status_id")
-  fullName     String    @map("full_name")
-  birthDate    DateTime  @map("birth_date") @db.Date
-  gender       Gender
-  customFields Json?     @default("{}") @map("custom_fields")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
-  createdById  Int?      @map("created_by_id")
-  updatedById  Int?      @map("updated_by_id")
+  id              Int       @id @default(autoincrement())
+  instituteId     Int       @map("institute_id")
+  branchId        Int       @map("branch_id")
+  familyId        Int       @map("family_id")
+  userId          Int?      @unique @map("user_id")
+  cityId          Int?      @map("city_id")
+  schoolId        Int?      @map("school_id")
+  busId           Int?      @map("bus_id")
+  knowWayId       Int?      @map("know_way_id")
+  statusId        Int?      @map("status_id")
+  fullName        String    @map("full_name")
+  birthDate       DateTime  @map("birth_date") @db.Date
+  gender          Gender
+  /// Official identity (used by official lists and forms); all optional.
+  nationalityId   Int?      @map("nationality_id")
+  religionId      Int?      @map("religion_id")
+  /// Foreign language studied (English / French...), also the exam language by default.
+  languageId      Int?      @map("language_id")
+  nationalId      String?   @map("national_id")
+  birthPlace      String?   @map("birth_place")
+  /// "محل ورقم القيد" of the civil registry.
+  civilRegistry   String?   @map("civil_registry")
+  foreignName     String?   @map("foreign_name")
+  grandfatherName String?   @map("grandfather_name")
+  address         String?
+  customFields    Json?     @default("{}") @map("custom_fields")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  createdById     Int?      @map("created_by_id")
+  updatedById     Int?      @map("updated_by_id")
 
   institute            Institute             @relation(fields: [instituteId], references: [id])
   branch               Branch                @relation(fields: [branchId], references: [id])
@@ -356,6 +376,9 @@ model Student {
   bus                  Bus?                  @relation(fields: [busId], references: [id])
   knowWay              KnowWay?              @relation(fields: [knowWayId], references: [id])
   status               StudentStatus?        @relation(fields: [statusId], references: [id])
+  nationality          Nationality?          @relation(fields: [nationalityId], references: [id])
+  religion             Religion?             @relation(fields: [religionId], references: [id])
+  language             Language?             @relation(fields: [languageId], references: [id])
   studentEnrollments   StudentEnrollment[]
   examResults          ExamResult[]
   lessonAttendance     LessonAttendance[]
@@ -450,20 +473,34 @@ model Section {
 }
 
 model StudentEnrollment {
-  id              Int              @id @default(autoincrement())
-  instituteId     Int              @map("institute_id")
-  studentId       Int              @map("student_id")
-  academicYearId  Int              @map("academic_year_id")
-  sectionId       Int              @map("section_id")
-  enrolledAt      DateTime         @map("enrolled_at")
-  status          EnrollmentStatus @default(ACTIVE)
+  id                Int              @id @default(autoincrement())
+  instituteId       Int              @map("institute_id")
+  studentId         Int              @map("student_id")
+  academicYearId    Int              @map("academic_year_id")
+  sectionId         Int              @map("section_id")
+  enrolledAt        DateTime         @map("enrolled_at")
+  status            EnrollmentStatus @default(ACTIVE)
   /// Reason of the last status change (required when WITHDRAWN).
-  statusReason    String?          @map("status_reason")
-  statusChangedAt DateTime?        @map("status_changed_at")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  createdById     Int?             @map("created_by_id")
-  updatedById     Int?             @map("updated_by_id")
+  statusReason      String?          @map("status_reason")
+  statusChangedAt   DateTime?        @map("status_changed_at")
+  /// The student's situation THIS year (مستجد، ناجح ويعيد، راسب...), from the settings list.
+  situationId       Int?             @map("situation_id")
+  previousSchool    String?          @map("previous_school")
+  transferredFrom   String?          @map("transferred_from")
+  /// Candidate of an official exam this year, with its language and number.
+  isExamCandidate   Boolean          @default(false) @map("is_exam_candidate")
+  examLanguageId    Int?             @map("exam_language_id")
+  candidateNumber   String?          @map("candidate_number")
+  /// The certificate the candidacy relies on.
+  certificateName   String?          @map("certificate_name")
+  certificateNumber String?          @map("certificate_number")
+  certificateDate   DateTime?        @map("certificate_date") @db.Date
+  certificateSource String?          @map("certificate_source")
+  certificateGrade  String?          @map("certificate_grade")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  createdById       Int?             @map("created_by_id")
+  updatedById       Int?             @map("updated_by_id")
 
   institute    Institute            @relation(fields: [instituteId], references: [id])
   student      Student              @relation(fields: [studentId], references: [id])
@@ -471,6 +508,8 @@ model StudentEnrollment {
   section      Section              @relation(fields: [sectionId], references: [id])
   subjects     EnrollmentSubject[]
   subscription StudentSubscription?
+  situation    EnrollmentSituation? @relation(fields: [situationId], references: [id])
+  examLanguage Language?            @relation("EnrollmentExamLanguage", fields: [examLanguageId], references: [id])
 
   @@unique([instituteId, id])
   @@unique([instituteId, studentId, academicYearId])
@@ -1074,6 +1113,71 @@ model KnowWay {
   @@unique([instituteId, id])
   @@unique([instituteId, name])
   @@map("know_ways")
+}
+
+model Nationality {
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  name        String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+  students  Student[]
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, name])
+  @@map("nationalities")
+}
+
+model Religion {
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  name        String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+  students  Student[]
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, name])
+  @@map("religions")
+}
+
+model Language {
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  name        String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  institute      Institute           @relation(fields: [instituteId], references: [id])
+  students       Student[]
+  examCandidates StudentEnrollment[] @relation("EnrollmentExamLanguage")
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, name])
+  @@map("languages")
+}
+
+model EnrollmentSituation {
+  id          Int       @id @default(autoincrement())
+  instituteId Int       @map("institute_id")
+  name        String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  institute   Institute           @relation(fields: [instituteId], references: [id])
+  enrollments StudentEnrollment[]
+
+  @@unique([instituteId, id])
+  @@unique([instituteId, name])
+  @@map("enrollment_situations")
 }
 
 /// Transport bus — belongs to a branch.

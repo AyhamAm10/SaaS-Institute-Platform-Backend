@@ -6,7 +6,10 @@ import { SchoolsService } from '../reference-data/schools/schools.service';
 import { BusesService } from '../reference-data/buses/buses.service';
 import { KnowWaysService } from '../reference-data/know-ways/know-ways.service';
 import { StudentStatusesService } from '../reference-data/student-statuses/student-statuses.service';
-import { StudentReferencesDto } from './dto/student-references.dto';
+import { NationalitiesService } from '../reference-data/nationalities/nationalities.service';
+import { ReligionsService } from '../reference-data/religions/religions.service';
+import { LanguagesService } from '../reference-data/languages/languages.service';
+import { StudentIdentityDto } from './dto/student-identity.dto';
 
 /**
  * Validates a student's reference-data links through the owning services
@@ -21,6 +24,10 @@ export class StudentReferencesResolver {
     @Inject(KnowWaysService) private readonly knowWaysService: KnowWaysService,
     @Inject(StudentStatusesService)
     private readonly statusesService: StudentStatusesService,
+    @Inject(NationalitiesService)
+    private readonly nationalitiesService: NationalitiesService,
+    @Inject(ReligionsService) private readonly religionsService: ReligionsService,
+    @Inject(LanguagesService) private readonly languagesService: LanguagesService,
   ) {}
 
   /**
@@ -32,7 +39,7 @@ export class StudentReferencesResolver {
    * @param isCreate         applies the default status when none is given
    */
   async resolve(
-    dto: StudentReferencesDto,
+    dto: StudentIdentityDto,
     branchId: number,
     {
       currentBusId = null,
@@ -107,6 +114,19 @@ export class StudentReferencesResolver {
       data['statusId'] = dto.statusId;
     } else if (isCreate) {
       data['statusId'] = (await this.statusesService.getDefault())?.id ?? null;
+    }
+
+    // Official lists: must exist in the institute; null clears the link
+    const lists = [
+      ['nationalityId', this.nationalitiesService],
+      ['religionId', this.religionsService],
+      ['languageId', this.languagesService],
+    ] as const;
+    for (const [key, service] of lists) {
+      const value = dto[key];
+      if (value === undefined) continue;
+      if (value) await service.getById(value);
+      data[key] = value;
     }
 
     return data;

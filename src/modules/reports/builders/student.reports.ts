@@ -27,6 +27,7 @@ import {
 } from '../document/report-format';
 import { percent, REPORT_ROW_LIMIT, resolvePeriod } from '../reports.rules';
 import { cappedTotal, ReportBuilderGroup, ReportContext } from './report-context';
+import { candidateBlocks, groupedBlocks, groupStudents, ListedStudent, STUDENT_GROUP_LABELS, yearEnrollment } from './student-lists';
 import { CURRENCY_ORDER, groupBy, num, openAmount } from './report-helpers';
 import { dayOfWeekOf } from '../../attendance/attendance.rules';
 
@@ -51,6 +52,7 @@ export class StudentReports implements ReportBuilderGroup {
     'bus-roster': (ctx: ReportContext) => this.busRoster(ctx),
     'student-card': (ctx: ReportContext) => this.card(ctx),
     'students-directory': (ctx: ReportContext) => this.directory(ctx),
+    'exam-candidates': (ctx: ReportContext) => this.candidates(ctx),
   };
 
   private async statement(ctx: ReportContext): Promise<ReportBody> {
@@ -551,6 +553,12 @@ export class StudentReports implements ReportBuilderGroup {
           schoolId: ctx.query.schoolId,
           busId: ctx.query.busId,
           knowWayId: ctx.query.knowWayId,
+          nationalityId: ctx.query.nationalityId,
+          religionId: ctx.query.religionId,
+          languageId: ctx.query.languageId,
+          situationId: ctx.query.situationId,
+          gender: ctx.query.gender,
+          examCandidate: ctx.query.examCandidate,
           customFilters: ctx.query.customFilters,
           page: 1,
           limit: REPORT_ROW_LIMIT,
@@ -574,6 +582,7 @@ export class StudentReports implements ReportBuilderGroup {
       { key: 'phone', title: 'الهاتف', kind: 'phone' },
       { key: 'status', title: 'الحالة', kind: 'badge', width: 0.8 },
       { key: 'section', title: 'الشعبة', kind: 'text', width: 1 },
+      { key: 'situation', title: 'الوضع', kind: 'text', width: 0.8 },
       ...reportFields.map((f) => ({
         key: `cf_${f.name}`,
         title: f.label,
@@ -581,19 +590,20 @@ export class StudentReports implements ReportBuilderGroup {
       })),
     ];
 
-    const rows: ReportRow[] = students.map((s: any, idx: number) => {
+    const toRow = (s: any, n: number): ReportRow => {
       const activeEnrollment = (s.studentEnrollments || []).find(
         (e: any) => e.status === 'ACTIVE',
       );
       const customData = (s.customFields as Record<string, unknown>) || {};
       const row: ReportRow = {
-        n: idx + 1,
+        n,
         student: s.fullName,
         gender: GENDER_LABELS[s.gender] ?? '—',
         family: s.family?.familyName ?? '—',
         phone: s.family?.phone ?? '—',
         status: badge(s.status?.name ?? '—', 'neutral'),
         section: activeEnrollment?.section?.name ?? '—',
+        situation: yearEnrollment(s)?.situation?.name ?? '—',
       };
 
       for (const f of reportFields) {
@@ -610,7 +620,11 @@ export class StudentReports implements ReportBuilderGroup {
       }
 
       return row;
-    });
+    };
+    const groupBy = ctx.query.groupBy;
+    const listBlocks: ReportBlock[] = groupBy
+      ? groupedBlocks(students, groupBy, columns, toRow)
+      : [{ type: 'table', columns, rows: students.map((s: any, i: number) => toRow(s, i + 1)), emptyText: 'لا يوجد طلاب يطابقون هذه المعايير' }];
 
     return {
       title: 'قائمة الطلاب',
@@ -619,6 +633,7 @@ export class StudentReports implements ReportBuilderGroup {
       meta: [
         ...(ctx.year ? [{ label: 'السنة الدراسية', value: ctx.year.name }] : []),
         { label: 'إجمالي النتائج', value: String(paginated.total) },
+        ...(groupBy ? [{ label: 'التجميع حسب', value: STUDENT_GROUP_LABELS[groupBy] }] : []),
       ],
       blocks: [
         {
@@ -629,12 +644,45 @@ export class StudentReports implements ReportBuilderGroup {
             { label: 'إناث', value: students.length - males, tone: 'info' },
           ],
         },
+        ...listBlocks,
+      ],
+    };
+  }
+
+  /**
+   * Candidates of the official exams this year (enrollment flag), grouped by exam
+   * language then gender. `languageId` filters on the EXAM language here.
+   */
+  private async candidates(ctx: ReportContext): Promise<ReportBody> {
+    const paginated = await this.students.findAll(
+      Object.assign(new StudentQueryDto(), {
+        sectionId: ctx.query.sectionId,
+        gender: ctx.query.gender,
+        examCandidate: true,
+        page: 1,
+        limit: REPORT_ROW_LIMIT,
+      }),
+    );
+    cappedTotal(ctx, paginated.total);
+    const all = (paginated.data || []) as unknown as ListedStudent[];
+    const students = ctx.query.languageId
+      ? all.filter((s) => yearEnrollment(s)?.examLanguage?.id === ctx.query.languageId)
+      : all;
+    const languages = groupStudents(students, (s) => yearEnrollment(s)?.examLanguage?.name ?? 'غير محدد');
+    return {
+      title: 'المتقدمون للامتحان',
+      subtitle: 'قوائم المتقدمين للامتحانات الرسمية حسب لغة الامتحان والجنس',
+      orientation: 'landscape',
+      meta: ctx.year ? [{ label: 'السنة الدراسية', value: ctx.year.name }] : [],
+      blocks: [
         {
-          type: 'table',
-          columns,
-          rows,
-          emptyText: 'لا يوجد طلاب يطابقون هذه المعايير',
+          type: 'stats',
+          items: [
+            { label: 'عدد المتقدمين', value: students.length, tone: 'brand' },
+            ...languages.map(([name, list]) => ({ label: name, value: list.length, tone: 'info' as const })),
+          ],
         },
+        ...(students.length ? candidateBlocks(students) : [{ type: 'note' as const, tone: 'neutral' as const, text: 'لا يوجد متقدمون للامتحان هذه السنة' }]),
       ],
     };
   }

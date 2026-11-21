@@ -114,10 +114,10 @@ describe('[T7] 10.2 reports', () => {
     return Object.fromEntries(keys.filter((p) => p.required || field[p.kind]).filter((p) => field[p.kind]).map((p) => [field[p.kind], values[field[p.kind]]]));
   };
 
-  it('[REP-15] all 29 reports of the catalog open for the owner (no 404 builder, no server error), and each Excel opens', async () => {
+  it('[REP-15] all 30 reports of the catalog open for the owner (no 404 builder, no server error), and each Excel opens', async () => {
     const catalog: { key: string; params: { kind: string; required: boolean }[] }[] = await inst.admin.get('/reports/catalog');
     const flat = Array.isArray(catalog) ? catalog : Object.values(catalog).flat();
-    expect(flat).toHaveLength(29);
+    expect(flat).toHaveLength(30); // exam-candidates added 2026-11-21
     const failures: string[] = [];
     const dump: Record<string, unknown> = {};
     for (const entry of flat as { key: string; params: { kind: string; required: boolean }[] }[]) {

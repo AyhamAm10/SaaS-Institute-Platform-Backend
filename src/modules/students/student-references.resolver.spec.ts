@@ -6,6 +6,9 @@ import { SchoolsService } from '../reference-data/schools/schools.service';
 import { BusesService } from '../reference-data/buses/buses.service';
 import { KnowWaysService } from '../reference-data/know-ways/know-ways.service';
 import { StudentStatusesService } from '../reference-data/student-statuses/student-statuses.service';
+import { NationalitiesService } from '../reference-data/nationalities/nationalities.service';
+import { ReligionsService } from '../reference-data/religions/religions.service';
+import { LanguagesService } from '../reference-data/languages/languages.service';
 
 describe('StudentReferencesResolver', () => {
   const lookup = () => ({ getById: jest.fn(async (id: number) => ({ id })) });
@@ -26,6 +29,9 @@ describe('StudentReferencesResolver', () => {
     buses as unknown as BusesService,
     lookup() as unknown as KnowWaysService,
     statuses as unknown as StudentStatusesService,
+    lookup() as unknown as NationalitiesService,
+    lookup() as unknown as ReligionsService,
+    lookup() as unknown as LanguagesService,
   );
 
   it('applies the default status on create', async () => {

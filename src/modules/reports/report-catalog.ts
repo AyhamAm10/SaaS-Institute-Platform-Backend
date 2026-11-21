@@ -26,6 +26,13 @@ export type ReportParamKind =
   | 'school'
   | 'bus'
   | 'knowWay'
+  | 'nationality'
+  | 'religion'
+  | 'language'
+  | 'situation'
+  | 'gender'
+  | 'examCandidate'
+  | 'groupBy'
   | 'customFilters';
 
 export interface ReportParam {
@@ -113,8 +120,23 @@ export const REPORT_CATALOG: readonly ReportDefinition[] = [
       opt('school'),
       opt('bus'),
       opt('knowWay'),
+      opt('nationality'),
+      opt('religion'),
+      opt('language'),
+      opt('situation'),
+      opt('gender'),
+      opt('examCandidate'),
+      opt('groupBy'),
       opt('customFilters'),
     ],
+  },
+  {
+    key: 'exam-candidates',
+    category: 'student',
+    title: 'المتقدمون للامتحان',
+    description: 'قوائم المتقدمين للامتحانات الرسمية حسب لغة الامتحان والجنس، مع رقم الاكتتاب',
+    permission: 'students.view',
+    params: [opt('section'), opt('language'), opt('gender')],
   },
   // ── Finance ────────────────────────────────────────────────────────────
   {

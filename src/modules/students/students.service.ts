@@ -18,6 +18,8 @@ import { RequestContext } from '../../context/request-context';
 import { Ensure } from '../../common/errors/ensure';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
+import { identityTextData } from './dto/student-identity.dto';
+import { parentDetailsData } from '../families/dto/create-family.dto';
 import { StudentDeletionReport } from './dto/student-deletion-report.dto';
 import { ErrorMessages } from '../../common/errors/error-messages';
 import { StudentQueryDto } from './dto/student-query.dto';
@@ -75,6 +77,7 @@ export class StudentsService {
           fatherName: dto.newFamily.fatherName?.trim() || null,
           motherName: dto.newFamily.motherName?.trim() || null,
           phone: dto.newFamily.phone?.trim() || null,
+          ...parentDetailsData(dto.newFamily),
         });
         familyId = family.id;
         await this.familyAccounts.ensureAccount(family);
@@ -117,6 +120,7 @@ export class StudentsService {
         branchId,
         customFields,
         ...references,
+        ...identityTextData(dto),
       });
 
       if (section) {
@@ -239,6 +243,8 @@ export class StudentsService {
         },
       ),
     );
+
+    Object.assign(data, identityTextData(dto));
 
     if (dto.customFields !== undefined) {
       await this.validateCustomFields(dto.customFields, { isCreate: false });

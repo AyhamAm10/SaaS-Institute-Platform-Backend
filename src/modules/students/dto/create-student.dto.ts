@@ -11,9 +11,9 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { Gender } from '@prisma/client';
 import { CreateFamilyDto } from '../../families/dto/create-family.dto';
-import { StudentReferencesDto } from './student-references.dto';
+import { StudentIdentityDto } from './student-identity.dto';
 
-export class CreateStudentDto extends StudentReferencesDto {
+export class CreateStudentDto extends StudentIdentityDto {
   @IsString()
   @IsNotEmpty()
   fullName: string;

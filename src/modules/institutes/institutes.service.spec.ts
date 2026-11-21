@@ -4,6 +4,7 @@ import { InstitutesService } from './institutes.service';
 import { SystemCacheService } from '../../infrastructure/cache/system-cache.service';
 import { InMemoryCacheStore } from '../../infrastructure/cache/in-memory-cache.store';
 import { StudentStatusesService } from '../reference-data/student-statuses/student-statuses.service';
+import { OfficialListsService } from '../reference-data/official-lists/official-lists.service';
 import { InstituteRepository } from './institute.repository';
 import { UserSystemRepository } from '../users/user-system.repository';
 import { AcademicBranchesService } from '../academic-branches/academic-branches.service';
@@ -53,6 +54,9 @@ describe('InstitutesService', () => {
       {
         provisionDefaults: (jest.fn() as any).mockResolvedValue(undefined),
       } as unknown as StudentStatusesService,
+      {
+        provisionDefaults: (jest.fn() as any).mockResolvedValue(undefined),
+      } as unknown as OfficialListsService,
     );
   });
 

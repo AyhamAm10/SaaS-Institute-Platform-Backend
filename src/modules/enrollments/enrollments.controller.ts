@@ -9,6 +9,7 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
+import { UpdateEnrollmentDetailsDto } from './dto/update-enrollment-details.dto';
 import { EnrollmentsService } from './enrollments.service';
 import { BulkEnrollDto } from './dto/bulk-enroll.dto';
 import { TransferEnrollmentDto } from './dto/transfer-enrollment.dto';
@@ -58,6 +59,14 @@ export class EnrollmentsController {
     @Body() dto: ChangeEnrollmentStatusDto,
   ) {
     return this.enrollmentsService.changeStatus(id, dto);
+  }
+
+  @Patch('enrollments/:id/details')
+  async updateDetails(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateEnrollmentDetailsDto,
+  ) {
+    return this.enrollmentsService.updateDetails(id, dto);
   }
 
   @Put('enrollments/:id/subjects')

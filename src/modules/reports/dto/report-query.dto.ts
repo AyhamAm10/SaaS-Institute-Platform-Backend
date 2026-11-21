@@ -1,6 +1,8 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
+  IsIn,
   IsEnum,
   IsInt,
   IsOptional,
@@ -9,7 +11,8 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Currency, PaymentMethod } from '@prisma/client';
+import { Currency, Gender, PaymentMethod } from '@prisma/client';
+import { STUDENT_GROUPS, type StudentGroup } from '../builders/student-lists';
 
 /**
  * Parameters of every report (one DTO: the catalog says which ones a report
@@ -108,6 +111,46 @@ export class ReportQueryDto {
   knowWayId?: number;
 
   @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  nationalityId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  religionId?: number;
+
+  /** Foreign language (students-directory) or exam language (exam-candidates). */
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  languageId?: number;
+
+  /** Situation of the enrollment this year (مستجد، ناجح ويعيد...). */
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  situationId?: number;
+
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined))
+  @IsBoolean()
+  examCandidate?: boolean;
+
+  /** One table per value of this attribute. */
+  @IsOptional()
+  @IsIn(STUDENT_GROUPS)
+  groupBy?: StudentGroup;
+
+  @IsOptional()
   @IsString()
   customFilters?: string;
 }
@@ -130,5 +173,12 @@ export const PARAM_FIELDS = {
   school: 'schoolId',
   bus: 'busId',
   knowWay: 'knowWayId',
+  nationality: 'nationalityId',
+  religion: 'religionId',
+  language: 'languageId',
+  situation: 'situationId',
+  gender: 'gender',
+  examCandidate: 'examCandidate',
+  groupBy: 'groupBy',
   customFilters: 'customFilters',
 } as const satisfies Record<string, keyof ReportQueryDto>;

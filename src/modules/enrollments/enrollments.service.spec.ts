@@ -1,5 +1,7 @@
 import { jest } from '@jest/globals';
 import { Test } from '@nestjs/testing';
+import { EnrollmentSituationsService } from '../reference-data/enrollment-situations/enrollment-situations.service';
+import { LanguagesService } from '../reference-data/languages/languages.service';
 import { BadRequestException } from '@nestjs/common';
 import { EnrollmentStatus } from '@prisma/client';
 import { EnrollmentsService } from './enrollments.service';
@@ -81,6 +83,8 @@ describe('EnrollmentsService', () => {
           provide: TransactionHelper,
           useValue: { executeInTransaction: (fn: () => unknown) => fn() },
         },
+        { provide: EnrollmentSituationsService, useValue: { getById: jest.fn() } },
+        { provide: LanguagesService, useValue: { getById: jest.fn() } },
       ],
     }).compile();
     service = moduleRef.get(EnrollmentsService);

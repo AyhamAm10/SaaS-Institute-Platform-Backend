@@ -5,7 +5,7 @@ import {
   FamilyAccountsService,
   FamilyAccountStatus,
 } from './family-accounts.service';
-import { CreateFamilyDto } from './dto/create-family.dto';
+import { CreateFamilyDto, parentDetailsData } from './dto/create-family.dto';
 import { UpdateFamilyDto } from './dto/update-family.dto';
 import { ErrorMessages } from '../../common/errors/error-messages';
 import { Ensure } from '../../common/errors/ensure';
@@ -30,6 +30,7 @@ export class FamiliesService {
       fatherName: dto.fatherName?.trim() || null,
       motherName: dto.motherName?.trim() || null,
       phone: dto.phone?.trim() || null,
+      ...parentDetailsData(dto),
     });
     const accountStatus = await this.familyAccounts.ensureAccount(family);
     return { ...family, accountStatus };
@@ -58,6 +59,7 @@ export class FamiliesService {
     if (dto.motherName !== undefined)
       data['motherName'] = dto.motherName.trim() || null;
     if (dto.phone !== undefined) data['phone'] = dto.phone.trim() || null;
+    Object.assign(data, parentDetailsData(dto));
 
     if (Object.keys(data).length > 0) {
       await this.familyRepository.update(id, data);
